@@ -1,0 +1,28 @@
+# 单一信息源 (SSOT)。字段定义见 references/data-schema.md。
+# 修改后运行 gen_docs.py 重新生成 doc/03_interfaces.md、doc/04_registers.md、sw/<ip>_regs.h
+name: "{{ip}}"
+version: 0.1.0
+desc: "{{一句话描述}}"
+top: "{{ip}}"
+rtl_files:
+  - "rtl/{{ip}}.sv"
+bus:
+  protocol: apb
+  data_width: 32
+  addr_width: 12
+
+clocks:
+  - {name: clk_i, freq_mhz: 100, desc: 主时钟}
+
+resets:
+  - {name: rst_ni, active: low, type: async_assert_sync_deassert, clock: clk_i, desc: 主复位，低有效}
+
+params: []
+
+ports:
+  - {name: clk_i,  dir: input, width: 1, clock: clk_i, desc: 主时钟}
+  - {name: rst_ni, dir: input, width: 1, clock: async, desc: 低有效复位}
+
+interrupts: []
+
+registers: []

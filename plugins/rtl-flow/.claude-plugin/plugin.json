@@ -1,0 +1,18 @@
+{
+  "name": "rtl-flow",
+  "version": "0.2.0",
+  "description": "RTL 设计全流程规范：需求规范化 → 规格/架构 → RTL → 验证迭代，每一步产出标准化文档并自动检查。",
+  "author": {
+    "name": "anhuizhaoxuan123"
+  },
+  "keywords": [
+    "rtl",
+    "verilog",
+    "systemverilog",
+    "spec",
+    "documentation",
+    "opentitan"
+  ],
+  "repository": "https://github.com/anhuizhaoxuan123/rtl_doc_agent",
+  "homepage": "https://github.com/anhuizhaoxuan123/rtl_doc_agent"
+}

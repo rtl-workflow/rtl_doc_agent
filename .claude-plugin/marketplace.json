@@ -1,0 +1,16 @@
+{
+  "name": "rtl-flow",
+  "owner": {
+    "name": "anhuizhaoxuan123"
+  },
+  "metadata": {
+    "description": "团队内部 RTL 设计与文档规范插件"
+  },
+  "plugins": [
+    {
+      "name": "rtl-flow",
+      "source": "./plugins/rtl-flow",
+      "description": "从不规范的需求/规格出发，生成 RTL 与一整套标准化文档（需求、规格、架构、接口、寄存器、RTL 结构、验证计划、迭代记录），参考 OpenTitan 文档体系。"
+    }
+  ]
+}
