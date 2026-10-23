@@ -30,14 +30,14 @@ plugins/rtl-flow/
 
 ### 方式 1：插件市场（推荐，可统一升级）
 
-本仓库就是一个插件市场：<https://github.com/anhuizhaoxuan123/rtl_doc_agent>。
+本仓库就是一个插件市场：<https://github.com/rtl-workflow/rtl_doc_agent>。
 
 1. 在 Claude Code 里添加市场并安装插件：
    ```
-   /plugin marketplace add anhuizhaoxuan123/rtl_doc_agent
+   /plugin marketplace add rtl-workflow/rtl_doc_agent
    /plugin install rtl-flow@rtl-flow
    ```
-   也可以写完整地址：`/plugin marketplace add https://github.com/anhuizhaoxuan123/rtl_doc_agent.git`。
+   也可以写完整地址：`/plugin marketplace add https://github.com/rtl-workflow/rtl_doc_agent.git`。
 2. 安装后重启 Claude Code（或执行 `/reload-plugins`），输入 `/rtl-flow:` 能看到 `ip-new`、`ip-check`、`ip-iter` 即安装成功。
 3. 升级：维护者修改后提升 `plugins/rtl-flow/.claude-plugin/plugin.json` 的 `version` 并推送，用户执行 `/plugin marketplace update rtl-flow`。
 
@@ -51,7 +51,7 @@ plugins/rtl-flow/
 {
   "extraKnownMarketplaces": {
     "rtl-flow": {
-      "source": { "source": "github", "repo": "anhuizhaoxuan123/rtl_doc_agent" }
+      "source": { "source": "github", "repo": "rtl-workflow/rtl_doc_agent" }
     }
   },
   "enabledPlugins": {
