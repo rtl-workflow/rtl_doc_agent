@@ -24,7 +24,7 @@ flowchart LR
 
 | 子模块 | 实例名 | 职责 | 关键接口 |
 |---|---|---|---|
-| {{module}} | `u_{{module}}` | {{职责}} | {{信号}} |
+| {{module}} | `U_{{去掉 IP 前缀的模块名}}` | {{职责}} | {{信号}} |
 
 ## 3. 数据通路 (Datapath)
 
@@ -34,20 +34,20 @@ flowchart LR
 
 ```mermaid
 stateDiagram-v2
-  [*] --> StIdle
-  StIdle --> StBusy: start
-  StBusy --> StIdle: done
+  [*] --> ST_IDLE
+  ST_IDLE --> ST_BUSY: start
+  ST_BUSY --> ST_IDLE: done
 ```
 
 | 当前状态 | 条件 | 下一状态 | 输出/动作 |
 |---|---|---|---|
-| StIdle | `start` | StBusy | {{动作}} |
+| ST_IDLE | `start` | ST_BUSY | {{动作}} |
 
 ## 5. 时钟与复位方案 (Clocking & Reset)
 
 | 时钟 | 频率 | 驱动的子模块 |
 |---|---|---|
-| `clk_i` | {{x}} MHz | 全部 |
+| `clk` | {{x}} MHz | 全部 |
 
 {{复位方案、复位同步器位置、复位后初始值策略。}}
 
@@ -62,7 +62,7 @@ stateDiagram-v2
 
 ```wavedrom
 { "signal": [
-  { "name": "clk_i", "wave": "p......" },
+  { "name": "clk", "wave": "p......" },
   { "name": "start", "wave": "010...." }
 ]}
 ```

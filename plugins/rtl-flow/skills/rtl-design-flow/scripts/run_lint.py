@@ -4,6 +4,10 @@
 Usage:
     python run_lint.py <ip_dir> [--tool verilator|verible]
 
+Two passes, both counted in the report:
+  1. coding-style check (check_style.py, references/rtl-coding-style.md): every violation is an error;
+  2. the lint tool, Verilator in Verilog-2001 mode (default) or Verible.
+
 The RTL file list and top module come from data/<ip>.yaml (rtl_files, top).
 The log header records a digest of the RTL sources; check_docs.py --stage rtl
 uses it to reject a missing, failing or stale lint report.
@@ -21,6 +25,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_style  # noqa: E402
 import gen_docs  # noqa: E402
 
 try:
@@ -81,7 +86,7 @@ def main():
         # on Windows 'verilator' is a Perl wrapper that cannot be executed directly
         names = ("verilator_bin", "verilator") if os.name == "nt" else ("verilator", "verilator_bin")
         exe = find_exe(*names)
-        args = ["--lint-only", "-Wall", "--top-module", top]
+        args = ["--lint-only", "-Wall", "--default-language", "1364-2001", "--top-module", top]
     else:
         exe = find_exe("verible-verilog-lint")
         args = []
@@ -101,6 +106,12 @@ def main():
         errors = 0
     if r.returncode != 0 and errors == 0 and warnings == 0:
         errors = 1  # tool failed without a parsable message
+
+    style = check_style.check_ip(ip, files)
+    if style:
+        lines = [f"%Error-STYLE: {f}:{ln}: [{rule}] {msg}" for f, ln, rule, msg in style]
+        out = "\n".join(lines + ([out] if out else []))
+        errors += len(style)
     result = "FAIL" if errors else ("WARN" if warnings else "PASS")
 
     shown = " ".join([Path(exe).stem] + args + files)
@@ -117,7 +128,7 @@ def main():
         "\n" + (out + "\n" if out else "(no output)\n"),
         encoding="utf-8")
     print(out or "(no output)")
-    print(f"\nlint {result}: {errors} error(s), {warnings} warning(s) -> {LOG.as_posix()}")
+    print(f"\nlint {result}: {errors} error(s) ({len(style)} style), {warnings} warning(s) -> {LOG.as_posix()}")
     sys.exit(1 if errors else 0)
 
 

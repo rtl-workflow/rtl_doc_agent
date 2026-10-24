@@ -1,7 +1,7 @@
 ---
 doc: 04_registers
 ip: demo_timer
-version: 1.1.0
+version: 2.0.0
 status: Generated
 source: data/demo_timer.yaml
 ---
@@ -94,4 +94,4 @@ source: data/demo_timer.yaml
 
 | 位 | 字段 | SW | HW | 复位值 | 描述 |
 |---|---|---|---|---|---|
-| [0] | `EXPIRED` | rw | hro | 0x0 | 为 1 时 INTR_STATE.EXPIRED 可驱动 irq_o |
+| [0] | `EXPIRED` | rw | hro | 0x0 | 为 1 时 INTR_STATE.EXPIRED 可驱动 o_irq |

@@ -1,25 +1,25 @@
 ---
 doc: 01_spec
 ip: demo_timer
-version: 1.1
+version: 1.2
 status: Released
-updated: 2026-10-22
+updated: 2026-10-24
 owner: rtl-flow-example
 reviewer: 示例用户
-approved: 1.1@2026-10-22
+approved: 1.2@2026-10-24
 ---
 
 # demo_timer 功能规格
 
 ## 1. 概述 (Overview)
 
-`demo_timer` 是一个挂在 APB 总线上的 32 bit 定时器。软件写入比较值并使能后，计数器每个时钟周期加 1；计数值达到比较值时产生到时事件，置位中断状态并（在使能时）拉高 `irq_o`。支持单次与周期两种模式。
+`demo_timer` 是一个挂在 APB 总线上的 32 bit 定时器。软件写入比较值并使能后，计数器每个时钟周期加 1；计数值达到比较值时产生到时事件，置位中断状态并（在使能时）拉高 `o_irq`。支持单次与周期两种模式。
 
 ```mermaid
 flowchart LR
   cpu[CPU / APB Master] -- APB3 --> timer[demo_timer]
-  timer -- irq_o --> intc[中断控制器]
-  clk[clk_i / rst_ni] --> timer
+  timer -- o_irq --> intc[中断控制器]
+  clk[clk / rst_n] --> timer
 ```
 
 ## 2. 特性列表 (Features)
@@ -40,7 +40,7 @@ flowchart LR
 
 > 覆盖需求: REQ-FUNC-001
 
-计数器 `COUNT.VAL` 为 32 bit。`CTRL.EN` = 1 时每个 `clk_i` 周期加 1；`CTRL.EN` = 0 时保持当前值（暂停）。清零 `CTRL.EN` 不会使计数值归零，再次使能时从当前值继续计数。软件写 `COUNT` 无效；如需清零计数值，使用 `CTRL.CLR`（§3.6）。
+计数器 `COUNT.VAL` 为 32 bit。`CTRL.EN` = 1 时每个 `clk` 周期加 1；`CTRL.EN` = 0 时保持当前值（暂停）。清零 `CTRL.EN` 不会使计数值归零，再次使能时从当前值继续计数。软件写 `COUNT` 无效；如需清零计数值，使用 `CTRL.CLR`（§3.6）。
 
 ### 3.2 到时事件
 
@@ -57,12 +57,12 @@ flowchart LR
 
 ```wavedrom
 { "signal": [
-  { "name": "clk_i",              "wave": "p......." },
+  { "name": "clk",              "wave": "p......." },
   { "name": "CTRL.EN",            "wave": "01...0.." },
   { "name": "COUNT.VAL",          "wave": "=.====..", "data": ["0", "1", "2", "3", "0"] },
   { "name": "到时事件 (内部)",     "wave": "0...10.." },
   { "name": "INTR_STATE.EXPIRED", "wave": "0....1.." },
-  { "name": "irq_o",              "wave": "0....1.." }
+  { "name": "o_irq",              "wave": "0....1.." }
 ]}
 ```
 
@@ -84,9 +84,9 @@ flowchart LR
 
 > 覆盖需求: REQ-IF-001, REQ-IF-002, REQ-REG-002
 
-- 每次 APB 传输包含一个建立周期和一个访问周期，`pready_o` 恒为 1，不插入等待。
-- 写操作在访问周期结束时的时钟上升沿生效；读数据 `prdata_o` 在访问周期内有效。
-- 地址必须为已映射且 4 字节对齐的地址（`0x000`、`0x004`、`0x008`、`0x00C`、`0x010`）。其他地址在访问周期拉高 `pslverr_o`，读返回 0，写被忽略。
+- 每次 APB 传输包含一个建立周期和一个访问周期，`o_pready` 恒为 1，不插入等待。
+- 写操作在访问周期结束时的时钟上升沿生效；读数据 `o_prdata` 在访问周期内有效。
+- 地址必须为已映射且 4 字节对齐的地址（`0x000`、`0x004`、`0x008`、`0x00C`、`0x010`）。其他地址在访问周期拉高 `o_pslverr`，读返回 0，写被忽略。
 - 不支持字节写（APB3 无 `pstrb`），所有写均为 32 bit 整字写。
 
 ### 3.6 计数清零
@@ -114,18 +114,18 @@ flowchart LR
 
 > 覆盖需求: REQ-REG-001
 
-- 单时钟域，所有逻辑工作在 `clk_i` 上升沿。
-- `rst_ni` 为低时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
-- 复位期间及复位释放后，在软件使能前计数器不会计数，`irq_o` 保持为低。
+- 单时钟域，所有逻辑工作在 `clk` 上升沿。
+- `rst_n` 为低时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
+- 复位期间及复位释放后，在软件使能前计数器不会计数，`o_irq` 保持为低。
 
 ## 6. 中断与错误处理 (Interrupts & Errors)
 
 > 覆盖需求: REQ-FUNC-005
 
-- `irq_o` = `INTR_STATE.EXPIRED` & `INTR_ENABLE.EXPIRED`，为电平型，高有效。
+- `o_irq` = `INTR_STATE.EXPIRED` & `INTR_ENABLE.EXPIRED`，为电平型，高有效。
 - `INTR_STATE.EXPIRED` 由到时事件置位，软件写 1 清零，写 0 无影响。
 - 软件清除与硬件置位发生在同一周期时，置位优先，保证不丢中断（见 DEC-003）。
-- `INTR_ENABLE.EXPIRED` 只屏蔽 `irq_o`，不影响 `INTR_STATE.EXPIRED` 的置位，软件可轮询。
+- `INTR_ENABLE.EXPIRED` 只屏蔽 `o_irq`，不影响 `INTR_STATE.EXPIRED` 的置位，软件可轮询。
 - 总线错误处理见 §3.5。
 
 ## 7. 性能指标 (Performance)
@@ -136,7 +136,7 @@ flowchart LR
 | 定时范围 | 1 ~ 2^32 个周期 | `CMP.VAL` = 0 ~ `0xFFFFFFFF` | REQ-FUNC-004 |
 | 最长定时 | 约 42.95 s | 100 MHz，`CMP.VAL` = `0xFFFFFFFF` | |
 | APB 访问延迟 | 2 cycles | 建立 + 访问，零等待 | REQ-IF-001 |
-| 到时到 `irq_o` 延迟 | 1 cycle | 到时事件周期的下一周期 | REQ-FUNC-005 |
+| 到时到 `o_irq` 延迟 | 1 cycle | 到时事件周期的下一周期 | REQ-FUNC-005 |
 
 ## 8. 接口与寄存器引用 (Interfaces & Registers)
 
@@ -144,6 +144,6 @@ flowchart LR
 
 ## 9. 限制与已知问题 (Limitations)
 
-- 无预分频器，定时分辨率固定为 1 个 `clk_i` 周期。
+- 无预分频器，定时分辨率固定为 1 个 `clk` 周期。
 - 写 `CTRL.CLR` 会同时写入 `CTRL.EN` 与 `CTRL.MODE`，软件需读-改-写（DEC-005）。
 - `CMP.VAL` = 0 且周期模式时，`INTR_STATE.EXPIRED` 每周期被置位，软件清除无效（置位优先），属预期行为。

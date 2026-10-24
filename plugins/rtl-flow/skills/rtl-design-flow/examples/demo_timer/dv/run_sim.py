@@ -4,7 +4,7 @@
 Usage:
     python dv/run_sim.py [--test NAME] [--seeds N]
 
-Compiles RTL (file list from data/demo_timer.yaml) + dv/tb/tb_demo_timer.sv,
+Compiles RTL (file list from data/demo_timer.yaml) + dv/tb/demo_timer_tb.v (Verilog-2001),
 runs every test, aggregates COVER counters, prints a markdown summary.
 Logs: dv/build/logs/<test>_<seed>.log.  Exit code 1 on any failure or uncovered point.
 """
@@ -50,11 +50,11 @@ def main():
     a = ap.parse_args()
 
     data = yaml.safe_load((IP_DIR / "data" / "demo_timer.yaml").read_text(encoding="utf-8"))
-    srcs = [str(IP_DIR / f) for f in data["rtl_files"]] + [str(DV_DIR / "tb" / "tb_demo_timer.sv")]
+    srcs = [str(IP_DIR / f) for f in data["rtl_files"]] + [str(DV_DIR / "tb" / "demo_timer_tb.v")]
     (BUILD / "logs").mkdir(parents=True, exist_ok=True)
     vvp_file = BUILD / "tb.vvp"
 
-    comp = subprocess.run([tool("iverilog"), "-g2012", "-o", str(vvp_file), "-s", "tb_demo_timer"] + srcs,
+    comp = subprocess.run([tool("iverilog"), "-g2001", "-o", str(vvp_file), "-s", "demo_timer_tb"] + srcs,
                           capture_output=True, text=True)
     errors = [l for l in comp.stderr.splitlines() if "sorry" not in l]
     if comp.returncode != 0:
