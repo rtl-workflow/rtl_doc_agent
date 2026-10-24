@@ -1,9 +1,9 @@
 ---
 doc: 06_programmers_guide
 ip: demo_timer
-version: 1.1
+version: 1.2
 status: Released
-updated: 2026-10-22
+updated: 2026-10-23
 owner: rtl-flow-example
 ---
 
@@ -71,7 +71,7 @@ void timer_isr(void) {
 }
 ```
 
-`irq_o` 为电平中断，ISR 退出前必须清除 `INTR_STATE.EXPIRED`，否则会重复进入。轮询方式下可保持 `INTR_ENABLE.EXPIRED` = 0，直接读 `INTR_STATE`。
+`o_irq` 为电平中断，ISR 退出前必须清除 `INTR_STATE.EXPIRED`，否则会重复进入。轮询方式下可保持 `INTR_ENABLE.EXPIRED` = 0，直接读 `INTR_STATE`。
 
 ## 4. 错误处理 (Error Handling)
 

@@ -1,9 +1,9 @@
 ---
 doc: 07_dv_plan
 ip: demo_timer
-version: 1.1
+version: 1.2
 status: Released
-updated: 2026-10-22
+updated: 2026-10-23
 owner: rtl-flow-example
 ---
 
@@ -21,9 +21,9 @@ owner: rtl-flow-example
 
 | 项 | 内容 |
 |---|---|
-| 仿真器 | Icarus Verilog 13.0（`iverilog -g2012`） |
-| 方法学 | 自检查 SystemVerilog testbench：定向测试 + 参考模型逐周期比对 + 功能覆盖计数 |
-| 目录 | `dv/tb/tb_demo_timer.sv`、`dv/run_sim.py`、`dv/run_mutation.py` |
+| 仿真器 | Icarus Verilog 13.0（`iverilog -g2001`） |
+| 方法学 | 自检查 Verilog-2001 testbench（rtl-coding-style §10）：定向测试 + 参考模型逐周期比对 + 功能覆盖计数 |
+| 目录 | `dv/tb/demo_timer_tb.v`、`dv/run_sim.py`、`dv/run_mutation.py` |
 | 运行命令 | `python dv/run_sim.py`（全部回归）；`python dv/run_sim.py --test test_oneshot`（单个用例）；`python dv/run_mutation.py`（testbench 有效性检查） |
 | 综合评估 | `yowasp-yosys -s syn/synth.ys`（Yosys 通用门库） |
 
@@ -36,17 +36,17 @@ flowchart LR
   dut --> cov[覆盖点计数 COVER]
 ```
 
-参考模型依据 01_spec 用不同于 RTL 的写法（if/else 优先级链）独立编写，每个时钟下降沿与 DUT 内部寄存器和输出比对。
+参考模型依据 01_spec 独立编写（单个 `always` 块描述全部状态，不复用 RTL 的模块划分与内部信号），每个时钟下降沿与 DUT 内部寄存器和输出比对。
 
 ## 3. 测试点 (Test Points)
 
 | ID | 描述 | 覆盖需求 | 激励 | 检查方法 | 用例 | 状态 |
 |---|---|---|---|---|---|---|
-| TP-001 | 复位值正确；复位后不计数；运行中复位能恢复到复位值 | REQ-REG-001 | 读全部寄存器；空闲 50 周期；周期模式运行中拉低 `rst_ni` | 读值与 yaml `resval` 比对；监视器 A1 | `test_reset` | 通过 |
-| TP-002 | 寄存器读写；保留位读 0；`COUNT` 只读 | REQ-REG-002, REQ-IF-001 | 写全 1 / 交替图案后回读 | 读值比对；`pready_o` 恒 1（A3） | `test_reg_rw` | 通过 |
-| TP-003 | 非法 / 非对齐地址返回 `pslverr`，读 0，写无效 | REQ-IF-002 | 访问 `0x014`、`0x100`、`0xFFC`、`0x001`、`0x002`、`0x006` | `pslverr_o` 期望值；之后回读寄存器未被改写；A4、A5 | `test_apb_err` | 通过 |
+| TP-001 | 复位值正确；复位后不计数；运行中复位能恢复到复位值 | REQ-REG-001 | 读全部寄存器；空闲 50 周期；周期模式运行中拉低 `rst_n` | 读值与 yaml `resval` 比对；监视器 A1 | `test_reset` | 通过 |
+| TP-002 | 寄存器读写；保留位读 0；`COUNT` 只读 | REQ-REG-002, REQ-IF-001 | 写全 1 / 交替图案后回读 | 读值比对；`o_pready` 恒 1（A3） | `test_reg_rw` | 通过 |
+| TP-003 | 非法 / 非对齐地址返回 `pslverr`，读 0，写无效 | REQ-IF-002 | 访问 `0x014`、`0x100`、`0xFFC`、`0x001`、`0x002`、`0x006` | `o_pslverr` 期望值；之后回读寄存器未被改写；A4、A5 | `test_apb_err` | 通过 |
 | TP-004 | 单次模式：使能后正好 `CMP.VAL` + 1 个周期到时，EN 自动清零，之后不再触发，可重新启动 | REQ-FUNC-001, REQ-FUNC-002, REQ-FUNC-003 | `CMP.VAL` = 9、0、37 | 计数时钟沿数与期望值比对；回读 `CTRL`、`COUNT`、`INTR_STATE` | `test_oneshot` | 通过 |
-| TP-005 | 中断屏蔽、轮询、写 0 无效、写 1 清除 | REQ-FUNC-005 | 先关中断到时，再开 / 关 / 清 | `irq_o` 电平；回读 `INTR_STATE`；A6 | `test_irq` | 通过 |
+| TP-005 | 中断屏蔽、轮询、写 0 无效、写 1 清除 | REQ-FUNC-005 | 先关中断到时，再开 / 关 / 清 | `o_irq` 电平；回读 `INTR_STATE`；A6 | `test_irq` | 通过 |
 | TP-006 | 周期模式：相邻到时间隔为 `CMP.VAL` + 1；EN 保持；暂停后从原值继续 | REQ-FUNC-001, REQ-FUNC-004 | `CMP.VAL` = 4、0、13，各测 6 次间隔；暂停 10 周期后恢复 | 间隔逐次比对；回读 `COUNT` | `test_periodic` | 通过 |
 | TP-007 | 运行中把 `CMP.VAL` 改到计数值以下立即到时 | REQ-FUNC-002 | 计数到约 50 时写 `CMP.VAL` = 10 | 写生效后的第一拍 `expire` = 1，且只到时一次 | `test_cmp_boundary` | 通过 |
 | TP-008 | 同拍冲突优先级：W1C 与到时同拍置位优先（DEC-003）；单次到时与写 `CTRL` 同拍软件优先（DEC-002） | REQ-FUNC-003, REQ-FUNC-005 | 用 `wait_count` 精确对齐访问周期与到时周期 | 冲突后 `INTR_STATE` = 1；`CTRL.EN` = 1 且从 0 重新计时 9 拍后到时 | `test_priority` | 通过 |
@@ -58,18 +58,18 @@ flowchart LR
 
 ## 4. 断言 (Assertions)
 
-按 DEC-004，以下检查在 testbench 逐周期监视器中实现（`tb_demo_timer.sv`，下降沿采样）：
+按 DEC-004，以下检查在 testbench 逐周期监视器中实现（`demo_timer_tb.v`，下降沿采样）：
 
 | 断言 | 位置 | 说明 |
 |---|---|---|
-| A1 | 监视器 | 复位期间 `irq_o` 为低 |
+| A1 | 监视器 | 复位期间 `o_irq` 为低 |
 | A2 | 监视器 | 复位释放后输出无 X |
-| A3 | 监视器 | `pready_o` 恒为 1 |
-| A4 | 监视器 | `pslverr_o` 只在访问周期出现 |
-| A5 | 监视器 | 访问周期 `pslverr_o` = 地址非法 |
-| A6 | 监视器 | `irq_o` = `INTR_STATE.EXPIRED` & `INTR_ENABLE.EXPIRED` |
+| A3 | 监视器 | `o_pready` 恒为 1 |
+| A4 | 监视器 | `o_pslverr` 只在访问周期出现 |
+| A5 | 监视器 | 访问周期 `o_pslverr` = 地址非法 |
+| A6 | 监视器 | `o_irq` = `INTR_STATE.EXPIRED` & `INTR_ENABLE.EXPIRED` |
 | A7 | 监视器 | 计数值、全部寄存器字段、到时脉冲与参考模型逐周期一致 |
-| A8 | 监视器 | 读访问 `prdata_o` 与参考模型一致 |
+| A8 | 监视器 | 读访问 `o_prdata` 与参考模型一致 |
 
 ## 5. 覆盖率目标 (Coverage Goals)
 

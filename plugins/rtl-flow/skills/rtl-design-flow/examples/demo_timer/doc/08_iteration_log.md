@@ -1,9 +1,9 @@
 ---
 doc: 08_iteration_log
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-22
+updated: 2026-10-24
 owner: rtl-flow-example
 ---
 
@@ -22,6 +22,7 @@ owner: rtl-flow-example
 | ITR-005 | 2026-10-22 | 需求变更 | 需求变化 | CR-1：新增 `CTRL.CLR` 计数清零（REQ-FUNC-006），IP 版本 1.0.0 → 1.1.0 | 14/14 通过；变异 7/7 检出 |
 | ITR-006 | 2026-10-22 | 签核 | — | 签核回归：`test_random` 50 个种子 | 59/59 通过；覆盖点 13/13 |
 | ITR-007 | 2026-10-22 | 用户反馈 | — | rtl-flow 0.2.0 流程升级：补审核记录、lint 报告入库 | 不涉及 RTL；lint PASS；signoff 0 error |
+| ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为华为 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
 
 > 触发：仿真失败 / Lint / 需求变更 / 评审意见 / 用户反馈。
 > 根因类别：Spec 错误 / 需求变化 / RTL bug / TB bug / 工具问题。
@@ -148,6 +149,29 @@ owner: rtl-flow-example
 - **影响文档**：00、01、02（仅 front matter）、10、README
 - **关联**：无
 - **回归结果**：不涉及 RTL，无需仿真回归；`run_lint.py` PASS；`check_docs.py --stage signoff` 0 error。
+
+### ITR-008 编码规范改为华为 Verilog 编码规范
+
+- **日期**：2026-10-23
+- **触发**：用户反馈：团队需要 Verilog 风格的代码，以华为 Verilog 编码规范为准。rtl-flow 将 `rtl-coding-style.md` 改写为华为规范（HW-xx 规则），`run_lint.py` 新增风格检查后，本示例原 RTL 报 126 条风格违规（SystemVerilog 关键字 75、端口命名 29、文件头 12、文件后缀 / 文件名 3、`timescale` 3、复位写法 2、端口顺序 2），`gen_docs.py` 报 yaml 端口命名错误。
+- **现象**：RTL 与 testbench 为 SystemVerilog（`logic`、`always_ff`、`unique case`、`string`），端口用 `_i` / `_o` 后缀，寄存器用 `_q` / `_d`，复位写作 `if (!rst_ni)`。
+- **根因**：编码规范变更，不是设计问题。（类别：不适用）
+- **修改**：
+  | 文件 | 修改摘要 |
+  |---|---|
+  | `data/demo_timer.yaml` | 版本 2.0.0；端口改名（对照表见 DEC-006）；`rtl_files` 改为 `.v` |
+  | `rtl/demo_timer.v`、`rtl/demo_timer_reg.v`、`rtl/demo_timer_core.v` | 替代原 `.sv` 文件。Verilog-2001；华为规范文件头与命名；每个寄存器一个时序 `always` 块，用 `if` / `else if` 优先级链表达 DEC-002、DEC-003；读数据选择改为 `case (i_paddr)`；子模块 `demo_timer_reg_top` 改名 `demo_timer_reg` |
+  | `dv/tb/demo_timer_tb.v` | 由 `tb_demo_timer.sv` 改写为 Verilog-2001：`string` 改为定宽 `reg`，`$sformatf` 改为 `$sformat`，局部数组改为选择函数；检查与覆盖点逻辑不变 |
+  | `dv/run_sim.py`、`dv/run_mutation.py` | `iverilog -g2001`；testbench 路径与顶层名；M1 ~ M7 的注入位置按新 RTL 更新，注入的缺陷不变 |
+  | `syn/synth.ys` | `read_verilog` 去掉 `-sv`，读取新文件 |
+  | `doc/00`、`01`、`02`、`05`、`06`、`07`、`09`、`README.md` | 信号名、文件名、模块名更新；02 §8 组合逻辑门数更新为实测 494；05 §6 记录 HW-33 偏离；09 新增 DEC-006、DEC-007 |
+  | `doc/03_interfaces.md`、`doc/04_registers.md` | 重新生成 |
+  | `reports/lint.log` | 重新生成：风格检查 0 违规，Verilator（`--default-language 1364-2001`）0 error / 0 warning |
+  | `CHANGELOG.md` | 新增 2.0.0 |
+- **影响文档**：00、01、02（已审核文档，提升到 1.2，重开 G0 / G1 / G2）、03、04、05、06、07、09、10、README、CHANGELOG
+- **审核**：2026-10-24 用户确认 00 / 01 / 02 v1.2 通过，写入 `approved: 1.2@2026-10-24`，状态改回 Released，10 清单 D0、D3 全部勾选。
+- **关联**：DEC-006、DEC-007
+- **回归结果**：`python dv/run_sim.py --seeds 50`：59/59 通过，13/13 覆盖点命中，最少的 `sw_vs_hw_en` 命中 55 次，与 ITR-006 相同（同种子下随机激励与 DUT 响应一致）；`python dv/run_mutation.py`：7/7 检出；Yosys：68 个触发器（36 个复位为 0、32 个复位为 1）、494 个二输入门（原 497）、最长路径 32 级，无 latch。
 
 ## 3. 缺陷列表 (Bugs)
 

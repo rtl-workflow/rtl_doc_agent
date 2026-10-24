@@ -20,24 +20,26 @@
 | `registers` | 否 | list | 见下 |
 
 ## clocks[]
-`name`、`freq_mhz`（目标频率）、`desc`
+`name`（以 `clk` 开头，如 `clk`、`clk_apb`）、`freq_mhz`（目标频率）、`desc`
 
 ## resets[]
-`name`、`active`（low/high）、`type`（async / sync / async_assert_sync_deassert）、`clock`（关联时钟）、`desc`
+`name`（以 `rst` 开头；低有效以 `_n` 结尾，如 `rst_n`）、`active`（low/high）、`type`（async / sync / async_assert_sync_deassert）、`clock`（关联时钟）、`desc`
 
 ## params[]
-`name`（UpperCamelCase）、`type`（int/bit/logic/...）、`default`、`desc`、`local`（bool，localparam 为 true，不出现在端口参数表中）
+`name`（全大写 UPPER_SNAKE_CASE，不超过 20 字符）、`type`（可选，如 `[7:0]`；不写时 Verilog 参数无类型）、`default`、`desc`、`local`（bool，localparam 为 true，不出现在端口参数表中）
 
 ## ports[]
 | 字段 | 说明 |
 |---|---|
-| `name` | 端口名，遵循 `_i/_o/_io/_ni` 后缀 |
+| `name` | 端口名，小写；输入 `i_`、输出 `o_`、双向 `io_` 前缀；时钟、复位端口用 `clocks` / `resets` 中的名字，不加前缀 |
 | `dir` | `input` / `output` / `inout` |
-| `width` | 整数，或参数表达式字符串（如 `"DataWidth"`）；1 bit 写 1 |
+| `width` | 整数，或参数表达式字符串（如 `"DATA_WIDTH"`）；1 bit 写 1 |
 | `clock` | 所属时钟域（异步信号写 `async`） |
 | `desc` | 描述 |
 
-`check_docs.py --rtl` 会把 `width: N` 对应到 RTL 中的 `[N-1:0]`，`width: "Expr"` 对应 `[Expr-1:0]`，1 对应无位宽。
+端口必须按「输入 → 双向 → 输出」排列（与 RTL 一致，见 rtl-coding-style HW-30）。`gen_docs.py` 校验上述命名与顺序。
+
+`check_docs.py --stage rtl` 会把 `width: N` 对应到 RTL 中的 `[N-1:0]`，`width: "Expr"` 对应 `[Expr-1:0]`，1 对应无位宽。
 
 ## interrupts[]
 `name`、`type`（event / status）、`desc`
@@ -70,18 +72,18 @@ name: demo_timer
 version: 0.1.0
 desc: 32 bit 可编程定时器，计数到比较值时产生中断。
 top: demo_timer
-rtl_files: [rtl/demo_timer.sv]
+rtl_files: [rtl/demo_timer.v]
 bus: {protocol: apb, data_width: 32, addr_width: 12}
 clocks:
-  - {name: clk_i, freq_mhz: 100, desc: 主时钟}
+  - {name: clk, freq_mhz: 100, desc: 主时钟}
 resets:
-  - {name: rst_ni, active: low, type: async_assert_sync_deassert, clock: clk_i, desc: 主复位}
+  - {name: rst_n, active: low, type: async_assert_sync_deassert, clock: clk, desc: 主复位}
 params:
-  - {name: CntWidth, type: int, default: 32, desc: 计数器位宽}
+  - {name: CNT_WIDTH, default: 32, desc: 计数器位宽}
 ports:
-  - {name: clk_i, dir: input, width: 1, clock: clk_i, desc: 主时钟}
-  - {name: rst_ni, dir: input, width: 1, clock: async, desc: 低有效复位}
-  - {name: irq_o, dir: output, width: 1, clock: clk_i, desc: 定时到中断}
+  - {name: clk, dir: input, width: 1, clock: clk, desc: 主时钟}
+  - {name: rst_n, dir: input, width: 1, clock: async, desc: 低有效复位}
+  - {name: o_irq, dir: output, width: 1, clock: clk, desc: 定时到中断}
 interrupts:
   - {name: expired, type: event, desc: 计数值等于比较值}
 registers:

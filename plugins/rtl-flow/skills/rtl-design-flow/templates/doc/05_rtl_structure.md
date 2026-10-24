@@ -13,14 +13,14 @@ owner: {{owner}}
 
 | 文件 | 模块 | 说明 |
 |---|---|---|
-| `rtl/{{ip}}.sv` | `{{ip}}` | 顶层 |
+| `rtl/{{ip}}.v` | `{{ip}}` | 顶层 |
 
 ## 2. 模块层次 (Hierarchy)
 
 ```text
 {{ip}}
-├── u_reg_top   ({{ip}}_reg_top)
-└── u_core      ({{ip}}_core)
+├── U_reg   ({{ip}}_reg)
+└── U_core  ({{ip}}_core)
 ```
 
 ## 3. 模块职责与接口 (Module Responsibilities)
@@ -39,16 +39,17 @@ owner: {{owner}}
 ## 5. 编译与文件顺序 (Compile Order)
 
 ```text
-rtl/{{ip}}_pkg.sv
-rtl/{{ip}}.sv
+rtl/{{ip}}.v
+rtl/{{ip}}_reg.v
+rtl/{{ip}}_core.v
 ```
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 
-遵循 `rtl-coding-style.md`。偏离项：
+遵循 `rtl-coding-style.md`（华为 Verilog 编码规范）。偏离项（引用规则编号 HW-xx）：
 
-| 位置 | 偏离内容 | 原因 | DEC |
-|---|---|---|---|
+| 位置 | 规则 | 偏离内容 | 原因 | DEC |
+|---|---|---|---|---|
 
 ## 7. Lint 豁免 (Lint Waivers)
 

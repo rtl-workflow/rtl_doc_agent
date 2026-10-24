@@ -24,21 +24,24 @@
 | 测试点 | test point | 测试项 | |
 | 待定 | TBD | 待补充、暂定 | 必须写作 `TBD(Q-xxx)` |
 
-## 2. 信号命名后缀（参考 OpenTitan 风格）
+## 2. 信号命名前缀 / 后缀（华为 Verilog 编码规范，详见 rtl-coding-style §2）
 
-| 后缀 | 含义 | 示例 |
+| 前缀 / 后缀 | 含义 | 示例 |
 |---|---|---|
-| `_i` | 模块输入 | `data_i` |
-| `_o` | 模块输出 | `irq_o` |
-| `_io` | 双向 | `sda_io` |
-| `_n` | 低有效 | `cs_n` |
-| `_ni` / `_no` | 低有效输入 / 输出 | `rst_ni` |
-| `_q` | 寄存器当前值（触发器输出） | `cnt_q` |
-| `_d` | 寄存器下一值（组合逻辑） | `cnt_d` |
+| `i_` | 模块输入 | `i_data` |
+| `o_` | 模块输出 | `o_irq` |
+| `io_` | 双向 | `io_sda` |
+| `clk` / `clk_<domain>` | 时钟（端口不加 `i_`） | `clk`, `clk_apb` |
+| `rst_n` / `rst_<domain>_n` | 低有效复位（端口不加 `i_`） | `rst_n`, `rst_apb_n` |
+| `_n` | 低有效 | `o_cs_n` |
+| `_z` | 三态输出寄存器 | `sda_out_z` |
+| `_r` / `_r1`、`_r2` | 时序寄存器 / 打拍 | `cnt_r`, `req_r1` |
 | `_en` / `_we` | 使能 / 写使能 | `cnt_en` |
 | `_sync` | 已同步到本时钟域 | `req_sync` |
-| `clk_<domain>_i` | 时钟 | `clk_i`, `clk_aon_i` |
-| `rst_<domain>_ni` | 复位 | `rst_ni` |
+| `cur_state` / `nxt_state` | FSM 当前状态 / 次态 | |
+| `ST_` | FSM 状态编码（`localparam`） | `ST_IDLE` |
+| `U_` | 例化名 | `U_core`, `U_sync_0` |
+| 全大写 | `parameter` / `localparam` / `` `define ``，不超过 20 字符 | `DATA_WIDTH` |
 
 ## 3. 寄存器软件访问类型 (swaccess)
 

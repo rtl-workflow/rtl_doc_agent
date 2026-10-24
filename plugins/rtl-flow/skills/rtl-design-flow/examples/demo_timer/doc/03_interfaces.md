@@ -1,7 +1,7 @@
 ---
 doc: 03_interfaces
 ip: demo_timer
-version: 1.1.0
+version: 2.0.0
 status: Generated
 source: data/demo_timer.yaml
 ---
@@ -13,7 +13,7 @@ source: data/demo_timer.yaml
 32 bit 可编程定时器，APB3 从接口，支持单次/周期模式，到时产生电平中断。
 
 - 顶层模块：`demo_timer`
-- IP 版本：1.1.0
+- IP 版本：2.0.0
 
 ## 1. 参数 (Parameters)
 
@@ -23,29 +23,29 @@ source: data/demo_timer.yaml
 
 | 名称 | 频率 (MHz) | 描述 |
 |---|---|---|
-| `clk_i` | 100 | 主时钟，IP 内全部逻辑工作在该时钟域 |
+| `clk` | 100 | 主时钟，IP 内全部逻辑工作在该时钟域 |
 
 ## 3. 复位 (Resets)
 
 | 名称 | 有效电平 | 类型 | 关联时钟 | 描述 |
 |---|---|---|---|---|
-| `rst_ni` | low | async_assert_sync_deassert | `clk_i` | 主复位，复位同步器位于 IP 外部 |
+| `rst_n` | low | async_assert_sync_deassert | `clk` | 主复位，复位同步器位于 IP 外部 |
 
 ## 4. 端口 (Ports)
 
 | 名称 | 方向 | 位宽 | 时钟域 | 描述 |
 |---|---|---|---|---|
-| `clk_i` | input | 1 | clk_i | 主时钟 |
-| `rst_ni` | input | 1 | async | 低有效复位 |
-| `psel_i` | input | 1 | clk_i | APB 片选 |
-| `penable_i` | input | 1 | clk_i | APB 访问阶段指示 |
-| `pwrite_i` | input | 1 | clk_i | APB 写使能，1 为写 |
-| `paddr_i` | input | [11:0] | clk_i | APB 字节地址 |
-| `pwdata_i` | input | [31:0] | clk_i | APB 写数据 |
-| `prdata_o` | output | [31:0] | clk_i | APB 读数据，访问阶段有效 |
-| `pready_o` | output | 1 | clk_i | APB 就绪，恒为 1 |
-| `pslverr_o` | output | 1 | clk_i | APB 错误响应，访问非法地址时在访问阶段为 1 |
-| `irq_o` | output | 1 | clk_i | 到时中断，高电平有效 |
+| `clk` | input | 1 | clk | 主时钟 |
+| `rst_n` | input | 1 | async | 低有效复位 |
+| `i_psel` | input | 1 | clk | APB 片选 |
+| `i_penable` | input | 1 | clk | APB 访问阶段指示 |
+| `i_pwrite` | input | 1 | clk | APB 写使能，1 为写 |
+| `i_paddr` | input | [11:0] | clk | APB 字节地址 |
+| `i_pwdata` | input | [31:0] | clk | APB 写数据 |
+| `o_prdata` | output | [31:0] | clk | APB 读数据，访问阶段有效 |
+| `o_pready` | output | 1 | clk | APB 就绪，恒为 1 |
+| `o_pslverr` | output | 1 | clk | APB 错误响应，访问非法地址时在访问阶段为 1 |
+| `o_irq` | output | 1 | clk | 到时中断，高电平有效 |
 
 ## 5. 中断 (Interrupts)
 

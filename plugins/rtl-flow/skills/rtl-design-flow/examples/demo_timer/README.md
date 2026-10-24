@@ -1,9 +1,9 @@
 ---
 doc: README
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-22
+updated: 2026-10-24
 owner: rtl-flow-example
 ---
 
@@ -13,7 +13,7 @@ owner: rtl-flow-example
 
 ## 概述 (Overview)
 
-`demo_timer` 是一个挂在 APB3 总线上的 32 bit 可编程定时器。计数值达到比较值时产生到时事件，置位中断状态并输出电平中断 `irq_o`。支持单次和周期两种模式，以及软件清零计数。
+`demo_timer` 是一个挂在 APB3 总线上的 32 bit 可编程定时器。计数值达到比较值时产生到时事件，置位中断状态并输出电平中断 `o_irq`。支持单次和周期两种模式，以及软件清零计数。
 
 ## 特性 (Features)
 
@@ -36,10 +36,10 @@ owner: rtl-flow-example
 | [RTL 代码架构](doc/05_rtl_structure.md) | 3 个模块的职责与信号 |
 | [编程指南](doc/06_programmers_guide.md) | C 示例代码 |
 | [验证计划](doc/07_dv_plan.md) | 11 个测试点、8 个断言、13 个覆盖点、追溯矩阵 |
-| [迭代记录](doc/08_iteration_log.md) | ITR-001 ~ ITR-007 |
-| [设计决策](doc/09_decisions.md) | DEC-001 ~ DEC-005 |
+| [迭代记录](doc/08_iteration_log.md) | ITR-001 ~ ITR-008 |
+| [设计决策](doc/09_decisions.md) | DEC-001 ~ DEC-007 |
 | [签核清单](doc/10_checklist.md) | D0–D3 / V0–V3 |
-| [变更记录](CHANGELOG.md) | 1.0.0、1.1.0 |
+| [变更记录](CHANGELOG.md) | 1.0.0、1.1.0、2.0.0 |
 
 ## 当前状态 (Status)
 
@@ -47,8 +47,8 @@ owner: rtl-flow-example
 |---|---|
 | 设计阶段 | D3 |
 | 验证阶段 | V3 |
-| 最近一次迭代 | ITR-007 流程升级：审核记录与 lint 报告 |
-| 人工审核 | 00 / 01 / 02 均已审核（v1.1） |
+| 最近一次迭代 | ITR-008 编码规范改为华为 Verilog 规范 |
+| 人工审核 | 00 / 01 / 02 已审核（v1.2，2026-10-24） |
 
 ## 目录与命令
 
@@ -56,7 +56,7 @@ owner: rtl-flow-example
 raw/            原始需求（只读）
 data/           单一信息源 demo_timer.yaml
 doc/            00–10 文档
-rtl/            demo_timer.sv / demo_timer_reg_top.sv / demo_timer_core.sv
+rtl/            demo_timer.v / demo_timer_reg.v / demo_timer_core.v（Verilog-2001，华为编码规范）
 dv/tb/          自检查 testbench
 dv/run_sim.py   回归；dv/run_mutation.py 变异测试
 syn/synth.ys    Yosys 综合（无 latch 检查、逻辑深度）

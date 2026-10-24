@@ -1,5 +1,5 @@
 # demo_timer 综合脚本（Yosys，通用门级库），用法：在 IP 目录执行 yowasp-yosys -s syn/synth.ys
-read_verilog -sv rtl/demo_timer_core.sv rtl/demo_timer_reg_top.sv rtl/demo_timer.sv
+read_verilog rtl/demo_timer_core.v rtl/demo_timer_reg.v rtl/demo_timer.v
 hierarchy -check -top demo_timer
 proc
 check -assert

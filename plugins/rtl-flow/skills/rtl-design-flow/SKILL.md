@@ -14,10 +14,11 @@ description: 数字 IC / RTL IP 设计全流程规范。当用户提供需求描
 | `references/doc-standard.md` | 文档体系、front matter、ID 规则、写作规范 —— **开始任何文档工作前必读** |
 | `references/glossary.md` | 术语表、信号命名后缀、寄存器访问类型 |
 | `references/data-schema.md` | IP 描述文件 `data/<ip>.yaml`（单一信息源）字段定义 |
-| `references/rtl-coding-style.md` | RTL 编码规范 —— 写 RTL 前必读 |
+| `references/rtl-coding-style.md` | RTL 编码规范（华为 Verilog 规范，Verilog-2001）—— 写 RTL / testbench 前必读 |
 | `templates/` | 所有文档模板，新建 IP 时整体复制 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
-| `scripts/run_lint.py` | 运行 lint 并写 `reports/lint.log` |
+| `scripts/check_style.py` | 按编码规范检查 RTL（`run_lint.py` 会自动调用） |
+| `scripts/run_lint.py` | 风格检查 + lint，写 `reports/lint.log` |
 | `scripts/check_docs.py` | 文档完整性 / 追溯性 / 审核记录 / RTL 一致性检查 |
 | `examples/` | 标杆示例（few-shot），**优先模仿其写法与粒度**；`examples/demo_timer/` 为完整走完 P0–P6 的参考 IP |
 
@@ -81,14 +82,14 @@ description: 数字 IC / RTL IP 设计全流程规范。当用户提供需求描
 4. **闸门 G2（人工审核）**：`check_docs.py --stage arch` 无 ERROR（子模块表完整、01 已审核）后，`02_architecture.md` 的 status 改为 `Review`，提交用户审核。审核范围：02 与本阶段新增的 DEC（09）。用户通过后填写 02 的 `reviewer` / `approved`，再进入 P3。
 
 ### P3 RTL 实现
-1. 严格按 `references/rtl-coding-style.md` 编写 RTL，顶层端口必须与 `data/<ip>.yaml` 完全一致。
+1. 严格按 `references/rtl-coding-style.md` 编写 RTL：Verilog-2001、`.v` 文件、华为规范命名（端口 `i_`/`o_`/`io_`，时钟 `clk`，复位 `rst_n`，参数全大写，例化 `U_`）。顶层端口（含顺序）必须与 `data/<ip>.yaml` 完全一致。
 2. 编写 `05_rtl_structure.md`：文件清单、模块层次树、各模块职责、参数传递、编码约定偏离说明。
-3. 运行 `run_lint.py <ip_dir>`（默认 Verilator，`--tool verible` 可选），报告写入 `reports/lint.log`；lint 引起的修改记录到 `08_iteration_log.md`。warning 要么修复，要么在 05 §7 写明豁免原因。
+3. 运行 `run_lint.py <ip_dir>`（先做编码规范检查，违规即 error；再运行 Verilator（Verilog-2001 模式），`--tool verible` 可选），报告写入 `reports/lint.log`；lint 引起的修改记录到 `08_iteration_log.md`。warning 要么修复，要么在 05 §7 写明豁免原因。
 4. **闸门 G3**：`check_docs.py --stage rtl` 无 ERROR：顶层端口与 yaml 一致；02 的子模块都在 RTL 中、RTL 的模块都在 05 中；`reports/lint.log` 存在、与当前 RTL 一致（RTL 改动后必须重跑）、无 lint error；02 已审核。G3 不需要停下来等待审核，汇报后直接进入 P4。
 
 ### P4 验证 (DV)
 1. 编写 `07_dv_plan.md`：测试点 TP-xxx（每个关联 REQ）、激励策略、检查方法、覆盖率目标、追溯矩阵。
-2. 搭建 `dv/` 测试平台与用例（优先自检查 testbench：scoreboard/断言，而不是看波形）。
+2. 搭建 `dv/` 测试平台与用例（优先自检查 testbench：参考模型 + 监视器检查，而不是看波形）。testbench 同样用 Verilog-2001（`dv/tb/<ip>_tb.v`，见 rtl-coding-style §10）。
 3. 运行仿真（iverilog / verilator / 用户指定仿真器），结果写入 `08_iteration_log.md`。
 
 ### P5 迭代 (Iterate) —— 验证或需求变更导致的修改
@@ -126,7 +127,8 @@ description: 数字 IC / RTL IP 设计全流程规范。当用户提供需求描
 
 ```bash
 python $SKILL/scripts/gen_docs.py   <ip_dir>                  # 由 yaml 生成 03/04 与 C 头文件
-python $SKILL/scripts/run_lint.py   <ip_dir>                  # lint，写 reports/lint.log（--tool verible 可选）
+python $SKILL/scripts/check_style.py <ip_dir>                 # 只做编码规范检查
+python $SKILL/scripts/run_lint.py   <ip_dir>                  # 风格检查 + lint，写 reports/lint.log（--tool verible 可选）
 python $SKILL/scripts/check_docs.py <ip_dir> --stage req      # G0：文件、front matter、必填章节、ID
 python $SKILL/scripts/check_docs.py <ip_dir> --stage spec     # G1：+ REQ 被 spec 覆盖、生成文件最新、00 已审核
 python $SKILL/scripts/check_docs.py <ip_dir> --stage arch     # G2：+ 02 子模块表完整、01 已审核

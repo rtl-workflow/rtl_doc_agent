@@ -15,7 +15,8 @@ plugins/rtl-flow/
     ├── references/              # 文档规范、术语表、yaml schema、RTL 编码规范
     ├── templates/               # README、CHANGELOG、data/ip.yaml、doc/00–10 模板
     ├── scripts/gen_docs.py      # yaml → 接口文档 / 寄存器文档 / C 头文件
-    ├── scripts/run_lint.py      # lint → reports/lint.log（Verilator / Verible）
+    ├── scripts/check_style.py   # 编码规范检查（华为 Verilog 规范，HW-xx 规则）
+    ├── scripts/run_lint.py      # 风格检查 + lint → reports/lint.log（Verilator / Verible）
     ├── scripts/check_docs.py    # 分阶段检查：结构、ID 追溯、审核记录、RTL 端口/模块一致性、lint 报告、签核
     └── examples/demo_timer/     # 完整标杆示例：真实运行的 RTL、验证、综合与全套文档
 ```
@@ -99,7 +100,7 @@ plugins/rtl-flow/
 | 流程、闸门 | `SKILL.md` |
 | 文档章节 | `templates/doc/*.md`（二级标题即必填章节，检查脚本自动跟随） |
 | 术语、命名后缀、访问类型 | `references/glossary.md`（访问类型还需同步 `gen_docs.py` 中的 `SWACCESS/HWACCESS`） |
-| RTL 编码规范 | `references/rtl-coding-style.md` |
+| RTL 编码规范 | `references/rtl-coding-style.md`（华为 Verilog 规范）；自动检查规则在 `scripts/check_style.py` 的 `PATTERNS` |
 | 标杆示例 | `examples/` |
 
 规则本身的修改也应走评审（MR/PR），并在 `plugin.json` 中提升版本号。

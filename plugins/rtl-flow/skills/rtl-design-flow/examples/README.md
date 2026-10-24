@@ -19,7 +19,9 @@ AI 执行 rtl-design-flow 时，应**优先模仿本目录示例的写法、粒�
 | lint 报告（含 RTL 摘要，供检查脚本判断是否过期） | `reports/lint.log` |
 | 02 子模块表：模块名与 RTL、05 一一对应 | `doc/02_architecture.md` §2 |
 | 不适用项的写法（附原因与替代证据） | `doc/10_checklist.md` |
-| 自检查 testbench：定向 + 参考模型逐周期比对 + 覆盖点 | `dv/tb/tb_demo_timer.sv` |
+| 华为 Verilog 编码规范的 RTL 写法：文件头、`i_`/`o_` 端口、每个寄存器一个 `always` 块、`if (rst_n == 1'b0)` | `rtl/*.v` |
+| 规范偏离的记录方式（HW-33） | `doc/05_rtl_structure.md` §6、DEC-007 |
+| 自检查 Verilog-2001 testbench：定向 + 参考模型逐周期比对 + 覆盖点 | `dv/tb/demo_timer_tb.v` |
 | 用变异测试证明 testbench 有效 | `dv/run_mutation.py` |
 
 运行环境（示例中实际使用的版本）：Icarus Verilog 13.0、Verilator 5.052、Yosys 0.70（yowasp-yosys）、Python 3.12 + PyYAML。在 Windows 上可通过 `conda create -n rtlsim -c conda-forge iverilog verilator` 安装，使用 Verilator 时需设置 `VERILATOR_ROOT=<env>/Library`。

@@ -1,9 +1,9 @@
 ---
 doc: CHANGELOG
 ip: demo_timer
-version: 1.1
+version: 1.2
 status: Released
-updated: 2026-10-22
+updated: 2026-10-23
 owner: rtl-flow-example
 ---
 
@@ -14,6 +14,12 @@ owner: rtl-flow-example
 ## [Unreleased]
 
 无。
+
+## [2.0.0] - 2026-10-23
+
+### Changed
+- **不兼容**：顶层端口按华为 Verilog 编码规范改名（DEC-006）：`clk_i` → `clk`、`rst_ni` → `rst_n`、`psel_i` → `i_psel`、`penable_i` → `i_penable`、`pwrite_i` → `i_pwrite`、`paddr_i` → `i_paddr`、`pwdata_i` → `i_pwdata`、`prdata_o` → `o_prdata`、`pready_o` → `o_pready`、`pslverr_o` → `o_pslverr`、`irq_o` → `o_irq`。集成方需按新端口名重新连接。
+- RTL 改为 Verilog-2001（`.v`），子模块 `demo_timer_reg_top` 改名为 `demo_timer_reg`。寄存器、行为与时序不变。
 
 ## [1.1.0] - 2026-10-22
 

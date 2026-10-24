@@ -23,22 +23,23 @@ from run_sim import TESTS, tool  # noqa: E402
 
 # (编号, 描述, 文件, 原文, 替换)
 MUTATIONS = [
-    ("M1", "到时比较改为 ==（违反 DEC-001）", "demo_timer_core.sv",
-     "(count_q >= cmp_i)", "(count_q == cmp_i)"),
-    ("M2", "硬件清 EN 优先于软件写（违反 DEC-002）", "demo_timer_reg_top.sv",
-     "      ctrl_en_d   = pwdata_i[0];",
-     "      ctrl_en_d   = (expire_i && !ctrl_mode_q) ? 1'b0 : pwdata_i[0];"),
-    ("M3", "软件清除优先于硬件置位（违反 DEC-003）", "demo_timer_reg_top.sv",
-     "    if (expire_i) begin\n      intr_state_d = 1'b1;",
-     "    if (expire_i && !(wr_en && hit_intr_state && pwdata_i[0])) begin\n      intr_state_d = 1'b1;"),
-    ("M4", "非对齐地址命中 CMP（违反 REQ-IF-002）", "demo_timer_reg_top.sv",
-     "(paddr_i == CmpOffset)", "(paddr_i[11:2] == CmpOffset[11:2])"),
-    ("M5", "CMP 复位值错为 0（违反 REQ-REG-001）", "demo_timer_reg_top.sv",
-     "cmp_q         <= 32'hFFFF_FFFF;", "cmp_q         <= 32'h0;"),
-    ("M6", "irq_o 未经使能屏蔽（违反 REQ-FUNC-005）", "demo_timer.sv",
-     "assign irq_o = intr_state & intr_enable;", "assign irq_o = intr_state;"),
-    ("M7", "CTRL.CLR 不生效（违反 REQ-FUNC-006）", "demo_timer_core.sv",
-     "if (clr_i || expire_o) begin", "if (expire_o) begin"),
+    ("M1", "到时比较改为 ==（违反 DEC-001）", "demo_timer_core.v",
+     "(count_r >= i_cmp)", "(count_r == i_cmp)"),
+    ("M2", "硬件清 EN 优先于软件写（违反 DEC-002）", "demo_timer_reg.v",
+     "        ctrl_en_r <= i_pwdata[0];",
+     "        ctrl_en_r <= ((i_expire == 1'b1) && (ctrl_mode_r == MODE_ONESHOT)) ? 1'b0 : i_pwdata[0];"),
+    ("M3", "软件清除优先于硬件置位（违反 DEC-003）", "demo_timer_reg.v",
+     "    else if (i_expire == 1'b1) begin\n        intr_state_r <= 1'b1;",
+     "    else if ((i_expire == 1'b1) && !((wr_en == 1'b1) && (hit_intr_state == 1'b1) && (i_pwdata[0] == 1'b1))) begin\n"
+     "        intr_state_r <= 1'b1;"),
+    ("M4", "非对齐地址命中 CMP（违反 REQ-IF-002）", "demo_timer_reg.v",
+     "(i_paddr == ADDR_CMP)", "(i_paddr[11:2] == 10'h001)"),
+    ("M5", "CMP 复位值错为 0（违反 REQ-REG-001）", "demo_timer_reg.v",
+     "cmp_r <= 32'hFFFF_FFFF;", "cmp_r <= 32'h0;"),
+    ("M6", "o_irq 未经使能屏蔽（违反 REQ-FUNC-005）", "demo_timer.v",
+     "assign o_irq = intr_state & intr_enable;", "assign o_irq = intr_state;"),
+    ("M7", "CTRL.CLR 不生效（违反 REQ-FUNC-006）", "demo_timer_core.v",
+     "((i_clr == 1'b1) || (o_expire == 1'b1))", "(o_expire == 1'b1)"),
 ]
 
 
@@ -58,9 +59,9 @@ def main():
             sys.exit(f"ERROR: {mid}: pattern not found exactly once in {fname}; update MUTATIONS")
         target.write_text(text.replace(old, new), encoding="utf-8")
 
-        srcs = [str(WORK / Path(f).name) for f in data["rtl_files"]] + [str(DV_DIR / "tb" / "tb_demo_timer.sv")]
+        srcs = [str(WORK / Path(f).name) for f in data["rtl_files"]] + [str(DV_DIR / "tb" / "demo_timer_tb.v")]
         vvp_file = WORK / "tb.vvp"
-        subprocess.run([iverilog, "-g2012", "-o", str(vvp_file), "-s", "tb_demo_timer"] + srcs,
+        subprocess.run([iverilog, "-g2001", "-o", str(vvp_file), "-s", "demo_timer_tb"] + srcs,
                        capture_output=True, text=True, check=True)
         failed = []
         for test in TESTS:

@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gen_docs  # noqa: E402
 import run_lint  # noqa: E402
+from check_style import parse_rtl_ports, strip_hdl_comments  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -109,108 +110,6 @@ def defined_ids(text):
     for m in re.finditer(r"^###\s+(" + ID_RE + r")\b", text, re.M):
         ids.setdefault(m.group(1), None)
     return ids
-
-
-# --------------------------------------------------------------------------- RTL port parsing
-def strip_hdl_comments(s):
-    s = re.sub(r"/\*.*?\*/", " ", s, flags=re.S)
-    return re.sub(r"//[^\n]*", " ", s)
-
-
-def matching(s, i):
-    """Index of the bracket matching s[i]."""
-    pairs = {"(": ")", "[": "]", "{": "}"}
-    depth, close = 0, pairs[s[i]]
-    for j in range(i, len(s)):
-        if s[j] == s[i]:
-            depth += 1
-        elif s[j] == close:
-            depth -= 1
-            if depth == 0:
-                return j
-    return -1
-
-
-def split_top(s, sep=","):
-    parts, depth, cur = [], 0, ""
-    for ch in s:
-        if ch in "([{":
-            depth += 1
-        elif ch in ")]}":
-            depth -= 1
-        if ch == sep and depth == 0:
-            parts.append(cur)
-            cur = ""
-        else:
-            cur += ch
-    if cur.strip():
-        parts.append(cur)
-    return [p.strip() for p in parts if p.strip()]
-
-
-DECL_RE = re.compile(
-    r"^(input|output|inout)?\s*"
-    r"(?:(?:wire|reg|logic|var|tri|bit)\s+)?"
-    r"(?:(?:signed|unsigned)\s+)?"
-    r"(?:([A-Za-z_]\w*(?:::\w+)?)\s+(?=[A-Za-z_\[]))?"
-    r"((?:\[[^\]]*\]\s*)*)"
-    r"([A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*(?:=.*)?$", re.S)
-KEYWORDS = {"wire", "reg", "logic", "var", "tri", "bit", "signed", "unsigned"}
-
-
-def parse_rtl_ports(path: Path, top: str):
-    """Return {name: (dir, width)} or raise ValueError."""
-    src = strip_hdl_comments(path.read_text(encoding="utf-8", errors="replace"))
-    m = re.search(r"\bmodule\s+" + re.escape(top) + r"\b", src)
-    if not m:
-        raise ValueError(f"module '{top}' not found in {path}")
-    i = m.end()
-    end = src.find("endmodule", i)
-    body_end = end if end >= 0 else len(src)
-    while True:
-        rest = src[i:]
-        mm = re.match(r"\s*import\s+[^;]*;", rest)
-        if mm:
-            i += mm.end()
-            continue
-        break
-    j = src.find("#", i)
-    k = src.find("(", i)
-    if 0 <= j < k:
-        k = src.find("(", matching(src, src.find("(", j)) + 1)
-    if k < 0 or k > body_end:
-        return {}
-    close = matching(src, k)
-    header, body = src[k + 1:close], src[close + 1:body_end]
-
-    ports, cur_dir, cur_w = {}, None, ""
-    names_only = []
-    for item in split_top(header):
-        dm = DECL_RE.match(item)
-        if not dm:
-            raise ValueError(f"cannot parse port declaration: '{item}'")
-        d, utype, dims, name = dm.groups()
-        if utype in KEYWORDS:
-            utype = None
-        if d:
-            cur_dir, cur_w = d, (utype or "") + re.sub(r"\s+", "", dims or "")
-        elif cur_dir is None:
-            names_only.append(name)
-            continue
-        ports[name] = (cur_dir, cur_w)
-    if names_only:  # non-ANSI style: directions declared in body
-        for stmt in body.split(";"):
-            dm = re.match(r"\s*(input|output|inout)\b(.*)$", stmt, re.S)
-            if not dm:
-                continue
-            first, *others = split_top(dm.group(2))
-            fm_ = DECL_RE.match(dm.group(1) + " " + first)
-            if not fm_:
-                continue
-            w = re.sub(r"\s+", "", fm_.group(3) or "")
-            for nm in [fm_.group(4)] + [o.split("=")[0].strip() for o in others]:
-                ports[nm] = (dm.group(1), w)
-    return ports
 
 
 def expected_width(w):
