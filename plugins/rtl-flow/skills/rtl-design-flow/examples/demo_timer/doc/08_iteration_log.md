@@ -1,9 +1,9 @@
 ---
 doc: 08_iteration_log
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-24
+updated: 2026-10-25
 owner: rtl-flow-example
 ---
 
@@ -23,6 +23,7 @@ owner: rtl-flow-example
 | ITR-006 | 2026-10-22 | 签核 | — | 签核回归：`test_random` 50 个种子 | 59/59 通过；覆盖点 13/13 |
 | ITR-007 | 2026-10-22 | 用户反馈 | — | rtl-flow 0.2.0 流程升级：补审核记录、lint 报告入库 | 不涉及 RTL；lint PASS；signoff 0 error |
 | ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为华为 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
+| ITR-009 | 2026-10-25 | 用户反馈 | — | testbench 改为黑盒：删除 21 处 `U_dut.xxx` 层次引用，`run_regress.py --stub` 可通过 | 59/59 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
 
 > 触发：仿真失败 / Lint / 需求变更 / 评审意见 / 用户反馈。
 > 根因类别：Spec 错误 / 需求变化 / RTL bug / TB bug / 工具问题。
@@ -172,6 +173,23 @@ owner: rtl-flow-example
 - **审核**：2026-10-24 用户确认 00 / 01 / 02 v1.2 通过，写入 `approved: 1.2@2026-10-24`，状态改回 Released，10 清单 D0、D3 全部勾选。
 - **关联**：DEC-006、DEC-007
 - **回归结果**：`python dv/run_sim.py --seeds 50`：59/59 通过，13/13 覆盖点命中，最少的 `sw_vs_hw_en` 命中 55 次，与 ITR-006 相同（同种子下随机激励与 DUT 响应一致）；`python dv/run_mutation.py`：7/7 检出；Yosys：68 个触发器（36 个复位为 0、32 个复位为 1）、494 个二输入门（原 497）、最长路径 32 级，无 latch。
+
+### ITR-009 testbench 改为黑盒验证
+
+- **日期**：2026-10-25
+- **触发**：用户反馈：rtl-flow 0.4.0 改为多 agent 流程，tb-engineer 只根据规格编写 testbench，规则要求只通过顶层端口访问 DUT（rtl-coding-style §10）。本示例的 testbench 用 `U_dut.xxx` 读取 21 处内部信号，`run_regress.py --stub` 编译报 `Unable to bind wire/reg/memory 'U_dut.count_val'`，示例与规则不一致。
+- **现象**：监视器 A7 逐周期比对 `count_val`、`ctrl_en`、`U_reg.ctrl_mode_r`、`cmp_val`、`intr_state`、`intr_enable`、`expire`；`wait_count`、`zero_count`、`test_periodic`、`test_cmp_boundary`、`test_priority`、`test_clr` 直接读取内部信号判断结果。
+- **根因**：流程规则变更，不是设计问题。（类别：不适用）
+- **修改**：
+  | 文件 | 修改摘要 |
+  |---|---|
+  | `dv/tb/demo_timer_tb.v` | 删除原 A7，原 A8（读数据比对）改为 A7，内部状态只经 APB 读回与 `o_irq` 比对；新增时钟沿计数器 `cyc`，到时时刻改用 `o_irq` 上升沿测量；`wait_count` 按参考模型计数值对齐；`zero_count`、TP-007、TP-008、TP-011 的内部信号检查改为回读寄存器；`test_oneshot` 的「不再触发」原来读的是参考模型的覆盖计数（只检查了模型），改为清除后检查 `o_irq` 与 `INTR_STATE`；`fail` 只打印前 100 条错误，避免桩检查日志过大 |
+  | `doc/07_dv_plan.md` | §2 说明黑盒观测方式；TP-004、TP-006、TP-007、TP-008、TP-011 检查方法；§4 断言表 A1 ~ A7 |
+  | `doc/10_checklist.md` | 断言编号 A8 → A7 |
+  | `README.md` | 目录说明 |
+- **影响文档**：07、10、README
+- **关联**：DEC-004
+- **回归结果**：`python dv/run_sim.py --seeds 50`：59/59 通过，13/13 覆盖点命中，`sw_vs_hw_en` 命中 55 次，与 ITR-008 相同；`python dv/run_mutation.py`：7/7 检出（M3 新增被 `test_periodic` 检出，M5 检出用例由 10 个减为 3 个，原因是不再逐周期比对 `CMP`）；`run_regress.py --stub`：PASS（12 个用例全部正常结束）；`run_regress.py`：12/12 通过。
 
 ## 3. 缺陷列表 (Bugs)
 

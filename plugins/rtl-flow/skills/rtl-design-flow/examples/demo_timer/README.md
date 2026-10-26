@@ -57,7 +57,7 @@ raw/            原始需求（只读）
 data/           单一信息源 demo_timer.yaml
 doc/            00–10 文档
 rtl/            demo_timer.v / demo_timer_reg.v / demo_timer_core.v（Verilog-2001，华为编码规范）
-dv/tb/          自检查 testbench
+dv/tb/          黑盒自检查 testbench（只通过顶层端口访问 DUT）
 dv/run_sim.py   回归；dv/run_mutation.py 变异测试
 syn/synth.ys    Yosys 综合（无 latch 检查、逻辑深度）
 reports/        lint.log（run_lint.py 生成）

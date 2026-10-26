@@ -151,7 +151,13 @@ end
 ## 10. 断言与 testbench
 
 - RTL 中不写 SVA 与任何仿真语句（HW-60、HW-61）。协议与不变式检查放在 testbench 的监视器 `always` 块中，并列入 `07_dv_plan.md` §4。
-- testbench 同样使用 Verilog-2001，文件 `dv/tb/<ip>_tb.v`，模块 `<ip>_tb`，DUT 例化名 `U_dut`。testbench 不受 HW-46、HW-60 ~ HW-64 限制（可用 `initial`、`task`、`#` 延时、系统任务、`===`）。
+- testbench 同样使用 Verilog-2001，文件 `dv/tb/<ip>_tb.v`（可拆成多个 `dv/tb/*.v`），模块 `<ip>_tb`，DUT 例化名 `U_dut`。testbench 不受 HW-46、HW-60 ~ HW-64 限制（可用 `initial`、`task`、`#` 延时、系统任务、`===`）。
+- **黑盒**：testbench 只通过顶层端口访问 DUT，禁止 `U_dut.xxx` 层次引用。验证由 tb-engineer 只根据规格独立编写，`run_regress.py --stub` 用端口桩代替 RTL 编译 testbench，层次引用会在这里报错。
+- **运行约定**（`run_regress.py` 依赖）：
+  - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名来自 `07_dv_plan.md` §3 的「用例」列（反引号）。
+  - 检查失败打印 `[<time>] ERROR: <说明>`；功能覆盖打印 `COVER <名字>=<命中次数>`（为 0 视为未覆盖，回归失败）。
+  - 结束时打印 `TEST <name> SEED <n> PASSED|FAILED errors=<n>` 并 `$finish`。
+  - 必须有看门狗：超时后打印 `TEST <name> FAILED errors=<n>` 并 `$finish`（桩检查时 DUT 输出恒 0，依赖看门狗结束）。
 
 ## 11. Lint
 
