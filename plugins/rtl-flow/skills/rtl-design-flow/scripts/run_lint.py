@@ -6,9 +6,10 @@ Usage:
 
 Two passes, both counted in the report:
   1. coding-style check (check_style.py, references/rtl-coding-style.md): every violation is an error;
-  2. the lint tool, Verilator in Verilog-2001 mode (default) or Verible.
+  2. the lint tool, Verilator in Verilog-2005 mode (default, for $clog2) or Verible.
 
-The RTL file list and top module come from data/<ip>.yaml (rtl_files, top).
+The RTL file list and top module come from data/<ip>.yaml (rtl_files, top); files are passed
+in that order, so rtl/define.v (listed first) supplies the macros to the rest.
 The log header records a digest of the RTL sources; check_docs.py --stage rtl
 uses it to reject a missing, failing or stale lint report.
 
@@ -86,7 +87,8 @@ def main():
         # on Windows 'verilator' is a Perl wrapper that cannot be executed directly
         names = ("verilator_bin", "verilator") if os.name == "nt" else ("verilator", "verilator_bin")
         exe = find_exe(*names)
-        args = ["--lint-only", "-Wall", "--default-language", "1364-2001", "--top-module", top]
+        # 1364-2005 only for $clog2; check_style keeps the rest of the code within Verilog-2001 (HW-01)
+        args = ["--lint-only", "-Wall", "--default-language", "1364-2005", "--top-module", top]
     else:
         exe = find_exe("verible-verilog-lint")
         args = []
@@ -107,7 +109,7 @@ def main():
     if r.returncode != 0 and errors == 0 and warnings == 0:
         errors = 1  # tool failed without a parsable message
 
-    style = check_style.check_ip(ip, files)
+    style = check_style.check_ip(ip, files, data.get("resets"))
     if style:
         lines = [f"%Error-STYLE: {f}:{ln}: [{rule}] {msg}" for f, ln, rule, msg in style]
         out = "\n".join(lines + ([out] if out else []))

@@ -106,8 +106,21 @@ def validate(d: dict) -> list:
             errs.append(f"reset '{rn}' is not listed in ports")
         if not rn.startswith("rst"):
             errs.append(f"reset '{rn}': name must start with 'rst' (rtl-coding-style HW-14)")
-        if (r.get("active") == "low") != rn.endswith("_n"):
-            errs.append(f"reset '{rn}': active-low resets, and only those, end with '_n' (rtl-coding-style HW-15)")
+        if r.get("active") not in ("low", "high"):
+            errs.append(f"reset '{rn}': active must be low or high")
+        elif not r.get("std_if"):
+            if rn.endswith("_n"):
+                errs.append(f"reset '{rn}': internal reset names do not carry polarity, drop '_n' "
+                            "(or set std_if: true for a standard-interface reset) (rtl-coding-style HW-14)")
+        elif (r["active"] == "low") != rn.endswith("_n"):
+            errs.append(f"reset '{rn}': standard-interface resets end with '_n' if and only if active-low "
+                        "(rtl-coding-style HW-14)")
+    if len({r.get("active") for r in d.get("resets") or [] if not r.get("std_if")}) > 1:
+        errs.append("resets: internal resets must share one polarity, set by RST_EDGE / RST_ACT in define.v "
+                    "(rtl-coding-style HW-41)")
+    files = d.get("rtl_files") or []
+    if files and Path(str(files[0])).name != "define.v":
+        errs.append("rtl_files: rtl/define.v must be listed first (rtl-coding-style HW-07)")
     for p in d.get("params") or []:
         pn = str(p.get("name"))
         if not re.fullmatch(r"[A-Z][A-Z0-9_]*", pn) or len(pn) > 20:
@@ -205,8 +218,9 @@ def gen_interfaces(d: dict) -> str:
                [[f"`{c['name']}`", c.get("freq_mhz"), c.get("desc")] for c in d["clocks"]])
 
     s += "\n## 3. 复位 (Resets)\n\n"
-    s += table(["名称", "有效电平", "类型", "关联时钟", "描述"],
-               [[f"`{r['name']}`", r.get("active"), r.get("type"), f"`{r.get('clock')}`", r.get("desc")]
+    s += table(["名称", "有效电平", "极性来源", "类型", "关联时钟", "描述"],
+               [[f"`{r['name']}`", r.get("active"), "标准接口" if r.get("std_if") else "`define.v`",
+                 r.get("type"), f"`{r.get('clock')}`", r.get("desc")]
                 for r in d["resets"]])
 
     s += "\n## 4. 端口 (Ports)\n\n"

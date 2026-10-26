@@ -3,14 +3,14 @@
 // File name   : demo_timer.v
 // Module name : demo_timer
 // Function    : 顶层：APB3 32 bit 定时器，单次 / 周期模式，电平中断
-// Version     : 2.0
-// Date        : 2026-10-23
+// Version     : 3.0
+// Date        : 2026-10-26
 // Doc         : doc/05_rtl_structure.md
 // History     : 见 CHANGELOG.md 与 doc/08_iteration_log.md
 //==============================================================================
 module demo_timer (
     input               clk         ,   // 主时钟，100 MHz
-    input               rst_n       ,   // 低有效异步复位
+    input               rst         ,   // 异步复位，极性由 define.v 的 RST_EDGE / RST_ACT 决定
     input               i_psel      ,   // APB 片选
     input               i_penable   ,   // APB 访问阶段指示
     input               i_pwrite    ,   // APB 写使能
@@ -32,7 +32,7 @@ wire            expire;             // 到时事件
 
 demo_timer_reg U_reg (
     .clk            (clk            ),
-    .rst_n          (rst_n          ),
+    .rst            (rst            ),
     .i_psel         (i_psel         ),
     .i_penable      (i_penable      ),
     .i_pwrite       (i_pwrite       ),
@@ -52,7 +52,7 @@ demo_timer_reg U_reg (
 
 demo_timer_core U_core (
     .clk            (clk            ),
-    .rst_n          (rst_n          ),
+    .rst            (rst            ),
     .i_en           (ctrl_en        ),
     .i_clr          (ctrl_clr       ),
     .i_cmp          (cmp_val        ),

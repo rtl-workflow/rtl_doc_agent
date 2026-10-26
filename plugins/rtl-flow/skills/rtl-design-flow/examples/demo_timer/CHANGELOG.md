@@ -1,9 +1,9 @@
 ---
 doc: CHANGELOG
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-23
+updated: 2026-10-26
 owner: rtl-flow-example
 ---
 
@@ -14,6 +14,12 @@ owner: rtl-flow-example
 ## [Unreleased]
 
 无。
+
+## [3.0.0] - 2026-10-26
+
+### Changed
+- **不兼容**：复位端口 `rst_n` 改名为 `rst`（DEC-008）。复位名不再表示极性，本 IP 仍为低有效异步复位，集成方需按新端口名重新连接。
+- 新增 `rtl/define.v`（复位极性宏 `RST_EDGE` / `RST_ACT`、仿真延时宏 `U_DLY`），必须放在编译列表最前。寄存器、行为与时序不变；仿真中寄存器输出在时钟沿后 1 ns 变化。
 
 ## [2.0.0] - 2026-10-23
 

@@ -297,7 +297,8 @@ def run_checks(ip: Path, stage: str) -> Report:
 
     # ---- RTL ports, modules, lint
     if at_least("rtl") and isinstance(data, dict) and data.get("rtl_files") and not derrs:
-        top_file = ip / data["rtl_files"][0]
+        # rtl_files: define.v first, then the file holding the top module
+        top_file = ip / next((f for f in data["rtl_files"] if Path(f).name != "define.v"), data["rtl_files"][0])
         for f in data["rtl_files"]:
             if not (ip / f).exists():
                 rep.err("rtl", f"rtl file '{f}' listed in data but missing")

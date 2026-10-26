@@ -1,9 +1,9 @@
 ---
 doc: 08_iteration_log
 ip: demo_timer
-version: 1.4
+version: 1.5
 status: Released
-updated: 2026-10-25
+updated: 2026-10-26
 owner: rtl-flow-example
 ---
 
@@ -24,6 +24,7 @@ owner: rtl-flow-example
 | ITR-007 | 2026-10-22 | 用户反馈 | — | rtl-flow 0.2.0 流程升级：补审核记录、lint 报告入库 | 不涉及 RTL；lint PASS；signoff 0 error |
 | ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为华为 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
 | ITR-009 | 2026-10-25 | 用户反馈 | — | testbench 改为黑盒：删除 21 处 `U_dut.xxx` 层次引用，`run_regress.py --stub` 可通过 | 59/59 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
+| ITR-010 | 2026-10-26 | 用户反馈 | — | 编码规范更新：新增 `rtl/define.v`，复位端口 `rst_n` → `rst`，复位写法改用宏，非阻塞赋值带 ``#`U_DLY``，IP 版本 2.0.0 → 3.0.0 | 11/11 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
 
 > 触发：仿真失败 / Lint / 需求变更 / 评审意见 / 用户反馈。
 > 根因类别：Spec 错误 / 需求变化 / RTL bug / TB bug / 工具问题。
@@ -190,6 +191,30 @@ owner: rtl-flow-example
 - **影响文档**：07、10、README
 - **关联**：DEC-004
 - **回归结果**：`python dv/run_sim.py --seeds 50`：59/59 通过，13/13 覆盖点命中，`sw_vs_hw_en` 命中 55 次，与 ITR-008 相同；`python dv/run_mutation.py`：7/7 检出（M3 新增被 `test_periodic` 检出，M5 检出用例由 10 个减为 3 个，原因是不再逐周期比对 `CMP`）；`run_regress.py --stub`：PASS（12 个用例全部正常结束）；`run_regress.py`：12/12 通过。
+
+### ITR-010 编码规范更新：define.v、复位宏与赋值延时
+
+- **日期**：2026-10-26
+- **触发**：用户反馈：团队修改了 `rtl-coding-style.md`：宏统一定义在 `rtl/define.v` 并放在编译列表最前（HW-07）；内部复位统一命名为 `rst`，极性由 `RST_EDGE` / `RST_ACT` 决定，标准接口复位可保留 `rst_n`（HW-14、HW-41、HW-42）；非阻塞赋值写作 ``<= #`U_DLY``（HW-50）；允许 `casez` 与参数中的 `$clog2`（HW-54、HW-61）；基础重用模块有效代码 < 500 行、普通模块 300 ~ 1000 行（HW-08、HW-09）；例化 3 个及以上子模块的模块不写功能逻辑（HW-35）。`run_lint.py` 的风格检查同步更新后，本示例原 RTL 不符合 HW-07、HW-41、HW-42、HW-50，`gen_docs.py` 拒绝复位名 `rst_n`。
+- **现象**：复位端口 `rst_n`，复位写作 `negedge rst_n` / `if (rst_n == 1'b0)`；非阻塞赋值不带延时；无 `define.v`。
+- **根因**：编码规范变更，不是设计问题。（类别：不适用）
+- **修改**：
+  | 文件 | 修改摘要 |
+  |---|---|
+  | `rtl/define.v` | 新增：`RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`、`U_DLY` = 1 |
+  | `data/demo_timer.yaml` | 版本 3.0.0；`rtl_files` 首项为 `rtl/define.v`；复位与端口 `rst_n` → `rst` |
+  | `rtl/demo_timer.v`、`rtl/demo_timer_reg.v`、`rtl/demo_timer_core.v` | 端口 `rst`；``always @(posedge clk or `RST_EDGE rst)``、``if (rst == `RST_ACT)``；非阻塞赋值 ``<= #`U_DLY``；文件头版本 3.0 |
+  | `dv/tb/demo_timer_tb.v` | 端口 `rst`；驱动与采样点由时钟沿后 1 ns 改为 2 ns（`TB_SKEW`），晚于 RTL 输出变化 |
+  | `dv/run_mutation.py` | M2、M3、M5 注入位置按新赋值写法更新，注入的缺陷不变 |
+  | `syn/synth.ys` | 先读 `rtl/define.v` |
+  | `doc/00`、`01`、`02`、`05`、`07`、`09` | 信号名与复位写法；05 文件清单、编译顺序、Lint 命令（`1364-2005`），§6 记录 HW-09 偏离；09 新增 DEC-008 |
+  | `doc/03_interfaces.md` | 重新生成 |
+  | `reports/lint.log`、`reports/regress.json` | 重新生成 |
+  | `CHANGELOG.md` | 新增 3.0.0 |
+- **影响文档**：00、01、02（已审核文档，提升到 1.3，需重新审核 G0 / G1 / G2）、03、05、07、09、CHANGELOG
+- **关联**：DEC-008
+- **调试记录**：首次回归 4 个用例失败（`test_irq`、`test_periodic`、`test_cmp_boundary`、`test_priority`）：testbench 在时钟沿后 1 ns 采样，与 ``#`U_DLY`` 的 1 ns 更新同时发生，读到旧值。驱动与采样点改为沿后 2 ns 后全部通过。（类别：TB bug，由规范变更引入）
+- **回归结果**：`run_regress.py`：11/11 通过，13/13 覆盖点命中；`run_regress.py --stub`：PASS；`python dv/run_sim.py`：14/14 通过；`python dv/run_mutation.py`：7/7 检出；`run_lint.py`：PASS，0 error / 0 warning。Yosys 未重新运行（本机未安装 yowasp-yosys）。
 
 ## 3. 缺陷列表 (Bugs)
 

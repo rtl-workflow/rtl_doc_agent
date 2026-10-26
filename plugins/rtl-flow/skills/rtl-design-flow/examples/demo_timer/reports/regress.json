@@ -1,9 +1,9 @@
 {
   "mode": "rtl",
-  "date": "2026-10-25T22:56:11",
-  "rtl_sha256": "f3a9824ca83eaafd4fdf5ad4b3e0a9c42c0bdbdef6955fbd8f305e4f0ad68704",
-  "tb_sha256": "0df54fe1982236114f728c68b58360d01fd30b35795daa80c25705eae9d5eea4",
-  "tests_sha256": "09bc8b7c2ed4a87fba251437df1e376074bceea4800ec9d9b5c6b3fd93f7341a",
+  "date": "2026-10-26T22:23:49",
+  "rtl_sha256": "60b1083ec42fa1f2a8479a311308ae7adee58eec1858e5172e53cdfbbddf0977",
+  "tb_sha256": "1d06122ed379832dd37c6accfd52497855306cfbfd0569c342ca9e7d6b070525",
+  "tests_sha256": "7e5703ed4e26ff791b8ee559d878867462699154476064851de6e1fa37d0290a",
   "compile": {
     "ok": true,
     "messages": []
@@ -41,17 +41,6 @@
       "errors": 0,
       "first_errors": [],
       "log": "dv/build/regress/logs/test_apb_err_1.log"
-    },
-    {
-      "test": "test_oneshot",
-      "tp": [
-        "TP-004"
-      ],
-      "seed": 1,
-      "status": "PASSED",
-      "errors": 0,
-      "first_errors": [],
-      "log": "dv/build/regress/logs/test_oneshot_1.log"
     },
     {
       "test": "test_irq",
@@ -143,7 +132,7 @@
     }
   ],
   "cover": {
-    "expire_oneshot": 166,
+    "expire_oneshot": 163,
     "expire_periodic": 1384,
     "set_vs_clear": 25,
     "sw_vs_hw_en": 4,
@@ -160,5 +149,5 @@
   "uncovered": [],
   "problems": [],
   "result": "PASS",
-  "summary": "12/12 passed; 13/13 cover points hit"
+  "summary": "11/11 passed; 13/13 cover points hit"
 }

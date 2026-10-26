@@ -19,7 +19,7 @@ AI 执行 rtl-design-flow 时，应**优先模仿本目录示例的写法、粒�
 | lint 报告（含 RTL 摘要，供检查脚本判断是否过期） | `reports/lint.log` |
 | 02 子模块表：模块名与 RTL、05 一一对应 | `doc/02_architecture.md` §2 |
 | 不适用项的写法（附原因与替代证据） | `doc/10_checklist.md` |
-| 华为 Verilog 编码规范的 RTL 写法：文件头、`i_`/`o_` 端口、每个寄存器一个 `always` 块、`if (rst_n == 1'b0)` | `rtl/*.v` |
+| 华为 Verilog 编码规范的 RTL 写法：文件头、`i_`/`o_` 端口、每个寄存器一个 `always` 块、`define.v` 中的复位 / 延时宏、``if (rst == `RST_ACT)``、``<= #`U_DLY`` | `rtl/*.v` |
 | 规范偏离的记录方式（HW-33） | `doc/05_rtl_structure.md` §6、DEC-007 |
 | 黑盒自检查 Verilog-2001 testbench：只通过顶层端口访问 DUT；定向 + 参考模型逐周期比对 + 覆盖点 | `dv/tb/demo_timer_tb.v` |
 | 黑盒下观测内部行为：寄存器回读比对、`o_irq` 上升沿 + 时钟沿计数器测时间、按参考模型计数值对齐同拍冲突 | `dv/tb/demo_timer_tb.v`（`wait_count`、`test_periodic`、`test_priority`）、`doc/07_dv_plan.md` §2 |

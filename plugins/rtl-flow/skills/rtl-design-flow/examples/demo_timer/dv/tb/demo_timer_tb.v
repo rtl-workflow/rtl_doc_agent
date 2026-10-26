@@ -21,7 +21,7 @@ localparam ADDR_INTR_ENABLE = 12'h010;
 // DUT
 //------------------------------------------------------------------------------
 reg             clk     = 1'b0;
-reg             rst_n   = 1'b0;
+reg             rst     = 1'b0;   // 低有效（data/demo_timer.yaml resets）
 reg             psel    = 1'b0;
 reg             penable = 1'b0;
 reg             pwrite  = 1'b0;
@@ -34,9 +34,12 @@ wire            irq;
 
 always #5 clk = ~clk;  // 100 MHz
 
+// 驱动与采样点：posedge 后 2 ns，晚于 RTL 输出变化（时钟沿后 1 ns，rtl-coding-style HW-50 / §10）
+localparam TB_SKEW = 2;
+
 demo_timer U_dut (
     .clk        (clk        ),
-    .rst_n      (rst_n      ),
+    .rst        (rst        ),
     .i_psel     (psel       ),
     .i_penable  (penable    ),
     .i_pwrite   (pwrite     ),
@@ -58,7 +61,7 @@ reg [8*100-1:0] tst_msg;            // 测试用例报错信息
 integer         cyc = 0;            // 复位释放后的时钟沿计数，用于测量时间间隔
 
 always @(posedge clk) begin
-    if (rst_n == 1'b1) cyc <= cyc + 1;
+    if (rst == 1'b1) cyc <= cyc + 1;
 end
 
 // 只打印前 100 条错误（如 --stub 下每拍都报错），计数不受影响
@@ -82,8 +85,8 @@ reg     [31:0]  m_cnt;
 wire            m_wr     = psel & penable & pwrite;
 wire            m_expire = m_en && (m_cnt >= m_cmp);
 
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
+always @(posedge clk or negedge rst) begin
+    if (rst == 1'b0) begin
         m_en <= 1'b0; m_mode <= 1'b0; m_cmp <= 32'hFFFF_FFFF;
         m_cnt <= 32'd0; m_st <= 1'b0; m_ie <= 1'b0;
     end
@@ -128,7 +131,7 @@ endfunction
 // 逐周期监视器（07_dv_plan §4）：只观测顶层端口，内部状态经 APB 读（A7）与 o_irq（A6）比对
 //------------------------------------------------------------------------------
 always @(negedge clk) begin
-    if (rst_n == 1'b0) begin
+    if (rst == 1'b0) begin
         if (irq !== 1'b0) fail("A1: o_irq not low during reset");
     end
     else begin
@@ -156,7 +159,7 @@ reg     [31:0]  paused_cnt = 32'd0;
 reg             paused     = 1'b0;
 
 always @(posedge clk) begin
-    if (rst_n == 1'b1) begin
+    if (rst == 1'b1) begin
         if (m_expire && !m_mode) cv_expire_oneshot = cv_expire_oneshot + 1;
         if (m_expire &&  m_mode) cv_expire_periodic = cv_expire_periodic + 1;
         if (m_expire && m_wr && paddr == ADDR_INTR_STATE && pwdata[0]) cv_set_vs_clear = cv_set_vs_clear + 1;
@@ -194,19 +197,19 @@ task report_cover;
 endtask
 
 //------------------------------------------------------------------------------
-// APB 任务（调用时位于 posedge 后 1 ns，返回时同样）
+// APB 任务（调用时位于 posedge 后 TB_SKEW，返回时同样）
 //------------------------------------------------------------------------------
 task automatic apb_write(input [11:0] a, input [31:0] d, input exp_err);
     begin
         psel = 1'b1; pwrite = 1'b1; paddr = a; pwdata = d; penable = 1'b0;
-        @(posedge clk); #1;
+        @(posedge clk); #TB_SKEW;
         penable = 1'b1;
         #1;
         if (pslverr !== exp_err) begin
             $sformat(tst_msg, "write 0x%03h: pslverr=%0b expected %0b", a, pslverr, exp_err);
             fail(tst_msg);
         end
-        @(posedge clk); #1;
+        @(posedge clk); #TB_SKEW;
         psel = 1'b0; penable = 1'b0; pwrite = 1'b0;
     end
 endtask
@@ -214,7 +217,7 @@ endtask
 task automatic apb_read(input [11:0] a, output [31:0] d, input exp_err);
     begin
         psel = 1'b1; pwrite = 1'b0; paddr = a; penable = 1'b0;
-        @(posedge clk); #1;
+        @(posedge clk); #TB_SKEW;
         penable = 1'b1;
         #1;
         d = prdata;
@@ -222,7 +225,7 @@ task automatic apb_read(input [11:0] a, output [31:0] d, input exp_err);
             $sformat(tst_msg, "read 0x%03h: pslverr=%0b expected %0b", a, pslverr, exp_err);
             fail(tst_msg);
         end
-        @(posedge clk); #1;
+        @(posedge clk); #TB_SKEW;
         psel = 1'b0; penable = 1'b0;
     end
 endtask
@@ -245,17 +248,17 @@ endtask
 task automatic idle(input integer n);
     begin
         repeat (n) @(posedge clk);
-        #1;
+        #TB_SKEW;
     end
 endtask
 
-// 等待到 posedge 后 1 ns 且参考模型 COUNT == v（用于构造同拍冲突）。
+// 等待到 posedge 后 TB_SKEW 且参考模型 COUNT == v（用于构造同拍冲突）。
 // DUT 内部计数值不可见，按参考模型对齐；DUT 若偏离，后续检查与 A7 会报错
 task automatic wait_count(input [31:0] v);
     integer k;
     begin
         k = 0;
-        while (m_cnt !== v && k < 10000) begin @(posedge clk); #1; k = k + 1; end
+        while (m_cnt !== v && k < 10000) begin @(posedge clk); #TB_SKEW; k = k + 1; end
         if (m_cnt !== v) fail("wait_count timeout");
     end
 endtask
@@ -275,16 +278,16 @@ endtask
 task automatic measure_irq(output integer k);
     begin
         k = 0;
-        while (irq !== 1'b1 && k < 10000) begin @(posedge clk); #1; k = k + 1; end
+        while (irq !== 1'b1 && k < 10000) begin @(posedge clk); #TB_SKEW; k = k + 1; end
     end
 endtask
 
 task automatic do_reset;
     begin
-        rst_n = 1'b0;
+        rst = 1'b0;
         psel = 1'b0; penable = 1'b0; pwrite = 1'b0;
         idle(3);
-        rst_n = 1'b1;
+        rst = 1'b1;
         idle(1);
     end
 endtask
@@ -488,7 +491,7 @@ task automatic test_cmp_boundary;
         idle(50);
         wr(ADDR_CMP, 32'd10);                       // 写入沿之后的第一拍即应到时
         if (irq !== 1'b0) fail("expired before CMP write took effect");
-        @(posedge clk); #1;                         // 到时在下一个沿置位 EXPIRED
+        @(posedge clk); #TB_SKEW;                   // 到时在下一个沿置位 EXPIRED
         if (irq !== 1'b1) fail("expire not immediate after CMP lowered below COUNT");
         wr(ADDR_INTR_STATE, 32'd1);                 // 计数已归零，只到时一次，W1C 应能清除
         rd_check(ADDR_INTR_STATE, 32'h0);

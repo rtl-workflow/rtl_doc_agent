@@ -1,7 +1,7 @@
 ---
 doc: 04_registers
 ip: demo_timer
-version: 2.0.0
+version: 3.0.0
 status: Generated
 source: data/demo_timer.yaml
 ---

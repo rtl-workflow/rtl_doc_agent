@@ -1,9 +1,9 @@
 ---
 doc: 09_decisions
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-23
+updated: 2026-10-26
 owner: rtl-flow-example
 ---
 
@@ -20,6 +20,7 @@ owner: rtl-flow-example
 | DEC-005 | 2026-10-22 | 计数清零以 `CTRL.CLR` 写 1 触发实现 | 已采纳 |
 | DEC-006 | 2026-10-23 | RTL 编码规范改为华为 Verilog 编码规范，端口改名 | 已采纳 |
 | DEC-007 | 2026-10-23 | 顶层 APB 输出与中断不经寄存器输出（偏离 HW-33） | 已采纳 |
+| DEC-008 | 2026-10-26 | 复位端口改名为 `rst`，复位极性与仿真延时改用 `define.v` 宏 | 已采纳 |
 
 > 状态：提议 / 已采纳 / 已废弃（被 DEC-xxx 取代）。
 
@@ -89,3 +90,12 @@ owner: rtl-flow-example
   2. 保持组合输出，记录偏离：组合逻辑只有一级地址选择（`o_prdata`）或一个与门（`o_irq`），输入均来自本 IP 的寄存器和 APB 输入，时序风险可控。
 - **结论**：选 2。偏离记录在 05_rtl_structure §6。若集成方要求寄存输出，可在 SoC 层加一级寄存，或作为需求变更处理。
 - **影响**：05_rtl_structure §6；RTL 注释引用本 DEC。
+
+### DEC-008 复位端口改名为 `rst`，复位极性与仿真延时改用 `define.v` 宏
+
+- **背景**：rtl-coding-style 更新：宏统一放在 `rtl/define.v`，并放在编译列表最前（HW-07）；复位名不区分高低有效，统一为 `rst`（HW-14）；复位沿与复位判断写作 `` `RST_EDGE rst `` / ``if (rst == `RST_ACT)``（HW-41、HW-42）；非阻塞赋值写作 ``<= #`U_DLY``（HW-50）。本示例复位端口为 `rst_n`，复位写法为 `negedge rst_n` / `if (rst_n == 1'b0)`，赋值不带延时。
+- **选项**：
+  1. 本示例保留原写法：示例是新 IP 的参考，`run_lint.py` 会报风格违规，`gen_docs.py` 会拒绝 `rst_n`。
+  2. 按新规范修改：端口 `rst_n` → `rst`，对集成方不兼容；复位极性（低有效）、寄存器、行为与时序不变。
+- **结论**：选 2。IP 版本 2.0.0 → 3.0.0（端口改名为不兼容变化）。`rtl/define.v`：`RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`、`U_DLY` = 1。
+- **影响**：data/demo_timer.yaml（`rtl_files`、`resets`、`ports`）；00、01、02（信号名与复位写法，升至 1.3，需重新审核 G0 / G1 / G2）；03（重新生成）；05；07；RTL 全部文件与新增 `rtl/define.v`；testbench；`dv/run_mutation.py`、`syn/synth.ys`；CHANGELOG 3.0.0。

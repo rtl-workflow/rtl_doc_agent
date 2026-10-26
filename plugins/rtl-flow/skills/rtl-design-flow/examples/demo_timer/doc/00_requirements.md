@@ -1,9 +1,9 @@
 ---
 doc: 00_requirements
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-24
+updated: 2026-10-26
 owner: rtl-flow-example
 reviewer: 示例用户
 approved: 1.2@2026-10-24
@@ -58,7 +58,7 @@ approved: 1.2@2026-10-24
 | ASM-001 | 计数器从 0 开始递增计数（而不是从比较值递减）。 | 原文「计数到了」暗示向上计数 | 已确认 |
 | ASM-002 | 计数值达到比较值的当拍产生事件，下一拍归零，因此一个周期为 `CMP.VAL` + 1 拍。 | 常见定时器语义，且 `CMP.VAL` = 0 时仍有确定行为 | 已确认 |
 | ASM-003 | 在原文三类寄存器之外增加 `INTR_ENABLE`（中断屏蔽）和 `COUNT`（计数值只读，便于调试）。 | 中断需可屏蔽；软件需要能读当前计数 | 已确认 |
-| ASM-004 | 复位为异步复位、同步释放、低有效 (`rst_n`)，复位同步器位于 IP 外部。 | 团队默认复位方案（rtl-coding-style HW-41） | 已确认 |
+| ASM-004 | 复位为异步复位、同步释放、低有效 (`rst`，极性由 `rtl/define.v` 的 `RST_EDGE` / `RST_ACT` 配置)，复位同步器位于 IP 外部。 | 团队默认复位方案（rtl-coding-style HW-41） | 已确认 |
 
 ## 5. 待确认问题 (Open Questions)
 

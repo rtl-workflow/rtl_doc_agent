@@ -13,6 +13,7 @@ owner: {{owner}}
 
 | 文件 | 模块 | 说明 |
 |---|---|---|
+| `rtl/define.v` | — | 全局宏：`RST_EDGE`、`RST_ACT`、`U_DLY`（rtl-coding-style HW-07） |
 | `rtl/{{ip}}.v` | `{{ip}}` | 顶层 |
 
 ## 2. 模块层次 (Hierarchy)
@@ -39,10 +40,13 @@ owner: {{owner}}
 ## 5. 编译与文件顺序 (Compile Order)
 
 ```text
+rtl/define.v
 rtl/{{ip}}.v
 rtl/{{ip}}_reg.v
 rtl/{{ip}}_core.v
 ```
+
+按 `data/{{ip}}.yaml` 的 `rtl_files` 顺序编译，`rtl/define.v` 必须在最前（HW-07）。
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 

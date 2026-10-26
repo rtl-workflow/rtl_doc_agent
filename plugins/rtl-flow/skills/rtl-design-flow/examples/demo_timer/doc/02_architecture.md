@@ -1,9 +1,9 @@
 ---
 doc: 02_architecture
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-24
+updated: 2026-10-26
 owner: rtl-flow-example
 reviewer: 示例用户
 approved: 1.2@2026-10-24
@@ -83,8 +83,8 @@ stateDiagram-v2
 |---|---|---|
 | `clk` | 100 MHz | 全部 |
 
-- 所有触发器使用 `always @(posedge clk or negedge rst_n)`，复位判断写作 `if (rst_n == 1'b0)`（rtl-coding-style HW-41、HW-42），异步复位到 04_registers 定义的复位值（ASM-004）。
-- 复位同步器位于 IP 外部，`rst_n` 释放沿已同步到 `clk`。
+- 所有触发器使用 ``always @(posedge clk or `RST_EDGE rst)``，复位判断写作 ``if (rst == `RST_ACT)``，非阻塞赋值写作 ``<= #`U_DLY``（rtl-coding-style HW-41、HW-42、HW-50），异步复位到 04_registers 定义的复位值。`rtl/define.v` 中 `RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`，即低有效（ASM-004）。
+- 复位同步器位于 IP 外部，`rst` 释放沿已同步到 `clk`。
 - 全部 68 个触发器均可复位（`CTRL` 2 + `CMP` 32 + `COUNT` 32 + `INTR_STATE` 1 + `INTR_ENABLE` 1）。
 
 ## 6. 跨时钟域 (CDC)
