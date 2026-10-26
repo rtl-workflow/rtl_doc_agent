@@ -1,6 +1,6 @@
 {
   "name": "rtl-flow",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "RTL 设计全流程（多 agent）：编排状态机 + 需求/规格、架构、RTL、独立验证、调试 5 个角色 agent，G0–G2 人工审核，脚本与 hook 强制检查和权限。",
   "author": {
     "name": "rtl-workflow"

@@ -1,7 +1,7 @@
 ---
 doc: 03_interfaces
 ip: demo_timer
-version: 2.0.0
+version: 3.0.0
 status: Generated
 source: data/demo_timer.yaml
 ---
@@ -13,7 +13,7 @@ source: data/demo_timer.yaml
 32 bit 可编程定时器，APB3 从接口，支持单次/周期模式，到时产生电平中断。
 
 - 顶层模块：`demo_timer`
-- IP 版本：2.0.0
+- IP 版本：3.0.0
 
 ## 1. 参数 (Parameters)
 
@@ -27,16 +27,16 @@ source: data/demo_timer.yaml
 
 ## 3. 复位 (Resets)
 
-| 名称 | 有效电平 | 类型 | 关联时钟 | 描述 |
-|---|---|---|---|---|
-| `rst_n` | low | async_assert_sync_deassert | `clk` | 主复位，复位同步器位于 IP 外部 |
+| 名称 | 有效电平 | 极性来源 | 类型 | 关联时钟 | 描述 |
+|---|---|---|---|---|---|
+| `rst` | low | `define.v` | async_assert_sync_deassert | `clk` | 主复位，复位同步器位于 IP 外部 |
 
 ## 4. 端口 (Ports)
 
 | 名称 | 方向 | 位宽 | 时钟域 | 描述 |
 |---|---|---|---|---|
 | `clk` | input | 1 | clk | 主时钟 |
-| `rst_n` | input | 1 | async | 低有效复位 |
+| `rst` | input | 1 | async | 异步复位，低有效 |
 | `i_psel` | input | 1 | clk | APB 片选 |
 | `i_penable` | input | 1 | clk | APB 访问阶段指示 |
 | `i_pwrite` | input | 1 | clk | APB 写使能，1 为写 |

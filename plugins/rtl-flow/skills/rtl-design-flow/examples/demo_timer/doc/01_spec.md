@@ -1,9 +1,9 @@
 ---
 doc: 01_spec
 ip: demo_timer
-version: 1.2
+version: 1.3
 status: Released
-updated: 2026-10-24
+updated: 2026-10-26
 owner: rtl-flow-example
 reviewer: 示例用户
 approved: 1.2@2026-10-24
@@ -19,7 +19,7 @@ approved: 1.2@2026-10-24
 flowchart LR
   cpu[CPU / APB Master] -- APB3 --> timer[demo_timer]
   timer -- o_irq --> intc[中断控制器]
-  clk[clk / rst_n] --> timer
+  clk[clk / rst] --> timer
 ```
 
 ## 2. 特性列表 (Features)
@@ -115,7 +115,7 @@ flowchart LR
 > 覆盖需求: REQ-REG-001
 
 - 单时钟域，所有逻辑工作在 `clk` 上升沿。
-- `rst_n` 为低时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
+- `rst` 为低（复位有效）时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
 - 复位期间及复位释放后，在软件使能前计数器不会计数，`o_irq` 保持为低。
 
 ## 6. 中断与错误处理 (Interrupts & Errors)

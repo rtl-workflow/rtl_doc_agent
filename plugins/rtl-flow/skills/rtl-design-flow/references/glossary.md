@@ -32,8 +32,9 @@
 | `o_` | 模块输出 | `o_irq` |
 | `io_` | 双向 | `io_sda` |
 | `clk` / `clk_<domain>` | 时钟（端口不加 `i_`） | `clk`, `clk_apb` |
-| `rst_n` / `rst_<domain>_n` | 低有效复位（端口不加 `i_`） | `rst_n`, `rst_apb_n` |
-| `_n` | 低有效 | `o_cs_n` |
+| `rst` / `rst_<domain>` | 内部复位（端口不加 `i_`；名字不表示极性，极性由 `define.v` 的 `RST_EDGE` / `RST_ACT` 决定） | `rst`, `rst_apb` |
+| `rst_n` / `rst_<domain>_n` | 低有效的标准接口复位（yaml 中 `std_if: true`，如 APB `PRESETn`） | `rst_apb_n` |
+| `_n` | 低有效（内部复位除外） | `o_cs_n`, `rst_apb_n` |
 | `_z` | 三态输出寄存器 | `sda_out_z` |
 | `_r` / `_r1`、`_r2` | 时序寄存器 / 打拍 | `cnt_r`, `req_r1` |
 | `_en` / `_we` | 使能 / 写使能 | `cnt_en` |

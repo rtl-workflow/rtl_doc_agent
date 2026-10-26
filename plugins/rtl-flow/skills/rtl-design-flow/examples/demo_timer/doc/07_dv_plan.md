@@ -1,9 +1,9 @@
 ---
 doc: 07_dv_plan
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-25
+updated: 2026-10-26
 owner: rtl-flow-example
 ---
 
@@ -42,7 +42,7 @@ flowchart LR
 
 | ID | 描述 | 覆盖需求 | 激励 | 检查方法 | 用例 | 状态 |
 |---|---|---|---|---|---|---|
-| TP-001 | 复位值正确；复位后不计数；运行中复位能恢复到复位值 | REQ-REG-001 | 读全部寄存器；空闲 50 周期；周期模式运行中拉低 `rst_n` | 读值与 yaml `resval` 比对；监视器 A1 | `test_reset` | 通过 |
+| TP-001 | 复位值正确；复位后不计数；运行中复位能恢复到复位值 | REQ-REG-001 | 读全部寄存器；空闲 50 周期；周期模式运行中拉低 `rst` | 读值与 yaml `resval` 比对；监视器 A1 | `test_reset` | 通过 |
 | TP-002 | 寄存器读写；保留位读 0；`COUNT` 只读 | REQ-REG-002, REQ-IF-001 | 写全 1 / 交替图案后回读 | 读值比对；`o_pready` 恒 1（A3） | `test_reg_rw` | 通过 |
 | TP-003 | 非法 / 非对齐地址返回 `pslverr`，读 0，写无效 | REQ-IF-002 | 访问 `0x014`、`0x100`、`0xFFC`、`0x001`、`0x002`、`0x006` | `o_pslverr` 期望值；之后回读寄存器未被改写；A4、A5 | `test_apb_err` | 通过 |
 | TP-004 | 单次模式：使能后正好 `CMP.VAL` + 1 个周期到时，EN 自动清零，之后不再触发，可重新启动 | REQ-FUNC-001, REQ-FUNC-002, REQ-FUNC-003 | `CMP.VAL` = 9、0、37 `o_irq` 拉高前的时钟沿数与期望值比对；回读 `CTRL`、`COUNT`、`INTR_STATE`；清除后空闲 3 × `CMP.VAL` + 10 周期，`o_irq` 保持低、`INTR_STATE` 读 0 | `test_oneshot` | 通过 |

@@ -3,14 +3,14 @@
 // File name   : demo_timer_reg.v
 // Module name : demo_timer_reg
 // Function    : APB3 从接口、地址译码与寄存器（04_registers、02_architecture §4）
-// Version     : 2.0
-// Date        : 2026-10-23
+// Version     : 3.0
+// Date        : 2026-10-26
 // Doc         : doc/05_rtl_structure.md
 // History     : 见 CHANGELOG.md 与 doc/08_iteration_log.md
 //==============================================================================
 module demo_timer_reg (
     input               clk             ,   // 主时钟
-    input               rst_n           ,   // 低有效异步复位
+    input               rst             ,   // 异步复位，极性由 define.v 的 RST_EDGE / RST_ACT 决定
     // APB3
     input               i_psel          ,
     input               i_penable       ,
@@ -88,58 +88,58 @@ end
 // 寄存器
 //------------------------------------------------------------------------------
 // CTRL.EN：单次模式到时硬件清零；软件写优先（DEC-002）
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        ctrl_en_r <= 1'b0;
+always @(posedge clk or `RST_EDGE rst) begin
+    if (rst == `RST_ACT) begin
+        ctrl_en_r <= #`U_DLY 1'b0;
     end
     else if ((wr_en == 1'b1) && (hit_ctrl == 1'b1)) begin
-        ctrl_en_r <= i_pwdata[0];
+        ctrl_en_r <= #`U_DLY i_pwdata[0];
     end
     else if ((i_expire == 1'b1) && (ctrl_mode_r == MODE_ONESHOT)) begin
-        ctrl_en_r <= 1'b0;
+        ctrl_en_r <= #`U_DLY 1'b0;
     end
 end
 
 // CTRL.MODE
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        ctrl_mode_r <= 1'b0;
+always @(posedge clk or `RST_EDGE rst) begin
+    if (rst == `RST_ACT) begin
+        ctrl_mode_r <= #`U_DLY 1'b0;
     end
     else if ((wr_en == 1'b1) && (hit_ctrl == 1'b1)) begin
-        ctrl_mode_r <= i_pwdata[1];
+        ctrl_mode_r <= #`U_DLY i_pwdata[1];
     end
 end
 
 // CMP.VAL
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        cmp_r <= 32'hFFFF_FFFF;
+always @(posedge clk or `RST_EDGE rst) begin
+    if (rst == `RST_ACT) begin
+        cmp_r <= #`U_DLY 32'hFFFF_FFFF;
     end
     else if ((wr_en == 1'b1) && (hit_cmp == 1'b1)) begin
-        cmp_r <= i_pwdata;
+        cmp_r <= #`U_DLY i_pwdata;
     end
 end
 
 // INTR_STATE.EXPIRED：rw1c；硬件置位优先（DEC-003）
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        intr_state_r <= 1'b0;
+always @(posedge clk or `RST_EDGE rst) begin
+    if (rst == `RST_ACT) begin
+        intr_state_r <= #`U_DLY 1'b0;
     end
     else if (i_expire == 1'b1) begin
-        intr_state_r <= 1'b1;
+        intr_state_r <= #`U_DLY 1'b1;
     end
     else if ((wr_en == 1'b1) && (hit_intr_state == 1'b1) && (i_pwdata[0] == 1'b1)) begin
-        intr_state_r <= 1'b0;
+        intr_state_r <= #`U_DLY 1'b0;
     end
 end
 
 // INTR_ENABLE.EXPIRED
-always @(posedge clk or negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        intr_enable_r <= 1'b0;
+always @(posedge clk or `RST_EDGE rst) begin
+    if (rst == `RST_ACT) begin
+        intr_enable_r <= #`U_DLY 1'b0;
     end
     else if ((wr_en == 1'b1) && (hit_intr_enable == 1'b1)) begin
-        intr_enable_r <= i_pwdata[0];
+        intr_enable_r <= #`U_DLY i_pwdata[0];
     end
 end
 
