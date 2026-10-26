@@ -1,0 +1,164 @@
+{
+  "mode": "rtl",
+  "date": "2026-10-25T22:56:11",
+  "rtl_sha256": "f3a9824ca83eaafd4fdf5ad4b3e0a9c42c0bdbdef6955fbd8f305e4f0ad68704",
+  "tb_sha256": "0df54fe1982236114f728c68b58360d01fd30b35795daa80c25705eae9d5eea4",
+  "tests_sha256": "09bc8b7c2ed4a87fba251437df1e376074bceea4800ec9d9b5c6b3fd93f7341a",
+  "compile": {
+    "ok": true,
+    "messages": []
+  },
+  "tests": [
+    {
+      "test": "test_reset",
+      "tp": [
+        "TP-001"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_reset_1.log"
+    },
+    {
+      "test": "test_reg_rw",
+      "tp": [
+        "TP-002"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_reg_rw_1.log"
+    },
+    {
+      "test": "test_apb_err",
+      "tp": [
+        "TP-003"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_apb_err_1.log"
+    },
+    {
+      "test": "test_oneshot",
+      "tp": [
+        "TP-004"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_oneshot_1.log"
+    },
+    {
+      "test": "test_irq",
+      "tp": [
+        "TP-005"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_irq_1.log"
+    },
+    {
+      "test": "test_periodic",
+      "tp": [
+        "TP-006"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_periodic_1.log"
+    },
+    {
+      "test": "test_cmp_boundary",
+      "tp": [
+        "TP-007"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_cmp_boundary_1.log"
+    },
+    {
+      "test": "test_priority",
+      "tp": [
+        "TP-008"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_priority_1.log"
+    },
+    {
+      "test": "test_random",
+      "tp": [
+        "TP-009"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_random_1.log"
+    },
+    {
+      "test": "test_random",
+      "tp": [
+        "TP-009"
+      ],
+      "seed": 2,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_random_2.log"
+    },
+    {
+      "test": "test_random",
+      "tp": [
+        "TP-009"
+      ],
+      "seed": 3,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_random_3.log"
+    },
+    {
+      "test": "test_clr",
+      "tp": [
+        "TP-011"
+      ],
+      "seed": 1,
+      "status": "PASSED",
+      "errors": 0,
+      "first_errors": [],
+      "log": "dv/build/regress/logs/test_clr_1.log"
+    }
+  ],
+  "cover": {
+    "expire_oneshot": 166,
+    "expire_periodic": 1384,
+    "set_vs_clear": 25,
+    "sw_vs_hw_en": 4,
+    "err_read": 712,
+    "err_write": 721,
+    "cmp_zero_periodic": 361,
+    "cmp_below_count": 57,
+    "irq_masked": 9707,
+    "pause_resume": 54,
+    "clr_running": 113,
+    "clr_stopped": 34,
+    "clr_vs_expire": 17
+  },
+  "uncovered": [],
+  "problems": [],
+  "result": "PASS",
+  "summary": "12/12 passed; 13/13 cover points hit"
+}

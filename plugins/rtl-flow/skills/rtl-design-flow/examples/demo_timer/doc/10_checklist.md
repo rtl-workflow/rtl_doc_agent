@@ -1,9 +1,9 @@
 ---
 doc: 10_checklist
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-24
+updated: 2026-10-25
 owner: rtl-flow-example
 ---
 
@@ -23,7 +23,7 @@ owner: rtl-flow-example
 - [x] 全部 RTL 文件完成，顶层端口与 yaml 一致（check_docs --stage rtl 通过）
 - [x] 05_rtl_structure 完成
 - [x] Lint 零 error，warning 均已豁免说明（`reports/lint.log`：PASS，风格检查 0 违规，Verilator 0 error / 0 warning，无豁免）
-- [x] 所有寄存器与 yaml 一致（TP-001、TP-002 回读验证；A8 读数据逐次比对）
+- [x] 所有寄存器与 yaml 一致（TP-001、TP-002 回读验证；A7 读数据逐次比对）
 
 ## D2 设计稳定
 

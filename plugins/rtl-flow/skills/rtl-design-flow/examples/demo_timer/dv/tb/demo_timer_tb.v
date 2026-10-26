@@ -2,9 +2,10 @@
 //==============================================================================
 // File name   : demo_timer_tb.v
 // Module name : demo_timer_tb
-// Function    : 自检查测试平台。定向测试 + 逐周期参考模型监视器（DEC-004）+ 功能覆盖点
-// Version     : 2.0
-// Date        : 2026-10-23
+// Function    : 黑盒自检查测试平台，只通过顶层端口访问 DUT。
+//               定向测试 + 参考模型 + 逐周期端口监视器（DEC-004）+ 功能覆盖点
+// Version     : 2.1
+// Date        : 2026-10-25
 // Doc         : doc/07_dv_plan.md
 // Usage       : vvp tb.vvp +TEST=<name> [+SEED=<n>]
 //==============================================================================
@@ -54,11 +55,18 @@ integer         errors = 0;
 reg [8*32-1:0]  test;
 reg [8*100-1:0] mon_msg;            // 监视器报错信息
 reg [8*100-1:0] tst_msg;            // 测试用例报错信息
+integer         cyc = 0;            // 复位释放后的时钟沿计数，用于测量时间间隔
 
+always @(posedge clk) begin
+    if (rst_n == 1'b1) cyc <= cyc + 1;
+end
+
+// 只打印前 100 条错误（如 --stub 下每拍都报错），计数不受影响
 task automatic fail(input [8*100-1:0] msg);
     begin
         errors = errors + 1;
-        $display("[%0t] ERROR: %0s", $time, msg);
+        if (errors <= 100) $display("[%0t] ERROR: %0s", $time, msg);
+        if (errors == 100) $display("[%0t] (further errors not printed)", $time);
     end
 endtask
 
@@ -117,7 +125,7 @@ function addr_valid(input [11:0] a);
 endfunction
 
 //------------------------------------------------------------------------------
-// 逐周期监视器（07_dv_plan §4）
+// 逐周期监视器（07_dv_plan §4）：只观测顶层端口，内部状态经 APB 读（A7）与 o_irq（A6）比对
 //------------------------------------------------------------------------------
 always @(negedge clk) begin
     if (rst_n == 1'b0) begin
@@ -129,21 +137,8 @@ always @(negedge clk) begin
         if (pslverr && !(psel && penable))                      fail("A4: o_pslverr outside access phase");
         if (psel && penable && (pslverr !== !addr_valid(paddr))) fail("A5: o_pslverr mismatch");
         if (irq !== (m_st & m_ie))                              fail("A6: o_irq != EXPIRED & ENABLE");
-        if (U_dut.count_val !== m_cnt) begin
-            $sformat(mon_msg, "A7: COUNT dut=%0d model=%0d", U_dut.count_val, m_cnt);
-            fail(mon_msg);
-        end
-        if (U_dut.ctrl_en !== m_en) begin
-            $sformat(mon_msg, "A7: CTRL.EN dut=%0b model=%0b", U_dut.ctrl_en, m_en);
-            fail(mon_msg);
-        end
-        if (U_dut.U_reg.ctrl_mode_r !== m_mode) fail("A7: CTRL.MODE mismatch");
-        if (U_dut.cmp_val     !== m_cmp)        fail("A7: CMP mismatch");
-        if (U_dut.intr_state  !== m_st)         fail("A7: INTR_STATE mismatch");
-        if (U_dut.intr_enable !== m_ie)         fail("A7: INTR_ENABLE mismatch");
-        if (U_dut.expire      !== m_expire)     fail("A7: expire mismatch");
         if (psel && penable && !pwrite && prdata !== model_read(paddr)) begin
-            $sformat(mon_msg, "A8: read 0x%03h dut=0x%08h model=0x%08h", paddr, prdata, model_read(paddr));
+            $sformat(mon_msg, "A7: read 0x%03h dut=0x%08h model=0x%08h", paddr, prdata, model_read(paddr));
             fail(mon_msg);
         end
     end
@@ -254,20 +249,33 @@ task automatic idle(input integer n);
     end
 endtask
 
-// 等待到 posedge 后 1 ns 且 COUNT == v（用于构造同拍冲突）
+// 等待到 posedge 后 1 ns 且参考模型 COUNT == v（用于构造同拍冲突）。
+// DUT 内部计数值不可见，按参考模型对齐；DUT 若偏离，后续检查与 A7 会报错
 task automatic wait_count(input [31:0] v);
+    integer k;
     begin
-        while (U_dut.count_val !== v) begin @(posedge clk); #1; end
+        k = 0;
+        while (m_cnt !== v && k < 10000) begin @(posedge clk); #1; k = k + 1; end
+        if (m_cnt !== v) fail("wait_count timeout");
     end
 endtask
 
-// 计数值归零：用 CMP=0 的单次模式立即到时（软件无直接清零手段，见 01_spec §9）
+// 计数值归零：用 CMP=0 的单次模式立即到时（会置位 INTR_STATE.EXPIRED）
 task automatic zero_count;
     begin
         wr(ADDR_CMP, 32'd0);
         wr(ADDR_CTRL, 32'h1);
         idle(2);
-        if (U_dut.count_val !== 32'h0 || U_dut.ctrl_en !== 1'b0) fail("zero_count failed");
+        rd_check(ADDR_COUNT, 32'h0);
+        rd_check(ADDR_CTRL, 32'h0);
+    end
+endtask
+
+// 等待 o_irq 拉高，返回经过的时钟沿数（调用前需已使能中断）
+task automatic measure_irq(output integer k);
+    begin
+        k = 0;
+        while (irq !== 1'b1 && k < 10000) begin @(posedge clk); #1; k = k + 1; end
     end
 endtask
 
@@ -352,14 +360,6 @@ task automatic test_apb_err;
     end
 endtask
 
-// 启动后测量到 irq 拉高经过的时钟沿数（调用前需已使能中断）
-task automatic measure_irq(output integer k);
-    begin
-        k = 0;
-        while (irq !== 1'b1 && k < 10000) begin @(posedge clk); #1; k = k + 1; end
-    end
-endtask
-
 // TP-004 单次模式：到时时刻、EN 自动清零、不再触发、可重新启动
 function [31:0] oneshot_cmp(input [1:0] i);
     case (i)
@@ -370,7 +370,7 @@ function [31:0] oneshot_cmp(input [1:0] i);
 endfunction
 
 task automatic test_oneshot;
-    integer i, k, n0;
+    integer i, k;
     reg [31:0] cmp;
     begin
         wr(ADDR_INTR_ENABLE, 32'd1);
@@ -386,11 +386,12 @@ task automatic test_oneshot;
             rd_check(ADDR_CTRL, 32'h0);             // EN 已被硬件清零
             rd_check(ADDR_COUNT, 32'h0);
             rd_check(ADDR_INTR_STATE, 32'h1);
-            n0 = cv_expire_oneshot;
-            idle(3 * cmp + 10);
-            if (cv_expire_oneshot != n0) fail("oneshot fired again while stopped");
             wr(ADDR_INTR_STATE, 32'd1);
             if (irq !== 1'b0) fail("irq not cleared");
+            idle(3 * cmp + 10);                     // 停止后不再到时
+            if (irq !== 1'b0) fail("oneshot fired again while stopped");
+            rd_check(ADDR_INTR_STATE, 32'h0);
+            rd_check(ADDR_COUNT, 32'h0);
         end
     end
 endtask
@@ -427,25 +428,38 @@ function [31:0] periodic_cmp(input [1:0] i);
 endfunction
 
 task automatic test_periodic;
-    integer i, last, cnt, now;
+    integer i, k, last, cnt;
     reg [31:0] cmp;
     reg [31:0] held;
     reg [31:0] d;
     begin
+        wr(ADDR_INTR_ENABLE, 32'd1);
         for (i = 0; i < 3; i = i + 1) begin
             cmp = periodic_cmp(i);
             zero_count;
+            wr(ADDR_INTR_STATE, 32'd1);             // 清除 zero_count 产生的到时状态
             wr(ADDR_CMP, cmp);
             wr(ADDR_CTRL, 32'h3);                   // PERIODIC, EN=1
-            last = -1; cnt = 0; now = 0;
-            while (cnt < 6) begin                   // 测量相邻到时事件间隔
-                @(posedge clk); #1; now = now + 1;
-                if (U_dut.expire) begin
-                    if (last >= 0 && now - last != cmp + 1) begin
-                        $sformat(tst_msg, "periodic CMP=%0d: interval %0d, expected %0d", cmp, now - last, cmp + 1);
+            if (cmp == 0) begin
+                // 每拍到时：COUNT 恒为 0；W1C 每拍都与到时同拍，EXPIRED 无法清除 (DEC-003)
+                idle(10);
+                rd_check(ADDR_COUNT, 32'h0);
+                rd_check(ADDR_COUNT, 32'h0);
+                wr(ADDR_INTR_STATE, 32'd1);
+                rd_check(ADDR_INTR_STATE, 32'h1);
+            end
+            else begin
+                // 测量相邻两次 o_irq 上升沿的间隔；每次拉高后立即 W1C（2 拍，小于周期）
+                last = -1; cnt = 0;
+                while (cnt < 6) begin
+                    measure_irq(k);
+                    if (irq !== 1'b1) fail("periodic: irq timeout");
+                    if (last >= 0 && cyc - last != cmp + 1) begin
+                        $sformat(tst_msg, "periodic CMP=%0d: interval %0d, expected %0d", cmp, cyc - last, cmp + 1);
                         fail(tst_msg);
                     end
-                    last = now; cnt = cnt + 1;
+                    last = cyc; cnt = cnt + 1;
+                    wr(ADDR_INTR_STATE, 32'd1);
                 end
             end
             rd_check(ADDR_CTRL, 32'h3);             // EN 保持
@@ -467,47 +481,51 @@ endtask
 
 // TP-007 边界：运行中把 CMP 改到计数值以下立即到时 (DEC-001)
 task automatic test_cmp_boundary;
-    integer n0;
     begin
         wr(ADDR_INTR_ENABLE, 32'd1);
         wr(ADDR_CMP, 32'd1000);
         wr(ADDR_CTRL, 32'h3);
         idle(50);
-        n0 = cv_expire_periodic;
         wr(ADDR_CMP, 32'd10);                       // 写入沿之后的第一拍即应到时
-        if (U_dut.expire !== 1'b1) fail("expire not immediate after CMP lowered below COUNT");
-        @(posedge clk); #1;
-        if (cv_expire_periodic != n0 + 1) fail("expected exactly one immediate expire");
-        rd_check(ADDR_INTR_STATE, 32'h1);
+        if (irq !== 1'b0) fail("expired before CMP write took effect");
+        @(posedge clk); #1;                         // 到时在下一个沿置位 EXPIRED
+        if (irq !== 1'b1) fail("expire not immediate after CMP lowered below COUNT");
+        wr(ADDR_INTR_STATE, 32'd1);                 // 计数已归零，只到时一次，W1C 应能清除
+        rd_check(ADDR_INTR_STATE, 32'h0);
         wr(ADDR_CTRL, 32'h0);
     end
 endtask
 
 // TP-008 同拍冲突优先级 (DEC-002, DEC-003)
 task automatic test_priority;
-    integer k;
+    integer k, t0;
+    reg [31:0] d;
     begin
         // DEC-003：W1C 与到时同拍，置位优先
         wr(ADDR_CMP, 32'd9);
         wr(ADDR_CTRL, 32'h3);
         wait_count(32'd8);                          // 建立周期 COUNT=8，访问周期 COUNT=9=CMP
         wr(ADDR_INTR_STATE, 32'd1);
-        if (U_dut.intr_state !== 1'b1) fail("DEC-003: clear won over set");
+        apb_read(ADDR_INTR_STATE, d, 1'b0);
+        if (d !== 32'h1) fail("DEC-003: clear won over set");
         wr(ADDR_CTRL, 32'h0);
         wr(ADDR_INTR_STATE, 32'd1);                 // 非同拍时可正常清除
-        if (U_dut.intr_state !== 1'b0) fail("normal W1C failed");
+        apb_read(ADDR_INTR_STATE, d, 1'b0);
+        if (d !== 32'h0) fail("normal W1C failed");
         // DEC-002：单次模式到时与软件写 CTRL 同拍，软件优先
         zero_count;
         wr(ADDR_CMP, 32'd9);
         wr(ADDR_CTRL, 32'h1);
         wait_count(32'd8);
         wr(ADDR_CTRL, 32'h1);                       // 访问周期恰为到时周期
-        if (U_dut.ctrl_en !== 1'b1) fail("DEC-002: HW clear won over SW write");
-        if (U_dut.count_val !== 32'h0) fail("DEC-002: count not restarted from 0");
-        k = 0;                                      // 重新计时：9 个沿后 COUNT=9=CMP 再次到时
-        while (!U_dut.expire && k < 100) begin @(posedge clk); #1; k = k + 1; end
-        if (k != 9) begin
-            $sformat(tst_msg, "DEC-002 restart: expire after %0d edges, expected 9", k);
+        t0 = cyc;                                   // 写入沿：计数归零并重新计时
+        apb_read(ADDR_CTRL, d, 1'b0);
+        if (d !== 32'h1) fail("DEC-002: HW clear won over SW write");
+        wr(ADDR_INTR_STATE, 32'd1);                 // 清除同拍到时置位的状态，再开中断
+        wr(ADDR_INTR_ENABLE, 32'd1);
+        measure_irq(k);                             // COUNT 0..9，第 CMP+1 = 10 个沿置位 EXPIRED
+        if (cyc - t0 != 10) begin
+            $sformat(tst_msg, "DEC-002 restart: irq %0d edges after write, expected 10", cyc - t0);
             fail(tst_msg);
         end
     end
@@ -522,8 +540,7 @@ task automatic test_clr;
         wr(ADDR_CTRL, 32'h3);
         idle(50);
         apb_read(ADDR_CTRL, ctrl, 1'b0);
-        wr(ADDR_CTRL, ctrl | 32'h4);                // 读-改-写
-        if (U_dut.count_val !== 32'h0) fail("CLR while running: count not 0");
+        wr(ADDR_CTRL, ctrl | 32'h4);                // 读-改-写，写入沿归零
         idle(5);
         rd_check(ADDR_COUNT, 32'd6);                // 写入沿后 5 个沿 + 建立周期到访问周期的 1 个沿
         rd_check(ADDR_CTRL, 32'h3);
@@ -539,8 +556,9 @@ task automatic test_clr;
         wr(ADDR_CTRL, 32'h3);
         wait_count(32'd8);
         wr(ADDR_CTRL, 32'h7);
-        if (U_dut.count_val !== 32'h0) fail("CLR vs expire: count not 0");
-        if (U_dut.intr_state !== 1'b1) fail("CLR vs expire: EXPIRED not set");
+        apb_read(ADDR_INTR_STATE, ctrl, 1'b0);
+        if (ctrl !== 32'h1) fail("CLR vs expire: EXPIRED not set");
+        rd_check(ADDR_COUNT, 32'd3);                // 写入沿归零，第二次读的访问周期在其后第 3 拍
         // 清零不清除已置位的中断状态
         wr(ADDR_CTRL, 32'h6);
         rd_check(ADDR_INTR_STATE, 32'h1);

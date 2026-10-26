@@ -1,7 +1,7 @@
 {
   "name": "rtl-flow",
-  "version": "0.3.0",
-  "description": "RTL 设计全流程规范：需求规范化 → 规格/架构 → RTL → 验证迭代，每一步产出标准化文档并自动检查。",
+  "version": "0.4.0",
+  "description": "RTL 设计全流程（多 agent）：编排状态机 + 需求/规格、架构、RTL、独立验证、调试 5 个角色 agent，G0–G2 人工审核，脚本与 hook 强制检查和权限。",
   "author": {
     "name": "rtl-workflow"
   },
@@ -10,7 +10,8 @@
     "verilog",
     "spec",
     "documentation",
-    "opentitan"
+    "opentitan",
+    "multi-agent"
   ],
   "repository": "https://github.com/rtl-workflow/rtl_doc_agent",
   "homepage": "https://github.com/rtl-workflow/rtl_doc_agent"

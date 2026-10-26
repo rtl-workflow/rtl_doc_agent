@@ -51,6 +51,7 @@ ID_HOME = {"REQ": "00_requirements", "ASM": "00_requirements", "Q": "00_requirem
 class Report:
     def __init__(self):
         self.items = []
+        self.infos = []
 
     def err(self, where, msg):
         self.items.append(("ERROR", where, msg))
@@ -61,7 +62,12 @@ class Report:
     def at(self, enforce, where, msg):
         (self.err if enforce else self.warn)(where, msg)
 
+    def errors(self):
+        return [(where, msg) for lvl, where, msg in self.items if lvl == "ERROR"]
+
     def print(self):
+        for info in self.infos:
+            print(info)
         for lvl, where, msg in sorted(self.items, key=lambda x: (x[0] != "ERROR", x[1])):
             print(f"{lvl:5}  {where}: {msg}")
         e = sum(1 for i in self.items if i[0] == "ERROR")
@@ -152,14 +158,11 @@ def check_review(rep, name, fm, required, signoff):
 
 
 # --------------------------------------------------------------------------- checks
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("ip_dir", type=Path)
-    ap.add_argument("--stage", choices=STAGES, default="req")
-    a = ap.parse_args()
-    ip, lvl = a.ip_dir, STAGES.index(a.stage)
+def run_checks(ip: Path, stage: str) -> Report:
+    """Run every check enabled at `stage` and return the report (nothing is printed)."""
+    lvl = STAGES.index(stage)
     at_least = lambda s: lvl >= STAGES.index(s)  # noqa: E731
-    signoff = a.stage == "signoff"
+    signoff = stage == "signoff"
     rep = Report()
 
     # ---- data file
@@ -280,7 +283,7 @@ def main():
     if signoff and todo:
         rep.err("10_checklist", f"{todo} item(s) unchecked")
     elif cl:
-        print(f"INFO   10_checklist: {done}/{done + todo} items checked")
+        rep.infos.append(f"INFO   10_checklist: {done}/{done + todo} items checked")
 
     # ---- architecture sub-modules
     arch_text = docs.get("02_architecture")
@@ -348,7 +351,15 @@ def main():
                 rep.warn(run_lint.LOG.as_posix(),
                          f"{hdr.get('warnings')} lint warning(s): fix, or waive in 05_rtl_structure §7")
 
-    sys.exit(1 if rep.print() else 0)
+    return rep
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("ip_dir", type=Path)
+    ap.add_argument("--stage", choices=STAGES, default="req")
+    a = ap.parse_args()
+    sys.exit(1 if run_checks(a.ip_dir, a.stage).print() else 0)
 
 
 if __name__ == "__main__":
