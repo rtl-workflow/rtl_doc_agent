@@ -307,9 +307,6 @@ def check_define_file(path: Path, rel: str):
     def add(pos, rule, msg):
         out.append((rel, line_of(raw, pos) if pos is not None else 1, rule, msg))
 
-    first = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
-    if not re.fullmatch(r"`timescale\s+1\s*ns\s*/\s*1\s*ps", first):
-        add(None, "HW-03", "first line must be `timescale 1ns / 1ps")
     head = "\n".join(raw.splitlines()[:30])
     for f in HEADER_FIELDS[1:]:
         if not re.search(r"//.*\b" + f + r"\s*:", head):
@@ -318,7 +315,7 @@ def check_define_file(path: Path, rel: str):
     pos = 0
     for ln in code.splitlines(keepends=True):
         s = ln.strip()
-        if s and not re.match(r"`(?:define|timescale)\b", s):
+        if s and not re.match(r"`define\b", s):
             add(pos, "HW-07", f"define.v may only contain `define: '{s[:40]}'")
         pos += len(ln)
     for m in DEFINE_RE.finditer(code):
