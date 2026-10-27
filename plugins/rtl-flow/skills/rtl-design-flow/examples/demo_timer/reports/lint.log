@@ -1,11 +1,11 @@
 # rtl-flow lint report
 # command: verilator_bin --lint-only -Wall --default-language 1364-2005 --top-module demo_timer rtl/define.v rtl/demo_timer.v rtl/demo_timer_reg.v rtl/demo_timer_core.v
-# date: 2026-10-26
-# rtl-sha256: 60b1083ec42fa1f2a8479a311308ae7adee58eec1858e5172e53cdfbbddf0977
+# date: 2026-10-27
+# rtl-sha256: bb6e97777aa72804949d561a6e38c46bb9082b6b10615060f919d605009f81a3
 # result: PASS
 # errors: 0
 # warnings: 0
 
 - V e r i l a t i o n   R e p o r t:  rev vUNKNOWN-built20260906
 - Verilator: Built from 0.093 MB sources in 4 modules, into 0.062 MB in 3 C++ files needing 0.000 MB
-- Verilator: Walltime 0.142 s (elab=0.018, cvt=0.055, bld=0.000); cpu 0.000 s on 1 threads; allocated 13.855 MB
+- Verilator: Walltime 0.137 s (elab=0.013, cvt=0.042, bld=0.000); cpu 0.000 s on 1 threads; allocated 13.812 MB
