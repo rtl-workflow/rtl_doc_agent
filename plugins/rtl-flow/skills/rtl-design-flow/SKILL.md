@@ -61,7 +61,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | 编排者 | 主会话（你） | 运行 `flow.py next` 并执行它给出的动作；与用户交互（提问、审核、上报） | `.flow/answers` `reviews` `inputs`、`doc/08` |
 | `spec-author` | agent | P0 需求、P1 规格与 yaml、审核修改、需求变更 | README、CHANGELOG、data/、doc/00 01 06 08 09 10 |
 | `architect` | agent | P2 微架构、审核修改、变更同步 | doc/02 08 09 |
-| `rtl-engineer` | agent | P3 RTL、05、lint，按定位报告修复 RTL | rtl/、syn/、doc/02 05 08 09 10 |
+| `rtl-engineer` | agent | P3 RTL、05、lint，按定位报告修复 RTL | rtl/、syn/、doc/02 05 08 09 10、yaml 的 `rtl_files` 字段 |
 | `tb-engineer` | agent | P4 验证计划与黑盒 testbench（**看不到 RTL**） | dv/、doc/07 08 |
 | `debugger` | agent | 回归失败时定位根因并分类，写 ITR 和报告（不改代码） | doc/08、.flow/debug/、dv/build/ |
 

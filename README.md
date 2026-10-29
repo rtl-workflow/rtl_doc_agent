@@ -62,7 +62,7 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 | 编排者（主会话） | `.flow/answers` `reviews` `inputs`、`doc/08` | — |
 | spec-author | README、CHANGELOG、data/、doc/00 01 06 08 09 10 | — |
 | architect | doc/02 08 09 | — |
-| rtl-engineer | rtl/、syn/、doc/02 05 08 09 10 | — |
+| rtl-engineer | rtl/、syn/、doc/02 05 08 09 10、`data/<ip>.yaml` 的 `rtl_files` 字段 | — |
 | tb-engineer | dv/、doc/07 08 | rtl/、syn/、reports/、doc/05、真实回归日志、其他 agent 的交接文件 |
 | debugger | doc/08、.flow/debug/、dv/build/ | — |
 

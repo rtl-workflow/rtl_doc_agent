@@ -31,6 +31,9 @@ WRITE = {
     "tb-engineer": ["dv/", "doc/07_dv_plan.md", "doc/08_iteration_log.md", ".flow/handoff/"],
     "debugger": ["doc/08_iteration_log.md", ".flow/debug/", ".flow/handoff/", "dv/build/"],
 }
+# top-level yaml fields a role may change in a file it otherwise cannot write: the RTL file list
+# follows the submodule split (02 / 05), which is the rtl-engineer's, not the spec's
+FIELD_WRITE = {"rtl-engineer": (r"data/[^/]+\.yaml", {"rtl_files"})}
 GENERATED = ["doc/03_interfaces.md", "doc/04_registers.md"]
 REVIEWED = ["doc/00_requirements.md", "doc/01_spec.md", "doc/02_architecture.md"]
 # what the testbench author must not see (independent verification)
@@ -92,6 +95,45 @@ def review_fields(text):
     return out
 
 
+def edited_text(tool, ti, old):
+    """File content after the tool call, or None when an edit would not apply (the tool reports that)."""
+    if tool == "Write":
+        return ti.get("content", "")
+    edits = ti.get("edits") if tool == "MultiEdit" else [ti]
+    text = old
+    for e in edits or []:
+        s = e.get("old_string", "")
+        if not s or s not in text:
+            return None
+        text = text.replace(s, e.get("new_string", "")) if e.get("replace_all") else \
+            text.replace(s, e.get("new_string", ""), 1)
+    return text
+
+
+def check_fields(role, rel, tool, ti, path: Path, allowed):
+    scope = ", ".join(sorted(allowed))
+    if not path.exists() or tool == "NotebookEdit":
+        deny(f"{role} 只能修改已有 {rel} 的 {scope} 字段")
+    try:
+        import yaml
+    except ImportError:
+        deny("检查 yaml 字段需要 pyyaml（pip install pyyaml）")
+    old = path.read_text(encoding="utf-8", errors="replace")
+    new = edited_text(tool, ti, old)
+    if new is None:
+        return
+    try:
+        a, b = yaml.safe_load(old), yaml.safe_load(new)
+    except yaml.YAMLError as e:
+        deny(f"修改后的 {rel} 不是合法 YAML：{e}")
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        deny(f"{rel} 顶层必须是映射")
+    changed = sorted(str(k) for k in a.keys() | b.keys() if k not in allowed and a.get(k) != b.get(k))
+    if changed:
+        deny(f"{role} 只能修改 {rel} 的 {scope}，不能修改 {', '.join(changed)}；"
+             "端口、参数等规格字段需要修改时，交接文件 status 写 blocked 并说明原因")
+
+
 def check_write(inp, role, tool, ti, path: Path):
     root = managed_root(path.parent if not path.exists() or path.is_file() else path)
     if root is None:
@@ -114,8 +156,11 @@ def check_write(inp, role, tool, ti, path: Path):
                 deny("reviewer / approved 只能由编排者在用户明确通过后通过 flow.py review 写入")
     if role == "other":
         deny(f"{root.name} 由 rtl-flow 管理，只有 rtl-flow 的 agent 可以修改；如需手工修改请让用户执行 flow.py guard off")
+    if not under(rel, WRITE[role]) and role in FIELD_WRITE and re.fullmatch(FIELD_WRITE[role][0], rel):
+        check_fields(role, rel, tool, ti, path, FIELD_WRITE[role][1])
+        return
     if not under(rel, WRITE[role]):
-        who = "编排者只负责调度，不能直接修改设计内容；请派发对应的 agent" if role == "orchestrator" else \
+        who ="编排者只负责调度，不能直接修改设计内容；请派发对应的 agent" if role == "orchestrator" else \
             f"{role} 不能写 {rel}；可写范围：{', '.join(WRITE[role])}"
         deny(who)
 
