@@ -227,7 +227,8 @@ TASKS = {
         "02 实质变化时提升 version。在该 ITR 的「修改」表中补充你的修改。运行 check_docs.py --stage arch。",
     ("rtl-engineer", "rtl"):
         "执行 P3 RTL 实现。\n"
-        "1. 按 02 子模块表和 references/rtl-coding-style.md 编写 rtl/ 下全部模块；顶层端口（含顺序）与 yaml 一致。\n"
+        "1. 按 02 子模块表和 references/rtl-coding-style.md 编写 rtl/ 下全部模块；顶层端口（含顺序）与 yaml 一致；"
+        "把全部 RTL 文件写进 yaml 的 rtl_files（define.v 第一、顶层第二；yaml 中只能改这个字段）。\n"
         "2. 编写 05_rtl_structure（文件清单、层次、模块职责、参数、偏离说明）。\n"
         "3. 运行 run_lint.py，修复全部 error；warning 修复或在 05 §7 写豁免原因。\n"
         "4. 在 08_iteration_log 新增 ITR（触发：初始实现），回归结果留空（由编排者填写）；交接文件写 itr。\n"
