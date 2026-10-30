@@ -1,8 +1,8 @@
 {
   "mode": "rtl",
-  "date": "2026-10-27T23:04:52",
+  "date": "2026-10-30T04:15:03",
   "rtl_sha256": "bb6e97777aa72804949d561a6e38c46bb9082b6b10615060f919d605009f81a3",
-  "tb_sha256": "1d06122ed379832dd37c6accfd52497855306cfbfd0569c342ca9e7d6b070525",
+  "tb_sha256": "d42c7b9625055c7223b0afa2da75962c79dd779ff28e685e39bc45bde5503d08",
   "tests_sha256": "7e5703ed4e26ff791b8ee559d878867462699154476064851de6e1fa37d0290a",
   "compile": {
     "ok": true,
@@ -132,19 +132,19 @@
     }
   ],
   "cover": {
-    "expire_oneshot": 163,
-    "expire_periodic": 1384,
-    "set_vs_clear": 25,
-    "sw_vs_hw_en": 4,
-    "err_read": 712,
-    "err_write": 721,
-    "cmp_zero_periodic": 361,
+    "expire_oneshot": 162,
+    "expire_periodic": 836,
+    "set_vs_clear": 10,
+    "sw_vs_hw_en": 3,
+    "err_read": 758,
+    "err_write": 738,
+    "cmp_zero_periodic": 111,
     "cmp_below_count": 57,
-    "irq_masked": 9707,
-    "pause_resume": 54,
-    "clr_running": 113,
-    "clr_stopped": 34,
-    "clr_vs_expire": 17
+    "irq_masked": 8150,
+    "pause_resume": 53,
+    "clr_running": 111,
+    "clr_stopped": 37,
+    "clr_vs_expire": 13
   },
   "uncovered": [],
   "problems": [],

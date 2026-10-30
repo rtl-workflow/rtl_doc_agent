@@ -27,7 +27,7 @@ AI 执行 rtl-design-flow 时，应**优先模仿本目录示例的写法、粒�
 
 > **与多 agent 流程（0.4.0）的关系**：demo_timer 的设计与文档是在单 agent 流程下完成的，testbench 已在 ITR-009 改为黑盒（不含 `U_dut.xxx` 层次引用），与 tb-engineer 的规则一致，可整体参考。示例自带的 `dv/run_sim.py` 与 `run_regress.py` 的输出约定一致（`python $SKILL/scripts/run_regress.py examples/demo_timer [--stub]` 可直接运行）。
 
-运行环境（示例中实际使用的版本）：Icarus Verilog 13.0、Verilator 5.052、Yosys 0.70（yowasp-yosys）、Python 3.12 + PyYAML。在 Windows 上可通过 `conda create -n rtlsim -c conda-forge iverilog verilator` 安装，使用 Verilator 时需设置 `VERILATOR_ROOT=<env>/Library`。
+运行环境：`run_lint.py` / `run_regress.py` 使用 SpyGlass W-2024.09-SP1 与 VCS W-2024.09-SP1（0.6.0 起；可经 `RTLFLOW_EXEC=remote` 在远程 EDA 服务器上运行），Python 3.12 + PyYAML。示例文档与 08 / 09 中关于 Icarus Verilog、Verilator、Yosys（yowasp-yosys）的记录是示例开发时的历史记录，示例自带的 `dv/run_sim.py`、`dv/run_mutation.py` 仍按 Icarus Verilog 编写。
 
 ## 添加团队自己的示例
 

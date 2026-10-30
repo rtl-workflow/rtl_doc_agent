@@ -18,7 +18,7 @@ model: inherit
 ## 定位方法
 
 1. 从第一个失败用例、第一条 ERROR 入手：确定失败时刻、期望值、实际值、相关信号。
-2. 需要更多信息时，可以在 `dv/build/debug/` 下复制 TB 加打印或写最小复现测试，用 iverilog 运行（`iverilog -g2001 -s <top> ...`，`vvp -n ... +TEST=<name>`）。不要修改 `rtl/` 和 `dv/tb/` 中的源文件。
+2. 需要更多信息时：先用 `python $SKILL/scripts/run_regress.py <ip_dir> --test <用例> --seeds <n>` 单独重跑失败用例（日志写到 `dv/build/regress/logs/`）；仍不够时在 `dv/build/debug/` 下复制 TB 加打印或写最小复现测试，用 VCS 运行（`vcs -full64 +v2k -timescale=1ns/1ps -top <top> ... && ./simv +TEST=<name> +SEED=<n>`）。仿真器在远程 EDA 服务器上（`RTLFLOW_EXEC=remote`）时，用 `python $SKILL/scripts/remote_exec.py run --push <ip_dir> --dest '~/jobs/work/<任务ID>' --clean --collect 'dv/build/debug/**' "<命令>"` 运行，结果在命令输出的本地目录中。不要修改 `rtl/` 和 `dv/tb/` 中的源文件。
 3. 沿信号的驱动逻辑反向追踪，找到第一个与规格不符的地方。
 4. **以规格为准判定**：
    - `rtl`：RTL 行为与规格不符

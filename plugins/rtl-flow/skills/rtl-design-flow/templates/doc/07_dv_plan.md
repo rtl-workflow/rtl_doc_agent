@@ -17,7 +17,7 @@ owner: {{owner}}
 
 | 项 | 内容 |
 |---|---|
-| 仿真器 | {{iverilog / verilator / VCS / Xcelium}} |
+| 仿真器 | {{VCS（run_regress.py）}} |
 | 方法学 | {{自检查 SV testbench / cocotb / UVM}} |
 | 目录 | `dv/` |
 | 运行命令 | `{{make sim TEST=xxx}}` |

@@ -22,9 +22,15 @@ Actions printed by `next` (field "action"):
     review     human review gate: present "docs"/"highlights", ask pass / changes, run `review`
     escalate   report "reason"/"detail" to the user, then `resume` or `iter` as the user decides
     finish     report "summary" to the user; the flow is complete
+    run_tool   only with RTLFLOW_TOOLS=defer (agent platform): instead of simulating here, the caller runs
+               "command" (the TB stub check or the regression) somewhere with the simulator, puts the
+               "outputs" into the IP directory and runs `next` again. When they are still missing or
+               stale on that call the flow escalates; the caller may first write the tool's error to
+               .flow/tool_error.txt, which becomes the escalation detail.
 """
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -166,6 +172,55 @@ def regress_current(ip: Path):
         return None
     cur = run_regress.digests(ip, data)
     return res if all(res.get(k) == v for k, v in cur.items()) else None
+
+
+def stub_current(ip: Path):
+    """Current TB stub-check result, or None if missing/stale (the stub check does not read the RTL)."""
+    p = ip / run_regress.STUB_REPORT
+    if not p.exists():
+        return None
+    res = json.loads(p.read_text(encoding="utf-8"))
+    data, derrs, _ = gen_docs.outputs(ip)
+    if derrs or res.get("mode") != "stub":
+        return None
+    cur = run_regress.digests(ip, data)
+    return res if all(res.get(k) == cur[k] for k in ("tb_sha256", "tests_sha256")) else None
+
+
+# --------------------------------------------------------------------------- deferred tools (platform)
+TOOL_ERROR = Path(".flow") / "tool_error.txt"
+TOOLS = {"stub": {"args": ["--stub"], "outputs": [run_regress.STUB_REPORT.as_posix(), "dv/build/stub/logs/"]},
+         "regress": {"args": [], "outputs": [run_regress.REPORT.as_posix(), "dv/build/regress/logs/"]}}
+
+
+def deferred():
+    """Simulation runs elsewhere (agent platform runner): flow.py asks for it instead of running it."""
+    return os.environ.get("RTLFLOW_TOOLS", "").strip().lower() == "defer"
+
+
+def tool_error(ip: Path):
+    p = ip / TOOL_ERROR
+    if not p.exists():
+        return ""
+    text = p.read_text(encoding="utf-8", errors="replace").strip()
+    p.unlink()
+    return text
+
+
+def request_tool(ip: Path, st, tool):
+    """Ask the caller to run `tool`; returns (action, None), or (None, escalation) when the previous
+    request for the same tool produced no current result."""
+    if st.pop("tool_requested", None) == tool:
+        detail = tool_error(ip) or f"{tool} 任务结束后仍没有当前的 {TOOLS[tool]['outputs'][0]}"
+        what = "testbench 桩检查无法运行（仿真工具或数据文件问题）" if tool == "stub" else "回归无法运行"
+        return None, escalate(st, what, detail, resume_stage="REGRESS" if tool == "regress" else None)
+    tool_error(ip)          # a stale error from an earlier request must not leak into this one
+    st["tool_requested"] = tool
+    log(st, f"request tool {tool}")
+    cmd = ["python", str(SCRIPTS / "run_regress.py"), str(ip)] + TOOLS[tool]["args"]
+    return {"action": "run_tool", "tool": tool, "command": cmd, "outputs": TOOLS[tool]["outputs"],
+            "instructions": "运行 command（需要仿真器），把 outputs 放回 IP 目录后再运行 flow.py next；"
+                            f"失败时把错误写入 {TOOL_ERROR.as_posix()}。"}, None
 
 
 def record_itr(ip: Path, itr, text):
@@ -374,14 +429,16 @@ def verify_docs(ip: Path, st, tasks, check_stage):
     return agents, None
 
 
-def impl_problems(ip: Path):
+def impl_problems(ip: Path, stub=None):
     """{role: [problems]} for the implementation stages (RTL docs/lint + TB plan/stub check).
 
-    Raises SystemExit when the simulator is missing (an environment problem, not an agent's)."""
+    `stub` is a stub-check result obtained elsewhere; without it the check runs here, which raises
+    SystemExit when the simulator is missing (an environment problem, not an agent's)."""
     out = {"rtl-engineer": [], "tb-engineer": []}
     for e in doc_errors(ip, "dv"):
         out["tb-engineer" if "07_dv_plan" in e else "rtl-engineer"].append(e)
-    stub = run_regress.run(ip, stub=True)
+    if stub is None:
+        stub = run_regress.run(ip, stub=True)
     out["tb-engineer"] += [f"stub check: {p}" for p in stub["problems"]]
     out["tb-engineer"] += [f"compile: {m}" for m in stub["compile"]["messages"] if "error" in m.lower()][:20]
     out["tb-engineer"] += [f"stub check: {t['test']} 没有输出 TEST 结果行（用例名未识别、没有看门狗或提前退出）"
@@ -454,8 +511,17 @@ def collect(ip: Path, st):
             return esc or dispatch(agents)
         enter_review(ip, st, ["G2"], "BUILD")
     elif stage in IMPL_KIND:
+        stub = None
+        if deferred():
+            stub = stub_current(ip)
+            if stub is None:
+                act, esc = request_tool(ip, st, "stub")
+                if act:
+                    st["pending"] = tasks       # collected again, with the stub result, on the next call
+                return act or esc
+            st.pop("tool_requested", None)
         try:
-            probs = impl_problems(ip)
+            probs = impl_problems(ip, stub)
         except SystemExit as e:
             return escalate(st, "testbench 桩检查无法运行（仿真工具或数据文件问题）", str(e))
         by_role = {t["role"]: t for t in ts}
@@ -571,11 +637,15 @@ def step(ip: Path, st):
         return dispatch([new_task(ip, st, "rtl-engineer", "rtl"), new_task(ip, st, "tb-engineer", "tb")])
     if stage == "REGRESS":
         res = regress_current(ip)
+        if res is None and deferred():
+            act, esc = request_tool(ip, st, "regress")
+            return act or esc
         if res is None:
             try:
                 res = run_regress.run(ip)
             except SystemExit as e:
                 return escalate(st, "回归无法运行", str(e), resume_stage="REGRESS")
+        st.pop("tool_requested", None)
         st["last_regress"] = res["summary"]
         failed = [t for t in res["tests"] if t["status"] != "PASSED"]
         if st.pop("itr_open", False):
