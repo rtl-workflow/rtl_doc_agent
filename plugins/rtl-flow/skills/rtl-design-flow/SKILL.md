@@ -18,9 +18,10 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/rtl-coding-style.md` | RTL 编码规范（华为 Verilog 规范，Verilog-2001）与 testbench 约定 |
 | `templates/` | 所有文档模板，`flow.py init` 时复制到 IP 目录 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
-| `scripts/check_style.py` / `run_lint.py` | 编码规范检查；风格检查 + lint，写 `reports/lint.log` |
+| `scripts/check_style.py` / `run_lint.py` | 编码规范检查；风格检查 + SpyGlass lint（`--tool vcs` 用 VCS），写 `reports/lint.log` |
 | `scripts/check_docs.py` | 文档完整性、追溯性、审核记录、RTL 一致性检查 |
-| `scripts/run_regress.py` | 通用回归（iverilog），写 `reports/regress.json`；`--stub` 用端口桩代替 RTL 做 TB 自检 |
+| `scripts/run_regress.py` | 通用回归（VCS），写 `reports/regress.json`；`--stub` 用端口桩代替 RTL 做 TB 自检 |
+| `scripts/remote_exec.py` | 远程 EDA 服务器执行（FTP + 服务器上的 watcher）；`RTLFLOW_EXEC=remote` 时 lint 与回归自动在服务器上运行 |
 | `examples/` | 标杆示例（few-shot）；`examples/demo_timer/` 为完整走完 P0–P6 的参考 IP |
 
 角色 agent 定义在插件的 `agents/` 目录，hook 定义在插件的 `hooks/` 目录。
@@ -153,7 +154,9 @@ python $SKILL/scripts/check_docs.py   <ip_dir> --stage req|spec|arch|rtl|dv|sign
 ```
 
 check_docs 的阶段是累积的：当前阶段及以下的检查失败为 ERROR，以上的仅为 WARN。
-依赖：Python 3.8+、PyYAML；lint 需要 Verilator 或 Verible；回归需要 Icarus Verilog ≥ 12。
+依赖：Python 3.8+、PyYAML；lint 需要 SpyGlass（或 VCS），回归需要 VCS。
+
+EDA 工具不在本机时，设置 `RTLFLOW_EXEC=remote` 和 `REXEC_CONFIG=<配置目录>`（`rexec.ini` + 签名密钥，见 `remote_exec.py` 文件头）：`run_lint.py` / `run_regress.py` 的命令和输出不变，IP 被复制到 EDA 服务器运行，`reports/` 与 `dv/build/<mode>/logs/` 写回本地。远程不可用、license 失败时脚本以 `ERROR:` 结束且不写报告，属于环境问题，不要为此修改设计。临时命令可用 `python $SKILL/scripts/remote_exec.py run ...`。
 
 ## 7. P6 签核
 

@@ -36,11 +36,11 @@ model: inherit
 
 ```bash
 python $SKILL/scripts/check_style.py <ip_dir>
-python $SKILL/scripts/run_lint.py    <ip_dir>        # 写 reports/lint.log
+python $SKILL/scripts/run_lint.py    <ip_dir>        # SpyGlass lint，写 reports/lint.log
 python $SKILL/scripts/check_docs.py  <ip_dir> --stage rtl
 ```
 
-Windows 上若找不到 verilator，可尝试 conda 环境（如 `rtlsim`），并设置 `VERILATOR_ROOT=<env>/Library`。仍然无法运行时 `status` 写 `blocked` 说明环境问题。
+lint 工具可能在远程 EDA 服务器上运行（`RTLFLOW_EXEC=remote`），每次约半分钟，命令和输出不变。`run_lint.py` 以 `ERROR:` 结束且没有写出报告（工具找不到、license 失败、远程服务器不可用）属于环境问题：不要为此修改 RTL，`status` 写 `blocked` 并在 `blocked_reason` 中附上这条错误。
 
 ## 结束
 

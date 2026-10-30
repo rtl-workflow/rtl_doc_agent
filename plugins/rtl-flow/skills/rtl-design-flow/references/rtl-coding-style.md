@@ -186,6 +186,7 @@ end
 - testbench 同样使用 Verilog-2001，文件 `dv/tb/<ip>_tb.v`（可拆成多个 `dv/tb/*.v`），模块 `<ip>_tb`，DUT 例化名 `U_dut`。testbench 不受 HW-42、HW-46、HW-50、HW-60 ~ HW-64 限制（可用 `initial`、`task`、`#` 延时、系统任务、`===`）。
 - testbench 不使用 `define.v` 中的宏（`--stub` 模式不编译 RTL 文件），复位按 `data/<ip>.yaml` 中复位的 `active` 驱动。
 - RTL 寄存器输出在时钟沿后 1 ns（`U_DLY`）变化。testbench 在时钟沿后 2 ns 驱动输入并采样输出（或在下降沿采样），不要在沿后 1 ns 采样，否则与 DUT 更新同时发生，读到旧值。
+- `reg clk = 1'b0;` 这类声明初值在 0 时刻产生一次 X→0 跳变，`@(negedge clk)` 会在 0 时刻触发，而此时 DUT 的异步复位可能还没有求值（VCS 下必然出现）。下降沿采样的监视器要跳过 0 时刻（`if ($time != 0 && ...)`），真正的第一个下降沿在半个周期之后。
 - **黑盒**：testbench 只通过顶层端口访问 DUT，禁止 `U_dut.xxx` 层次引用。验证由 tb-engineer 只根据规格独立编写，`run_regress.py --stub` 用端口桩代替 RTL 编译 testbench，层次引用会在这里报错。
 - **运行约定**（`run_regress.py` 依赖）：
   - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名来自 `07_dv_plan.md` §3 的「用例」列（反引号）。
@@ -195,5 +196,5 @@ end
 
 ## 11. Lint
 
-- `run_lint.py` 先做本规范的风格检查（标「自动」的规则），再按 `rtl_files` 的顺序（`define.v` 在最前）运行 `verilator --lint-only -Wall --default-language 1364-2005`（或 `verible-verilog-lint`）。用 1364-2005 模式是为了支持 `$clog2`，其余 Verilog-2005 新增语法由风格检查拦截（HW-01）。
+- `run_lint.py` 先做本规范的风格检查（标「自动」的规则），再按 `rtl_files` 的顺序（`define.v` 在最前）运行 SpyGlass `lint/lint_rtl`（rtl_handoff 方法学，Fatal / Error 计为 error，Warning 计为 warning），或用 `--tool vcs` 运行 `vcs +lint=all`。两者都按 Verilog-2005 读入（为了 `$clog2`），其余 Verilog-2005 新增语法由风格检查拦截（HW-01）。工具的完整输出在 `dv/build/lint/`。
 - 交付前零 error；保留的 warning 在 `05_rtl_structure.md` §7 说明豁免原因，规范偏离在 §6 说明。

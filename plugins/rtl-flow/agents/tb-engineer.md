@@ -43,7 +43,7 @@ model: inherit
 ## 规则
 
 1. 每条 REQ 都要被至少一个 TP 覆盖；每个 TP 写清激励、检查方法、用例。
-2. 自检：运行 `python $SKILL/scripts/run_regress.py <ip_dir> --stub`。桩模块的输出恒为 0，用例本身失败属正常；结果必须是 PASS，表示 TB 能编译、能识别全部用例并能正常结束。
+2. 自检：运行 `python $SKILL/scripts/run_regress.py <ip_dir> --stub`（VCS，可能在远程 EDA 服务器上运行，约一分钟）。桩模块的输出恒为 0，用例本身失败属正常；结果必须是 PASS，表示 TB 能编译、能识别全部用例并能正常结束。脚本以 `ERROR:` 结束（仿真器找不到、license 失败、远程服务器不可用）是环境问题：`status` 写 `blocked` 并附上错误，不要改 TB 绕过。
 3. 修正 TB 时以规格为准，不能为了让用例通过而放宽或删除检查。如果你认为 debugger 的说明与规格矛盾，或规格本身有歧义，`status` 写 `blocked` 并在 `blocked_reason` 中说明。
 4. 不能修改需求、规格和 RTL 文档。
 

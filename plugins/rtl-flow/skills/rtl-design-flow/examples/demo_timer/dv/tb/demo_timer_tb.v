@@ -132,7 +132,9 @@ endfunction
 //------------------------------------------------------------------------------
 always @(negedge clk) begin
     if (rst == 1'b0) begin
-        if (irq !== 1'b0) fail("A1: o_irq not low during reset");
+        // clk = 1'b0 at declaration is an X->0 edge at time 0, before the DUT's asynchronous reset may
+        // have been evaluated (VCS); the first real falling edge is at 10 ns
+        if ($time != 0 && irq !== 1'b0) fail("A1: o_irq not low during reset");
     end
     else begin
         if ((^{prdata, pready, pslverr, irq}) === 1'bx)         fail("A2: X on outputs");

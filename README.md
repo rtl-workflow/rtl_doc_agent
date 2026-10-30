@@ -29,13 +29,15 @@ plugins/rtl-flow/
     ├── scripts/flow.py          # 编排状态机：init / next / answers / review / iter / resume / status / guard
     ├── scripts/gen_docs.py      # yaml → 接口文档 / 寄存器文档 / C 头文件
     ├── scripts/check_style.py   # 编码规范检查（华为 Verilog 规范，HW-xx 规则）
-    ├── scripts/run_lint.py      # 风格检查 + lint → reports/lint.log（Verilator / Verible）
-    ├── scripts/run_regress.py   # 通用回归（iverilog）→ reports/regress.json；--stub 用端口桩做 TB 自检
+    ├── scripts/run_lint.py      # 风格检查 + lint → reports/lint.log（SpyGlass lint_rtl，或 --tool vcs）
+    ├── scripts/run_regress.py   # 通用回归（VCS）→ reports/regress.json；--stub 用端口桩做 TB 自检
+    ├── scripts/remote_exec.py   # 远程 EDA 服务器执行（FTP + watcher）；RTLFLOW_EXEC=remote 时 lint / 回归在服务器上运行
     ├── scripts/check_docs.py    # 分阶段检查：结构、ID 追溯、审核记录、RTL 端口/模块一致性、lint 报告、签核
     └── examples/demo_timer/     # 完整标杆示例：真实运行的 RTL、验证、综合与全套文档
 ```
 
-依赖：Python 3.8+（hook 以 `python` 命令调用）、PyYAML；lint 需要 Verilator 或 Verible；回归需要 Icarus Verilog ≥ 12。
+依赖：Python 3.8+（hook 以 `python` 命令调用）、PyYAML；lint 需要 SpyGlass（或 VCS）；回归需要 VCS。
+工具不在本机时设置 `RTLFLOW_EXEC=remote` 与 `REXEC_CONFIG`，lint 与回归在远程 EDA 服务器上运行（见 `scripts/remote_exec.py`）。
 
 ## 工作流
 
@@ -132,10 +134,10 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 ```yaml
 # .github/workflows/doc-check.yml 片段
 - run: pip install pyyaml
-- run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/run_lint.py hw/ip/uart_lite   # 需安装 verilator
+- run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/run_lint.py hw/ip/uart_lite   # 需要 SpyGlass（或 RTLFLOW_EXEC=remote）
 - run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/gen_docs.py hw/ip/uart_lite --check
 - run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/check_docs.py hw/ip/uart_lite --stage rtl
-- run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/run_regress.py hw/ip/uart_lite      # 需安装 iverilog
+- run: python rtl-flow/plugins/rtl-flow/skills/rtl-design-flow/scripts/run_regress.py hw/ip/uart_lite      # 需要 VCS（或 RTLFLOW_EXEC=remote）
 ```
 
 ## 定制与维护
