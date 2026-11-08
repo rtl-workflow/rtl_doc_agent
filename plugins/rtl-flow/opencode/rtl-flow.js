@@ -126,6 +126,8 @@ export function createPlugin(python) {
         cfg.command ??= {}
         cfg.permission ??= {}
         cfg.permission.external_directory = allow(cfg.permission.external_directory, join(ROOT, "*"))
+        // every agent writes a .yaml handoff; OpenCode 1.2's YAML language server can stall those writes
+        if (cfg.lsp !== false) { cfg.lsp ??= {}; cfg.lsp["yaml-ls"] ??= { disabled: true } }
         for (const a of markdownFiles(join(ROOT, "agents"))) {
           cfg.agent[NS + a.name] = { description: a.fields.description, mode: "subagent", prompt: withSkillPath(a.body) }
         }
