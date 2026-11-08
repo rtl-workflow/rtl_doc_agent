@@ -216,7 +216,13 @@ def post_tool_use(inp):
         return
     sys.path.insert(0, str(SCRIPTS))
     import check_style
-    vs = check_style.check_file(path, path.relative_to(root).as_posix())
+    import gen_docs
+    try:
+        data = gen_docs.outputs(root)[0] or {}
+        std = {r.get("name"): r.get("active") for r in data.get("resets") or [] if r.get("std_if")}
+    except (SystemExit, Exception):  # noqa: BLE001 - missing or broken yaml must not break the style check
+        std = {}
+    vs = check_style.check_file(path, path.relative_to(root).as_posix(), std)
     if vs:
         lines = [f"{f}:{ln}: [{rule}] {msg}" for f, ln, rule, msg in vs[:25]]
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext":
