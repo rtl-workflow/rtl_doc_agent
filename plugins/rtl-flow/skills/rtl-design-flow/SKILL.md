@@ -21,6 +21,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `scripts/check_style.py` / `run_lint.py` | 编码规范检查；风格检查 + SpyGlass lint（`--tool vcs` 用 VCS），写 `reports/lint.log` |
 | `scripts/check_docs.py` | 文档完整性、追溯性、审核记录、RTL 一致性检查 |
 | `scripts/run_regress.py` | 通用回归（VCS），写 `reports/regress.json`；`--stub` 用端口桩代替 RTL 做 TB 自检 |
+| `scripts/rtlflow.py` | 一次性环境配置 `setup`、环境检查 `doctor`、接入 OpenCode `install-opencode` |
 | `scripts/remote_exec.py` | 远程 EDA 服务器执行（FTP + 服务器上的 watcher）；`RTLFLOW_EXEC=remote` 时 lint 与回归自动在服务器上运行 |
 | `examples/` | 标杆示例（few-shot）；`examples/demo_timer/` 为完整走完 P0–P6 的参考 IP |
 
@@ -95,7 +96,7 @@ P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，
 
 **循环**：反复执行下面两步，直到动作为 `finish`：
 
-1. 运行 `python $SKILL/scripts/flow.py next <ip_dir>`（可能运行回归，Bash 超时设为 600000 ms）。
+1. 运行 `python $SKILL/scripts/flow.py next <ip_dir>`（可能等待远程回归，命令超时设为 600000 ms）。
 2. 按输出 JSON 的 `action` 执行，`instructions` 字段中有具体说明：
 
 | action | 你要做的事 |
@@ -105,6 +106,10 @@ P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，
 | `review` | 汇报被审文档、要点（`highlights`）、新增的 ASM / DEC、需要用户判断的地方，用 AskUserQuestion 请用户选「通过」或「需要修改」，不知道审核人姓名时一并询问。通过：`flow.py review <ip_dir> --pass --reviewer <姓名>`；需要修改：把意见写入 `comments_file`，运行 `flow.py review <ip_dir> --changes <comments_file>`。**只有用户明确表示通过时才能用 `--pass`，在用户答复前不得继续。** |
 | `escalate` | 向用户简要说明 `reason` / `detail`，请用户决定。继续当前步骤：把用户的说明写入 `.flow/inputs/` 下的文件，运行 `flow.py resume <ip_dir> --note <文件>`；按需求变更处理：`flow.py iter <ip_dir> --kind change --file <文件>`。 |
 | `finish` | 汇报回归结果、各审核点状态、遗留 WARN；提醒签核（P6）需用户确认。 |
+| `wait` | 远程任务仍在运行：立即再次运行 `flow.py next`，不需要 sleep，也不要自己运行回归。关闭会话后再运行 `next` 会接回同一任务。 |
+| `setup_required` | 这台机器尚未配置：把 `command` 原样告诉用户，由用户在自己的终端运行一次。不要索要密码，也不要替用户运行。 |
+
+**工具名对照**：本规范中的“Agent 工具”“AskUserQuestion”是 Claude Code 的名称，在 OpenCode 中分别对应 `task` 和 `question`；其余规则完全相同。
 
 规则：
 - 不要跳过 `next`，不要自己判断阶段是否完成，不要修改 `.flow/state.json`。
@@ -154,9 +159,11 @@ python $SKILL/scripts/check_docs.py   <ip_dir> --stage req|spec|arch|rtl|dv|sign
 ```
 
 check_docs 的阶段是累积的：当前阶段及以下的检查失败为 ERROR，以上的仅为 WARN。
-依赖：Python 3.8+、PyYAML；lint 需要 SpyGlass（或 VCS），回归需要 VCS。
+依赖：Python 3.8+、PyYAML；lint 使用 SpyGlass，回归使用 VCS，都在远程 EDA 服务器上运行。
 
-EDA 工具不在本机时，设置 `RTLFLOW_EXEC=remote` 和 `REXEC_CONFIG=<配置目录>`（`rexec.ini` + 签名密钥，见 `remote_exec.py` 文件头）：`run_lint.py` / `run_regress.py` 的命令和输出不变，IP 被复制到 EDA 服务器运行，`reports/` 与 `dv/build/<mode>/logs/` 写回本地。远程不可用、license 失败时脚本以 `ERROR:` 结束且不写报告，属于环境问题，不要为此修改设计。临时命令可用 `python $SKILL/scripts/remote_exec.py run ...`。
+**首次配置（每台机器一次）**：用户在自己的终端运行 `python $SKILL/scripts/rtlflow.py setup`，只需输入服务器地址、账号和密码，并按提示在 VNC 粘贴一条命令；之后 Claude Code 和 OpenCode 都自动使用远程环境。`rtlflow.py doctor` 用于检查环境是否正常。
+
+配置完成后（`~/.rtl-flow/`，也可用 `REXEC_CONFIG` 指定；`RTLFLOW_EXEC=local|remote` 可强制覆盖），`run_lint.py` / `run_regress.py` 的命令和输出不变，IP 被复制到 EDA 服务器运行，`reports/` 与 `dv/build/<mode>/logs/` 写回本地。远程不可用、license 失败时脚本以 `ERROR:` 结束且不写报告，属于环境问题，不要为此修改设计。临时命令可用 `python $SKILL/scripts/remote_exec.py run ...`。
 
 ## 7. P6 签核
 

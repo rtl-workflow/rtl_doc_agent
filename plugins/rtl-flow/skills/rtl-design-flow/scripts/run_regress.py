@@ -143,25 +143,56 @@ def gen_stub(data):
     return "\n".join(lines)
 
 
-def run_remote(ip: Path, stub=False, only=None, seeds=3):
-    """Run this script on the EDA server; the report and logs come back into `ip`."""
-    ip = ip.resolve()
-    mode = "stub" if stub else "regress"
+def remote_job(stub=False, only=None, seeds=3):
+    """(script arguments, build directory, files to collect) of a remote run."""
+    build = f"dv/build/{'stub' if stub else 'regress'}"
     args = (["--stub"] if stub else []) + (["--test", only] if only else []) + ["--seeds", seeds]
-    build = f"dv/build/{mode}"
     collect = [f"{build}/{LAST}", f"{build}/compile.log", f"{build}/logs/**"]
     if not only:
         collect.append((STUB_REPORT if stub else REPORT).as_posix())
-    try:
-        fin = remote_exec.run_ip_script("run_regress.py", ip, args, collect, timeout=REMOTE_TIMEOUT_S,
-                                        clean_local=[build])
-    except remote_exec.RemoteError as e:
-        raise SystemExit(f"ERROR: remote regression could not run (environment problem): {e}")
+    return args, build, collect
+
+
+def remote_result(ip: Path, build, fin):
     last = ip / build / LAST
     if f"{ip.name}/{build}/{LAST}" not in fin.files:
         raise SystemExit("ERROR: remote regression stopped before producing a result:\n" +
                          "\n".join(fin.output().splitlines()[-20:]))
     return json.loads(last.read_text(encoding="utf-8"))
+
+
+def run_remote(ip: Path, stub=False, only=None, seeds=3):
+    """Run this script on the EDA server; the report and logs come back into `ip`."""
+    ip = ip.resolve()
+    args, build, collect = remote_job(stub, only, seeds)
+    try:
+        fin = remote_exec.run_ip_script("run_regress.py", ip, args, collect, timeout=REMOTE_TIMEOUT_S,
+                                        clean_local=[build])
+    except remote_exec.RemoteError as e:
+        raise SystemExit(f"ERROR: remote regression could not run (environment problem): {e}")
+    return remote_result(ip, build, fin)
+
+
+def start_remote(ip: Path, stub=False, seeds=3):
+    """Submit a full remote run without waiting; returns the job id for poll_remote."""
+    args, _, collect = remote_job(stub, None, seeds)
+    try:
+        return remote_exec.start_ip_script("run_regress.py", ip.resolve(), args, collect, timeout=REMOTE_TIMEOUT_S)
+    except remote_exec.RemoteError as e:
+        raise SystemExit(f"ERROR: remote regression could not start (environment problem): {e}")
+
+
+def poll_remote(ip: Path, jid, stub=False):
+    """The result of a job from start_remote, or None while it runs (NetworkError when unreachable)."""
+    ip = ip.resolve()
+    _, build, _ = remote_job(stub)
+    try:
+        fin = remote_exec.poll_ip_script(ip, jid, clean_local=[build])
+    except remote_exec.NetworkError:
+        raise
+    except remote_exec.RemoteError as e:
+        raise SystemExit(f"ERROR: remote regression could not run (environment problem): {e}")
+    return None if fin is None else remote_result(ip, build, fin)
 
 
 def run(ip: Path, stub=False, only=None, seeds=3):
