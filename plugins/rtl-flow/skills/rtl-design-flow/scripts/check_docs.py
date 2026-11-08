@@ -129,10 +129,15 @@ def arch_modules(text):
     body = strip_code(split_front_matter(text)[1])
     m = re.search(r"^## [^\n]*Sub-modules[^\n]*\n(.*?)(?=^## |\Z)", body, re.S | re.M)
     mods = {}
-    for cells in table_rows(m.group(1) if m else ""):
-        mm = re.match(r"`([A-Za-z_]\w*)`", cells[0])
-        if mm:
-            mods[mm.group(1)] = cells
+    # §2 may hold other tables (e.g. internal signals): only tables headed by 子模块 / module count
+    for block in re.finditer(r"(?:^[ \t]*\|[^\n]*(?:\n|\Z))+", m.group(1) if m else "", re.M):
+        rows = list(table_rows(block.group(0)))
+        if not rows or not ("模块" in rows[0][0] or "module" in rows[0][0].lower()):
+            continue
+        for cells in rows[1:]:
+            mm = re.match(r"`([A-Za-z_]\w*)`", cells[0])
+            if mm:
+                mods[mm.group(1)] = cells
     return mods
 
 
@@ -290,7 +295,7 @@ def run_checks(ip: Path, stage: str) -> Report:
     mods = arch_modules(arch_text) if arch_text else {}
     if at_least("arch") and arch_text is not None:
         if not mods:
-            rep.err("02_architecture", "§2 sub-module table lists no module (first column must be `module_name`)")
+            rep.err("02_architecture", "§2 sub-module table lists no module (header's first column must be 子模块, cells `module_name`)")
         for n, cells in mods.items():
             if len(cells) < 4 or not cells[2] or not cells[3] or "{{" in cells[2] + cells[3]:
                 rep.err("02_architecture", f"sub-module '{n}': responsibility and key interface must be filled")
