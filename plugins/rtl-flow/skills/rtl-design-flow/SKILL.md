@@ -109,7 +109,7 @@ P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，
 | `wait` | 远程任务仍在运行：立即再次运行 `flow.py next`，不需要 sleep，也不要自己运行回归。关闭会话后再运行 `next` 会接回同一任务。 |
 | `setup_required` | 这台机器尚未配置：把 `command` 原样告诉用户，由用户在自己的终端运行一次。不要索要密码，也不要替用户运行。 |
 
-**工具名对照**：本规范中的“Agent 工具”“AskUserQuestion”是 Claude Code 的名称，在 OpenCode 中分别对应 `task` 和 `question`；其余规则完全相同。
+**工具名对照**：本规范中的“Agent 工具”“AskUserQuestion”是 Claude Code 的名称，在 OpenCode 中分别对应 `task` 和 `question`；其余规则完全相同。当前环境没有提问工具时，直接在对话中提问并等待用户答复，审核点同样不得跳过。
 
 规则：
 - 不要跳过 `next`，不要自己判断阶段是否完成，不要修改 `.flow/state.json`。
