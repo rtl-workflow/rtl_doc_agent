@@ -22,6 +22,9 @@ Actions printed by `next` (field "action"):
     review     human review gate: present "docs"/"highlights", ask pass / changes, run `review`
     escalate   report "reason"/"detail" to the user, then `resume` or `iter` as the user decides
     finish     report "summary" to the user; the flow is complete
+    setup_required  this machine is not configured: show the user "command" to run in their own terminal
+    wait       a remote lint/simulation job is still running: run `next` again straight away; each call
+               waits up to about four minutes for it, and the job survives a closed session
     run_tool   only with RTLFLOW_TOOLS=defer (agent platform): instead of simulating here, the caller runs
                "command" (the TB stub check or the regression) somewhere with the simulator, puts the
                "outputs" into the IP directory and runs `next` again. When they are still missing or
@@ -34,6 +37,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -44,6 +48,7 @@ SKILL = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 import check_docs  # noqa: E402
 import gen_docs  # noqa: E402
+import remote_exec  # noqa: E402
 import run_regress  # noqa: E402
 
 try:
@@ -56,6 +61,12 @@ AGENT_NS = "rtl-flow:"
 ROLES = ["spec-author", "architect", "rtl-engineer", "tb-engineer", "debugger"]
 MAX_ATTEMPTS = 3      # re-dispatches of one role in one stage before escalating
 MAX_ROUNDS = 3        # debug/fix rounds per iteration before escalating
+NEXT_POLL_S = 240     # how long one `next` waits for a remote job before returning a wait action
+OFFLINE_ESCALATE_S = 1800   # server unreachable this long while a job runs: hand over to the user
+# stages whose work needs the EDA server: checked before anything is started
+REMOTE_STAGES = ("BUILD", "FIX", "CHANGE_IMPL", "DEBUG", "REGRESS")
+REMOTE_DOWN_HINT = ("这是环境问题，不要修改设计。请确认 VPN 已连接；如果提示 watcher 未运行，请在服务器 VNC 终端执行 "
+                    "`bash ~/jobs/setup_watcher.sh`；恢复后运行 flow.py resume 继续。")
 
 # gate -> (reviewed doc, author role, check stage used to verify review fixes)
 GATES = {"G0": ("00_requirements", "spec-author", "req"),
@@ -223,6 +234,67 @@ def request_tool(ip: Path, st, tool):
                             f"失败时把错误写入 {TOOL_ERROR.as_posix()}。"}, None
 
 
+def setup_action():
+    """The one-time setup is still to do: nothing configured, nothing forced, no local simulator."""
+    if deferred() or os.environ.get("RTLFLOW_EXEC") or remote_exec.configured() or shutil.which("vcs"):
+        return None
+    return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" setup',
+            "instructions": "这台机器还没有配置远程 EDA 环境。把 command 原样告诉用户，请用户在自己的终端运行一次"
+                            "（需要能访问服务器，只询问服务器地址、账号和密码）。不要向用户索要密码，也不要替用户运行。"
+                            "用户完成后再运行 flow.py next。"}
+
+
+def remote_jobs():
+    return remote_exec.enabled() and not deferred()
+
+
+def remote_tool(ip: Path, st, tool):
+    """Run the stub check or regression on the server without blocking: (result, None) or (None, action).
+
+    The job id is saved before waiting, so a killed `next` or a closed session picks the same job up."""
+    stub, job = tool == "stub", st.get("tool_job")
+    what = "testbench 桩检查" if stub else "回归"
+
+    def stop(detail):
+        st.pop("tool_job", None)
+        return None, escalate(st, f"远程{what}无法运行", f"{detail}\n{REMOTE_DOWN_HINT}",
+                              resume_stage="REGRESS" if not stub else None)
+
+    if not job or job["tool"] != tool:
+        try:
+            jid = run_regress.start_remote(ip, stub=stub)
+        except SystemExit as e:
+            return stop(str(e))
+        job = st["tool_job"] = {"tool": tool, "id": jid, "started": time.time()}
+        log(st, f"remote {tool} job {jid}")
+        save(ip, st)
+    until, delay = time.time() + NEXT_POLL_S, 3.0
+    while True:
+        try:
+            res = run_regress.poll_remote(ip, job["id"], stub=stub)
+            job.pop("offline_since", None)
+        except remote_exec.NetworkError as e:
+            res = None
+            if time.time() - job.setdefault("offline_since", time.time()) > OFFLINE_ESCALATE_S:
+                return stop(f"服务器连续 {OFFLINE_ESCALATE_S // 60} 分钟无法访问：{e}")
+        except SystemExit as e:
+            return stop(str(e))
+        if res is not None:
+            st.pop("tool_job", None)
+            log(st, f"remote {tool} job {job['id']} finished")
+            return res, None
+        if time.time() - job["started"] > run_regress.REMOTE_TIMEOUT_S + 600:
+            return stop(f"远程任务 {job['id']} 超过时限仍未结束")
+        if time.time() > until:
+            minutes = int((time.time() - job["started"]) // 60)
+            return None, {"action": "wait", "tool": tool, "job": job["id"], "elapsed_minutes": minutes,
+                          "offline": "offline_since" in job,
+                          "instructions": f"远程{what}仍在运行（任务 {job['id']}，已 {minutes} 分钟）。"
+                                          "立即再次运行 flow.py next 继续等待，不需要 sleep，也不要自己运行回归或修改文件。"}
+        time.sleep(delay)
+        delay = min(delay * 1.5, 15.0)
+
+
 def record_itr(ip: Path, itr, text):
     """Write the regression result into the ITR summary row and detail block of 08 (best effort)."""
     p = ip / "doc" / "08_iteration_log.md"
@@ -367,7 +439,7 @@ def new_task(ip: Path, st, role, kind, inputs=(), extra=""):
 
 def dispatch(agents):
     return {"action": "dispatch", "agents": agents,
-            "instructions": "用 Agent 工具启动 agents 中的每一项（subagent_type、description、prompt 原样传入；"
+            "instructions": "用子 agent 工具（Claude Code 的 Agent、OpenCode 的 task）启动 agents 中的每一项（subagent_type、description、prompt 原样传入；"
                             "多于一项时在同一条消息中并行启动）。等全部完成后再运行 flow.py next。"
                             "不要自己做这些任务，也不要修改 prompt 的要求。"}
 
@@ -384,7 +456,7 @@ def escalate(st, reason, detail, resume_stage=None, tasks=None, options=None):
 def escalation_action(st):
     e = st["escalation"]
     return {"action": "escalate", "reason": e["reason"], "detail": e["detail"], "options": e["options"],
-            "instructions": "把 reason / detail 简要汇报给用户，用 AskUserQuestion 请用户决定。"
+            "instructions": "把 reason / detail 简要汇报给用户，用提问工具（Claude Code 的 AskUserQuestion、OpenCode 的 question）请用户决定。"
                             "继续当前步骤：把用户的说明写到文件后运行 flow.py resume <ip_dir> --note <文件>；"
                             "按需求变更处理：运行 flow.py iter <ip_dir> --kind change --file <文件>。"}
 
@@ -520,6 +592,14 @@ def collect(ip: Path, st):
                     st["pending"] = tasks       # collected again, with the stub result, on the next call
                 return act or esc
             st.pop("tool_requested", None)
+        elif remote_exec.enabled():
+            stub = stub_current(ip)             # normally still current from the tb-engineer's own check
+            if stub is None:
+                stub, act = remote_tool(ip, st, "stub")
+                if stub is None:
+                    if act["action"] == "wait":
+                        st["pending"] = tasks
+                    return act
         try:
             probs = impl_problems(ip, stub)
         except SystemExit as e:
@@ -576,6 +656,11 @@ def step(ip: Path, st):
     if stage not in ("REVIEW", "ASK", "DONE", "P0", "CHANGE_SPEC") and stale_gates(ip, st):
         enter_review(ip, st, [], stage)
         return None
+    if stage in REMOTE_STAGES and remote_jobs() and not st.get("tool_job") and \
+            (stage != "REGRESS" or regress_current(ip) is None):
+        ok, detail = remote_exec.status()
+        if not ok:
+            return escalate(st, "远程 EDA 服务器不可用", f"{detail}\n{REMOTE_DOWN_HINT}", resume_stage=stage)
 
     if stage == "P0":
         return dispatch([new_task(ip, st, "spec-author", "requirements", st["inputs"])])
@@ -589,7 +674,7 @@ def step(ip: Path, st):
             return dispatch([new_task(ip, st, "spec-author", "answers", [f])])
         return {"action": "ask_user", "questions": open_questions(ip),
                 "answers_file": str(ip / ".flow" / "answers" / f"answers-{st['seq'] + 1:03d}.md"),
-                "instructions": "用 AskUserQuestion 把这些 Q 合并提问（每次最多 4 个，可分多次；选项给出你推荐的答案，用户可在 Other 中自由回答）。"
+                "instructions": "用提问工具（Claude Code 的 AskUserQuestion、OpenCode 的 question）把这些 Q 合并提问（每次最多 4 个，可分多次；选项给出你推荐的答案，用户可在 Other 中自由回答）。"
                                 "把每个 Q 的答复按「Q-xxx: 答复」写入 answers_file，然后运行 flow.py answers <ip_dir> --file <answers_file>；"
                                 "用户不愿回答时运行 flow.py answers <ip_dir> --none。"}
     if stage == "REVIEW":
@@ -624,7 +709,7 @@ def step(ip: Path, st):
                 "reviewer_known": st.get("reviewer") or None,
                 "comments_file": str(ip / ".flow" / "reviews" / f"review-{st['seq'] + 1:03d}.md"),
                 "instructions": "向用户汇报：被审文档路径、要点（highlights 中的 summary，3–8 条）、新增的 ASM / DEC、需要用户特别判断的地方。"
-                                "然后用 AskUserQuestion 请用户选择「通过」或「需要修改」（意见可在 Other 中填写）；"
+                                "然后用提问工具（Claude Code 的 AskUserQuestion、OpenCode 的 question）请用户选择「通过」或「需要修改」（意见可在 Other 中填写）；"
                                 "reviewer_known 为空时同时询问审核人姓名。"
                                 "通过：flow.py review <ip_dir> --pass --reviewer <姓名>；"
                                 "需要修改：把意见写入 comments_file，运行 flow.py review <ip_dir> --changes <comments_file>。"
@@ -640,6 +725,10 @@ def step(ip: Path, st):
         if res is None and deferred():
             act, esc = request_tool(ip, st, "regress")
             return act or esc
+        if res is None and remote_exec.enabled():
+            res, act = remote_tool(ip, st, "regress")
+            if res is None:
+                return act
         if res is None:
             try:
                 res = run_regress.run(ip)
@@ -760,6 +849,10 @@ def cmd_init(a):
 def cmd_next(a):
     ip = a.ip_dir.resolve()
     st = load(ip)
+    need = setup_action()
+    if need:
+        emit({**need, "stage": st["stage"]})
+        return
     for _ in range(30):
         act = step(ip, st)
         if act is not None:

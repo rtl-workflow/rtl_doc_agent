@@ -17,10 +17,12 @@ CLI:
     python remote_exec.py wait|tail|kill <id>
     python remote_exec.py init | update | set-password
 
-Configuration directory (REXEC_CONFIG, default ~/.rexec):
+Configuration directory (REXEC_CONFIG, default ~/.rtl-flow; created once by `rtlflow.py setup`):
     rexec.ini   [server] host, port, user, python (remote interpreter, default python3.11)
     key         HMAC signing key shared with the watcher (created by `init`)
-Password: Windows Credential Manager / keyring (`set-password`), or REXEC_PASS.
+Password: system credential store / keyring (`set-password`), a private file in the configuration
+directory where no credential store exists, or REXEC_PASS.
+Remote execution is on when the configuration exists; RTLFLOW_EXEC=local|remote overrides that.
 
 CLI exit codes: 0 ok; remote exit code on failure; 124 timeout; 130 killed;
                 125 environment/infrastructure problem (license, watcher, network) - not a design bug;
@@ -56,6 +58,9 @@ DEFAULT_EXCLUDES = [".git", ".svn", "__pycache__", "*.pyc", ".rexec", ".vscode",
 IP_EXCLUDES = ["dv/build", "reports", ".flow"]
 TEXT_MAX = 20 << 20
 HEARTBEAT_MAX_AGE = 60
+OFFLINE_GRACE = 900            # seconds a finished-job wait survives losing the network (the job keeps running)
+PASSWORD_FILE = "password"     # only where the machine has no credential store, created by `rtlflow.py setup`
+SETUP_HINT = "run `python rtlflow.py setup` in your own terminal"
 
 EXIT_PENDING, EXIT_TIMEOUT, EXIT_INFRA, EXIT_KILLED = 100, 124, 125, 130
 
@@ -64,20 +69,33 @@ class RemoteError(Exception):
     """The remote environment could not run the job (network, login, watcher, server): not a design problem."""
 
 
-def enabled():
-    return os.environ.get("RTLFLOW_EXEC", "local").strip().lower() == "remote"
+class NetworkError(RemoteError):
+    """The server could not be reached right now; a job already submitted keeps running there."""
 
 
 # ---------- config / secrets ----------
 def config_dir():
-    return Path(os.environ.get("REXEC_CONFIG") or Path.home() / ".rexec")
+    if os.environ.get("REXEC_CONFIG"):
+        return Path(os.environ["REXEC_CONFIG"])
+    home, legacy = Path.home() / ".rtl-flow", Path.home() / ".rexec"
+    return legacy if (legacy / "rexec.ini").exists() and not (home / "rexec.ini").exists() else home
+
+
+def configured():
+    return (config_dir() / "rexec.ini").exists()
+
+
+def enabled():
+    """Remote when configured; an explicit RTLFLOW_EXEC wins (the job on the server sets it to local)."""
+    mode = os.environ.get("RTLFLOW_EXEC", "").strip().lower()
+    return mode == "remote" if mode else configured()
 
 
 def load_cfg():
     d = config_dir()
     ini = d / "rexec.ini"
     if not ini.exists():
-        raise RemoteError(f"no remote configuration: {ini} missing (set REXEC_CONFIG)")
+        raise RemoteError(f"no remote configuration: {ini} missing; {SETUP_HINT}")
     cp = configparser.ConfigParser()
     cp.read(ini, encoding="utf-8")
     s = cp["server"] if cp.has_section("server") else {}
@@ -111,9 +129,10 @@ def get_password(cfg):
         pw = keyring.get_password(KEYRING_SERVICE, f"{cfg['user']}@{cfg['host']}")
     except Exception:
         pw = None
+    if not pw and (cfg["dir"] / PASSWORD_FILE).exists():
+        pw = (cfg["dir"] / PASSWORD_FILE).read_text(encoding="utf-8").strip()
     if not pw:
-        raise RemoteError("no FTP password: run `python remote_exec.py set-password` in your own terminal, "
-                          "or set REXEC_PASS")
+        raise RemoteError(f"no FTP password: {SETUP_HINT}, or set REXEC_PASS")
     return pw
 
 
@@ -149,7 +168,7 @@ class Remote:
             # no retry on bad credentials: repeated failures may lock the account
             raise RemoteError(f"FTP login failed: {e}")
         except OSError as e:
-            raise RemoteError(f"cannot reach {self.cfg['host']}:{self.cfg['port']} ({e}); check VPN/network")
+            raise NetworkError(f"cannot reach {self.cfg['host']}:{self.cfg['port']} ({e}); check VPN/network")
         ftp.set_pasv(True)
         self.ftp = ftp
         return ftp
@@ -169,7 +188,7 @@ class Remote:
             except (OSError, EOFError, ftplib.error_temp) as e:
                 self.close()
                 if attempt == 2:
-                    raise RemoteError(f"FTP transfer failed: {e}")
+                    raise NetworkError(f"FTP transfer failed: {e}")
                 time.sleep(2)
 
     def put(self, path, data):
@@ -255,7 +274,7 @@ class Finished:
     log: str = ""
     summary: str = ""
     files: dict = field(default_factory=dict)     # collected path (relative to the remote cwd) -> bytes
-    result_tar: bytes | None = None
+    result_tar: "bytes | None" = None
 
     @property
     def status(self):
@@ -340,17 +359,77 @@ def fetch(r, jid, done_bytes):
     return fin
 
 
-def wait(r, jid, wait_max):
-    """Finished, or None when the job is still running after wait_max seconds."""
-    deadline, delay = time.time() + wait_max, 1.0
+def wait(r, jid, wait_max, offline_grace=OFFLINE_GRACE):
+    """Finished, or None when the job is still running after wait_max seconds.
+
+    Losing the network only delays the result: the job is never resubmitted. NetworkError is raised
+    once the server has been unreachable for offline_grace seconds."""
+    deadline, delay, offline = time.time() + wait_max, 1.0, None
     while True:
-        done = r.get(f"{FTP_JOBS}/outbox/{jid}.done")
-        if done is not None:
-            return fetch(r, jid, done)
+        try:
+            done = r.get(f"{FTP_JOBS}/outbox/{jid}.done")
+            if done is not None:
+                return fetch(r, jid, done)
+            offline = None
+        except NetworkError:
+            offline = offline or time.time()
+            if time.time() - offline > offline_grace:
+                raise
         if time.time() > deadline:
             return None
         time.sleep(delay)
         delay = min(delay * 1.5, 5.0)
+
+
+def _start_ip_job(r, script, ip, args, collect, timeout):
+    name = ip.name
+    py = shlex.quote(r.cfg["python"])
+    cmd = f"RTLFLOW_EXEC=local {py} scripts/{script} {shlex.quote(name)} " + " ".join(shlex.quote(str(a)) for a in args)
+    meta = {"script": script, "ip": name}
+    if os.environ.get("HUB_RUN_ID"):
+        meta["hub_run_id"] = os.environ["HUB_RUN_ID"]
+    jid, _, _ = submit(r, cmd, push=[(ip, name)] + [(p, "scripts") for p in sorted(SCRIPTS.glob("*.py"))],
+                       excludes=IP_EXCLUDES, collect=[f"{name}/{c}" for c in collect], timeout=timeout,
+                       cleanup=os.environ.get("RTLFLOW_REMOTE_KEEP") != "1", meta=meta)
+    return jid
+
+
+def _apply_ip_result(ip, fin, clean_local):
+    """Write the collected files back into `ip`; raises RemoteError when the job could not run."""
+    if fin.status in ("error", "rejected", "timeout", "killed"):
+        tail = "\n".join(fin.output().splitlines()[-20:])
+        raise RemoteError(f"remote job {fin.id} {fin.status}: {fin.done.get('error') or ''}\n{tail}".rstrip())
+    for d in clean_local:
+        shutil.rmtree(ip / d, ignore_errors=True)
+    name = ip.name
+    for arc, data in fin.files.items():
+        if arc.startswith(name + "/"):
+            p = ip / arc[len(name) + 1:]
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(data)
+    return fin
+
+
+def start_ip_script(script, ip, args=(), collect=(), timeout=3600):
+    """Submit run_ip_script's job and return its id at once; poll_ip_script collects the result."""
+    r = Remote()
+    try:
+        return _start_ip_job(r, script, Path(ip).resolve(), args, collect, timeout)
+    finally:
+        r.close()
+
+
+def poll_ip_script(ip, jid, clean_local=()):
+    """Finished (collected files written back) or None while the job runs; NetworkError when unreachable."""
+    r = Remote()
+    try:
+        done = r.get(f"{FTP_JOBS}/outbox/{jid}.done")
+        if done is None:
+            return None
+        fin = fetch(r, jid, done)
+    finally:
+        r.close()
+    return _apply_ip_result(Path(ip).resolve(), fin, clean_local)
 
 
 def run_ip_script(script, ip, args=(), collect=(), timeout=3600, clean_local=()):
@@ -361,33 +440,15 @@ def run_ip_script(script, ip, args=(), collect=(), timeout=3600, clean_local=())
     back into `ip`, after deleting the local directories in `clean_local`. Raises RemoteError when the job
     could not run; the script's own failures are in the returned Finished (exit_code, output())."""
     ip = Path(ip).resolve()
-    name = ip.name
     r = Remote()
-    py = shlex.quote(r.cfg["python"])
-    cmd = f"RTLFLOW_EXEC=local {py} scripts/{script} {shlex.quote(name)} " + " ".join(shlex.quote(str(a)) for a in args)
-    meta = {"script": script, "ip": name}
-    if os.environ.get("HUB_RUN_ID"):
-        meta["hub_run_id"] = os.environ["HUB_RUN_ID"]
     try:
-        jid, _, _ = submit(r, cmd, push=[(ip, name)] + [(p, "scripts") for p in sorted(SCRIPTS.glob("*.py"))],
-                           excludes=IP_EXCLUDES, collect=[f"{name}/{c}" for c in collect], timeout=timeout,
-                           cleanup=os.environ.get("RTLFLOW_REMOTE_KEEP") != "1", meta=meta)
+        jid = _start_ip_job(r, script, ip, args, collect, timeout)
         fin = wait(r, jid, timeout + 600)
     finally:
         r.close()
     if fin is None:
         raise RemoteError(f"remote job {jid} did not finish within {timeout + 600}s")
-    if fin.status in ("error", "rejected", "timeout", "killed"):
-        tail = "\n".join(fin.output().splitlines()[-20:])
-        raise RemoteError(f"remote job {jid} {fin.status}: {fin.done.get('error') or ''}\n{tail}".rstrip())
-    for d in clean_local:
-        shutil.rmtree(ip / d, ignore_errors=True)
-    for arc, data in fin.files.items():
-        if arc.startswith(name + "/"):
-            p = ip / arc[len(name) + 1:]
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_bytes(data)
-    return fin
+    return _apply_ip_result(ip, fin, clean_local)
 
 
 # ---------- CLI ----------

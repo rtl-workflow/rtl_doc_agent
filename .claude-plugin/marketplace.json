@@ -4,7 +4,7 @@
     "name": "rtl-workflow"
   },
   "metadata": {
-    "description": "团队内部 RTL 设计与文档规范插件"
+    "description": "RTL 设计与文档规范插件"
   },
   "plugins": [
     {

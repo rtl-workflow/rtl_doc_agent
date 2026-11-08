@@ -36,8 +36,27 @@ plugins/rtl-flow/
     └── examples/demo_timer/     # 完整标杆示例：真实运行的 RTL、验证、综合与全套文档
 ```
 
-依赖：Python 3.8+（hook 以 `python` 命令调用）、PyYAML；lint 需要 SpyGlass（或 VCS）；回归需要 VCS。
-工具不在本机时设置 `RTLFLOW_EXEC=remote` 与 `REXEC_CONFIG`，lint 与回归在远程 EDA 服务器上运行（见 `scripts/remote_exec.py`）。
+依赖：Python 3.8+，且 `python` 命令可用（hook 和流程命令依赖它）；PyYAML 由配置向导自动安装。lint（SpyGlass）和回归（VCS）在远程 EDA 服务器上运行，本机不需要安装 EDA 工具。
+
+服务器需要满足：可以用 FTP 登录（账号的 FTP 根目录为家目录）；账号有 VNC 或其他可以打开终端的方式；已安装 `python3.11` 和 `tmux`；账号登录后的默认环境能直接使用 `vcs` 和 `sg_shell`，并持有相应的 license。
+
+## 首次配置（每台机器一次）
+
+Claude Code 和 OpenCode 共用同一份配置，配好后两者都可以直接使用。
+
+1. 确认本机能访问服务器（需要 VPN 时先连接）。
+2. 在**自己的终端**运行（不要在 AI 对话中输入密码）：
+   ```
+   python plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.py setup
+   ```
+   只需要输入**服务器地址、自己的账号和密码**。通过插件市场安装时不用找路径：第一次使用工作流时，AI 会给出完整命令，也可以运行 `/rtl-flow:setup`。
+3. 按提示打开服务器的 VNC 桌面，粘贴一条命令启动 watcher，向导检测到上线后自动完成验证。
+
+配置保存在 `~/.rtl-flow/`（插件升级和重装都不受影响），密码保存在系统凭据库。之后 lint 和仿真自动在服务器上运行，长任务不占用对话；网络中断或关闭会话后，再次运行流程会接回同一个任务。
+
+环境出问题时运行 `python .../rtlflow.py doctor` 检查。使用时需要保持与服务器的网络连接。
+
+多人共用服务器时，每个账号各运行一次 setup，各有一份 watcher 和签名密钥，工作目录互不影响，但会共享算力和 license。
 
 ## 工作流
 
@@ -49,7 +68,7 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 回归  flow.py 运行 run_regress.py → 通过则完成；失败 → debugger 定位 → 对应 agent 修复 → 再回归
 ```
 
-- 每一步都由 `flow.py next` 给出（dispatch / ask_user / review / escalate / finish），编排者照做，不自行判断。
+- 每一步都由 `flow.py next` 给出（dispatch / ask_user / review / escalate / wait / setup_required / finish），编排者照做，不自行判断。
 - 产出不通过检查时退回对应 agent，最多重试 3 次；修复最多 3 轮。超出时上报用户。
 - 规格不明确（debugger 判定为 spec）、工具问题、agent 报告 blocked 时，都上报用户决定。
 
@@ -112,9 +131,19 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 
 斜杠命令同理复制到 `.claude/commands/`，agent 复制到 `.claude/agents/`。hooks 需要手工合并到 `.claude/settings.json`（把 `${CLAUDE_PLUGIN_ROOT}` 换成实际路径），否则角色权限隔离不生效。
 
-### 非 Claude 工具
+### 方式 4：OpenCode
 
-规则全部是 Markdown + Python 脚本，与工具无关。其他 AI 编码工具可在其规则文件（如 `AGENTS.md`）中引用 `SKILL.md` 与 `references/`；脚本可直接接入 CI。
+与 Claude Code 功能相同：同样的 5 个角色 agent、斜杠命令、skill、状态机和权限隔离。
+
+1. 克隆本仓库，并保留在固定位置：`git clone https://github.com/rtl-workflow/rtl_doc_agent.git`
+2. 运行上面“首次配置”中的 `setup`，检测到 OpenCode 时会自动接入（也可以单独运行 `rtlflow.py install-opencode`）。
+3. 重启 OpenCode，使用 `/rtl-flow:ip-new`、`/rtl-flow:ip-run` 等命令。
+
+升级时执行 `git pull` 并重启 OpenCode 即可。`plugins/rtl-flow/opencode/rtl-flow.js` 只负责翻译工具调用：agent、命令和 skill 都从同一批 Markdown 动态注册，权限判断调用同一个 `hooks/flow_hook.py`，修改规则时只改一处。
+
+### 其他工具
+
+规则全部是 Markdown + Python 脚本。其他 AI 编码工具可在其规则文件（如 `AGENTS.md`）中引用 `SKILL.md` 与 `references/`，但没有权限隔离；脚本可直接接入 CI。
 
 ## 日常使用示例
 

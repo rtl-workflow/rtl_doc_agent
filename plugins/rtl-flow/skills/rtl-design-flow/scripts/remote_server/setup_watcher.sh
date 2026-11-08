@@ -26,6 +26,16 @@ sleep 1
 tmux new-session -d -s rexec \
     "while true; do python3.11 '$J/watcher.py'; rc=\$?; [ \$rc -eq 3 ] && break; echo \"watcher exited (\$rc), restarting in 5s\"; sleep 5; done; exec bash"
 sleep 3
+
+# Start again after a server reboot (best effort: some accounts may not have cron).
+if command -v crontab >/dev/null; then
+    { crontab -l 2>/dev/null | grep -v 'rexec_watcher_boot' || true
+      echo "@reboot bash -lc 'bash \$HOME/jobs/setup_watcher.sh' >/dev/null 2>&1 # rexec_watcher_boot"
+    } | crontab - || echo "WARNING: could not install the @reboot entry; rerun this script after a server reboot"
+else
+    echo "WARNING: crontab not available; rerun this script after a server reboot"
+fi
+
 tail -n 5 "$J/watcher.log" 2>/dev/null || true
 if [ -f "$J/outbox/heartbeat.json" ]; then
     echo "OK: rexec watcher is running in tmux session 'rexec' (view: tmux attach -t rexec, detach: Ctrl-b d)"

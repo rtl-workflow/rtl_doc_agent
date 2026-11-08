@@ -40,7 +40,7 @@ python $SKILL/scripts/run_lint.py    <ip_dir>        # SpyGlass lint，写 repor
 python $SKILL/scripts/check_docs.py  <ip_dir> --stage rtl
 ```
 
-lint 工具可能在远程 EDA 服务器上运行（`RTLFLOW_EXEC=remote`），每次约半分钟，命令和输出不变。`run_lint.py` 以 `ERROR:` 结束且没有写出报告（工具找不到、license 失败、远程服务器不可用）属于环境问题：不要为此修改 RTL，`status` 写 `blocked` 并在 `blocked_reason` 中附上这条错误。
+lint 工具在远程 EDA 服务器上运行，通常约半分钟，排队等 license 时会更久，运行时把命令超时设为 600000 ms；命令和输出与本地相同。`run_lint.py` 以 `ERROR:` 结束且没有写出报告（工具找不到、license 失败、远程服务器不可用）属于环境问题：不要为此修改 RTL，`status` 写 `blocked` 并在 `blocked_reason` 中附上这条错误。
 
 ## 结束
 
