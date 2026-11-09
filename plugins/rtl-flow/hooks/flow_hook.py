@@ -41,7 +41,7 @@ TB_HIDDEN = ["rtl/", "syn/", "reports/", "doc/05_rtl_structure.md", "dv/build/re
              ".flow/state.json"]
 TB_BASH_DENY = [r"(^|[\s\"'/\\=])rtl[/\\]", r"\bsyn[/\\]", r"\breports[/\\]", r"05_rtl_structure", r"lint\.log",
                 r"build[/\\]regress", r"\.flow[/\\](handoff|state)", r"\bgit\b",
-                r"run_regress\.py(?![^\n;&|]*--stub)"]
+                r"run_regress\.py(?![^\n;&|]*--stub)", r"run_mutation\.py"]
 FLOW_ADMIN = r"flow\.py\b[^\n;&|]*?\b(init|next|answers|review|iter|resume|guard)\b"
 
 
