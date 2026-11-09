@@ -17,6 +17,7 @@ Stages are cumulative; each enables stricter checks (see SKILL.md gates G0-G3):
 Exit code 0 if no ERROR.
 """
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -295,6 +296,21 @@ def run_checks(ip: Path, stage: str) -> Report:
             rep.at(at_least("dv"), "07_dv_plan", f"{tp} marked {flag} but covering test cases do not match")
         elif flag == "No":
             rep.at(signoff, "07_dv_plan", f"{tp} is not covered by any test case")
+
+    # code coverage of the latest regression against the goals of 07 §5
+    goals = dv_plan.coverage_goals(docs.get("07_dv_plan", "")) if at_least("dv") else {}
+    if goals:
+        report = ip / "reports" / "regress.json"
+        cov = json.loads(report.read_text(encoding="utf-8")).get("coverage") if report.exists() else None
+        if cov is None:
+            rep.at(False, "07_dv_plan", "no code coverage in reports/regress.json yet")
+        elif cov.get("error"):
+            rep.at(signoff, "07_dv_plan", f"code coverage unavailable: {cov['error']}")
+        else:
+            for metric, (target, waiver) in goals.items():
+                value = cov["metrics"].get(metric)
+                if value is not None and value < target and not waiver:
+                    rep.at(signoff, "07_dv_plan", f"{metric} coverage {value:g}% below target {target:g}%")
 
     # open questions / unconfirmed assumptions
     for cells in table_rows(split_front_matter(req_text)[1] if req_text else ""):

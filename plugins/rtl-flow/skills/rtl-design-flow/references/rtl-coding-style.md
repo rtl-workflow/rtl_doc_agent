@@ -192,6 +192,7 @@ end
   - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名是 `07_dv_plan.md` §3 中「测试活动」为仿真的测试用例编号（`tc_*`）。
   - 检查失败打印 `[<time>] ERROR: <说明>`；功能覆盖打印 `COVER <名字>=<命中次数>`（为 0 视为未覆盖，回归失败）。
   - 结束时打印 `TEST <name> SEED <n> PASSED|FAILED errors=<n>` 并 `$finish`。
+  - 代码覆盖率由 `run_regress.py` 用 VCS `-cm` 和 `urg` 采集，范围是 `<ip>_tb.U_dut`，TB 不需要做任何处理；目标和豁免写在 `07_dv_plan.md` §5。
   - 必须有看门狗：超时后打印 `TEST <name> FAILED errors=<n>` 并 `$finish`（桩检查时 DUT 输出恒 0，依赖看门狗结束）。
 
 ## 11. Lint

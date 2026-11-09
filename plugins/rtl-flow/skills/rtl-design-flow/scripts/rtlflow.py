@@ -28,7 +28,7 @@ sys.path.insert(0, str(SCRIPTS))
 DEFAULT_PORT = 21
 REMOTE_PYTHON = "python3.11"
 WATCHER_WAIT_S = 900
-PROBE = ("for t in vcs sg_shell; do command -v $t >/dev/null || echo MISSING:$t; done; "
+PROBE = ("for t in vcs urg sg_shell; do command -v $t >/dev/null || echo MISSING:$t; done; "
          f"{REMOTE_PYTHON} -c 'import yaml' 2>/dev/null || "
          f"{REMOTE_PYTHON} -m pip install --user -q pyyaml >/dev/null 2>&1 || echo MISSING:PyYAML; "
          "echo PROBE_DONE")
@@ -267,7 +267,7 @@ def cmd_doctor(_):
             sys.exit(f"FAIL  远程验证任务失败（状态 {status}）")
         if missing:
             sys.exit(f"FAIL  账号的默认环境中缺少：{', '.join(missing)}")
-        say("OK    远程任务正常，vcs、sg_shell、PyYAML 可用")
+        say("OK    远程任务正常，vcs、urg、sg_shell、PyYAML 可用")
     except rx.RemoteError as e:
         sys.exit(f"FAIL  {e}")
     finally:

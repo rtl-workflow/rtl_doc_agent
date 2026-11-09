@@ -8,6 +8,10 @@ Where it runs: with RTLFLOW_EXEC=remote (the EDA server is reached through remot
 is copied to the server, this script runs there, and the report and logs are written back here;
 otherwise VCS must be in PATH (module load vcs).
 
+Code coverage: a full RTL run compiles and runs with -cm, limited to <ip>_tb.U_dut, merges all runs
+with urg and records the percentages under "coverage" in the report (details: dv/build/regress/urgReport).
+Coverage does not change PASS/FAIL here; check_docs.py compares it with the goals of 07 §5.
+
 Test list: the test cases of doc/07_dv_plan.md §3 whose 测试活动 is 仿真 (tc_* ids), each
 mapped to the test points it covers. Older plans: the "用例" column (backticked names). Tests whose name contains "random" run with
 seeds 1..N (default 3), the others with seed 1.
@@ -54,6 +58,9 @@ except AttributeError:
 REPORT = Path("reports") / "regress.json"
 STUB_REPORT = Path("dv") / "build" / "stub" / "result.json"
 LAST = "last_result.json"
+COV_METRICS = "line+cond+fsm+tgl+branch"
+COV_DB = "cov.vdb"
+COV_REPORT = "urgReport"
 TEST_TIMEOUT_S = 600
 REMOTE_TIMEOUT_S = 6 * 3600
 RESULT_RE = re.compile(r"^TEST (\S+) (?:SEED (\d+) )?(PASSED|FAILED) errors=(\d+)", re.M)
@@ -66,8 +73,7 @@ LICENSE_RE = re.compile(r"licen[cs]e.*(fail|error|unavailable|not available|chec
 def tool(name):
     path = shutil.which(name)
     if not path:
-        raise SystemExit(f"ERROR: '{name}' not found in PATH: load the EDA module (module load vcs), "
-                         "or set RTLFLOW_EXEC=remote to run on the EDA server")
+        raise SystemExit(remote_exec.missing_tool_message(name))
     return path
 
 
@@ -76,6 +82,40 @@ def vcs_messages(text, limit=40):
     out = [" | ".join(l.strip() for l in m.group(0).splitlines() if l.strip())[:400]
            for m in VCS_MSG_RE.finditer(text)]
     return out[:limit]
+
+
+def parse_dashboard(text):
+    """{metric: percent or None} from the first summary table of urg's dashboard.txt."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines[:-1]):
+        names = line.split()
+        if names[:1] == ["SCORE"]:
+            values = lines[i + 1].split()
+            if len(values) < len(names):
+                return {}
+            return {n.lower(): (float(v) if re.fullmatch(r"\d+(\.\d+)?", v) else None)
+                    for n, v in zip(names, values)}
+    return {}
+
+
+def collect_coverage(build: Path):
+    """Merge the coverage of all runs with urg; 'error' is set when no figures could be read."""
+    shutil.rmtree(build / COV_REPORT, ignore_errors=True)
+    try:
+        p = subprocess.run([tool("urg"), "-full64", "-dir", COV_DB, "-format", "text", "-report", COV_REPORT],
+                           cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=TEST_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return {"metrics": {}, "report": None, "error": f"urg killed after {TEST_TIMEOUT_S} s"}
+    out = p.stdout + p.stderr
+    if p.returncode != 0 and LICENSE_RE.search(out):
+        raise SystemExit("ERROR: urg license problem:\n" + "\n".join(out.splitlines()[-15:]))
+    dash = build / COV_REPORT / "dashboard.txt"
+    metrics = parse_dashboard(dash.read_text(encoding="utf-8", errors="replace")) if dash.exists() else {}
+    if not any(v is not None for v in metrics.values()):
+        tail = " | ".join(l.strip() for l in out.splitlines() if l.strip())[-400:]
+        return {"metrics": {}, "report": None, "error": f"no coverage figures from urg (exit {p.returncode}): {tail}"}
+    return {"metrics": metrics, "report": f"dv/build/regress/{COV_REPORT}/dashboard.txt", "error": None}
 
 
 def plan_tests(ip: Path):
@@ -156,6 +196,8 @@ def remote_job(stub=False, only=None, seeds=3):
     collect = [f"{build}/{LAST}", f"{build}/compile.log", f"{build}/logs/**"]
     if not only:
         collect.append((STUB_REPORT if stub else REPORT).as_posix())
+        if not stub:
+            collect.append(f"{build}/{COV_REPORT}/**")
     return args, build, collect
 
 
@@ -234,9 +276,15 @@ def run(ip: Path, stub=False, only=None, seeds=3):
         return finish(ip, res, stub)
 
     simv = build / "simv"
+    cov_args = []
+    if not stub:
+        shutil.rmtree(build / COV_DB, ignore_errors=True)
+        (build / "cov.hier").write_text(f"+tree {top_tb}.U_dut\n", encoding="utf-8")
+        cov_args = ["-cm", COV_METRICS, "-cm_dir", COV_DB]
     # +vcs+lic+wait: queue for a license instead of failing when all are in use
     comp = subprocess.run([tool("vcs"), "-full64", "+v2k", "-timescale=1ns/1ps", "+vcs+lic+wait",
                            "-top", top_tb, "-Mdir=csrc", "-o", "simv", "-l", "compile.log"]
+                          + cov_args + (["-cm_hier", "cov.hier"] if cov_args else [])
                           + [str(s.resolve()) for s in srcs + tbs],
                           cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = comp.stdout + comp.stderr
@@ -258,7 +306,8 @@ def run(ip: Path, stub=False, only=None, seeds=3):
     for test, seed in runs:
         log = build / "logs" / f"{test}_{seed}.log"
         try:
-            p = subprocess.run([str(simv.resolve()), f"+TEST={test}", f"+SEED={seed}", "+vcs+lic+wait"],
+            p = subprocess.run([str(simv.resolve()), f"+TEST={test}", f"+SEED={seed}", "+vcs+lic+wait"]
+                               + cov_args + (["-cm_name", f"{test}_{seed}"] if cov_args else []),
                                cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace",
                                timeout=TEST_TIMEOUT_S)
             out = p.stdout + p.stderr
@@ -275,6 +324,8 @@ def run(ip: Path, stub=False, only=None, seeds=3):
         for name, n in re.findall(r"^COVER (\w+)=(\d+)", out, re.M):
             res["cover"][name] = res["cover"].get(name, 0) + int(n)
     res["uncovered"] = sorted(n for n, c in res["cover"].items() if c == 0)
+    if not stub and not only and res["tests"]:
+        res["coverage"] = collect_coverage(build)
     return finish(ip, res, stub, partial=bool(only))
 
 
@@ -288,6 +339,9 @@ def finish(ip: Path, res, stub, partial=False):
     res["result"] = "PASS" if ok else "FAIL"
     res["summary"] = (f"{sum(x['status'] == 'PASSED' for x in t)}/{len(t)} passed; "
                       f"{len(res['cover']) - len(res['uncovered'])}/{len(res['cover'])} cover points hit")
+    figures = {k: v for k, v in (res.get("coverage") or {}).get("metrics", {}).items() if v is not None}
+    if figures:
+        res["summary"] += "; code coverage " + ", ".join(f"{k} {v:g}%" for k, v in figures.items())
     text = json.dumps(res, ensure_ascii=False, indent=2) + "\n"
     if not partial:
         out = ip / (STUB_REPORT if stub else REPORT)
@@ -319,6 +373,8 @@ def print_result(res):
             print(f"FAILED {x['test']} seed={x['seed']}: {(x['first_errors'] or [''])[0]}  (log: {x['log']})")
     if res["uncovered"]:
         print("UNCOVERED: " + ", ".join(res["uncovered"]))
+    if (res.get("coverage") or {}).get("error"):
+        print(f"COVERAGE UNAVAILABLE: {res['coverage']['error']}")
     print(f"\n[{res['mode']}] {res['result']}: {res['summary']}")
 
 
