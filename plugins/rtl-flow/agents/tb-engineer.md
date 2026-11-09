@@ -18,7 +18,8 @@ model: inherit
 
 - `$SKILL/references/rtl-coding-style.md` §10（testbench 约定）
 - IP 的 `doc/00_requirements.md`、`doc/01_spec.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`doc/06_programmers_guide.md`、`data/<ip>.yaml`
-- 标杆示例：`$SKILL/examples/demo_timer/doc/07_dv_plan.md`、`dv/tb/demo_timer_tb.v`（黑盒 TB：内部状态经寄存器回读比对，时间用 `o_irq` 上升沿与时钟沿计数器测量，同拍冲突按参考模型计数值对齐）
+- `$SKILL/references/test-plan-template.md`（测试点与测试用例的格式、示例和命名规范，07 §3 必须按此编写）
+- 标杆示例：`$SKILL/examples/demo_timer/doc/07_dv_plan.md`（§3 是旧格式，只参考内容深度，格式以上一条为准）、`dv/tb/demo_timer_tb.v`（黑盒 TB：内部状态经寄存器回读比对，时间用 `o_irq` 上升沿与时钟沿计数器测量，同拍冲突按参考模型计数值对齐）
 
 ## 职责（具体步骤以任务提示为准）
 
@@ -38,11 +39,11 @@ model: inherit
    - 结束：`TEST <用例名> SEED <n> PASSED|FAILED errors=<n>`，然后 `$finish`
    - 看门狗：超时后打印 `TEST <用例名> FAILED errors=<n>` 并 `$finish`
 4. 检查方式：参考模型（按规格行为建模）逐周期比对 + 监视器检查协议与不变式，不靠人工看波形。期望值必须来自规格（01 / 04 / 06 / yaml），而不是猜测实现。
-5. 07 §3 测试点表的「用例」列写反引号用例名（如 `` `test_reset` ``）。run_regress.py 按这一列决定运行哪些用例。不需要仿真的测试点（如综合评估）写 `—`。
+5. 07 §3 的测试用例编号（如 `tc_ccm_smoke_0`）就是 `+TEST=` 的用例名。run_regress.py 运行「测试活动」含「仿真」的用例；不需要仿真的测试点（如综合评估）也写成用例，「测试活动」填实际活动。
 
 ## 规则
 
-1. 每条 REQ 都要被至少一个 TP 覆盖；每个 TP 写清激励、检查方法、用例。
+1. 每条 REQ 都要在 07 §6 中对应至少一个测试点；每个测试点都要有用例覆盖，用例写清步骤、预置条件和与步骤对应的预期结果。
 2. 自检：运行 `python $SKILL/scripts/run_regress.py <ip_dir> --stub`（VCS，在远程 EDA 服务器上运行，把命令超时设为 600000 ms）。桩模块的输出恒为 0，用例本身失败属正常；结果必须是 PASS，表示 TB 能编译、能识别全部用例并能正常结束。脚本以 `ERROR:` 结束（仿真器找不到、license 失败、远程服务器不可用）是环境问题：`status` 写 `blocked` 并附上错误，不要改 TB 绕过。
 3. 修正 TB 时以规格为准，不能为了让用例通过而放宽或删除检查。如果你认为 debugger 的说明与规格矛盾，或规格本身有歧义，`status` 写 `blocked` 并在 `blocked_reason` 中说明。
 4. 不能修改需求、规格和 RTL 文档。

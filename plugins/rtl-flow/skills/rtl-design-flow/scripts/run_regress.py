@@ -8,8 +8,8 @@ Where it runs: with RTLFLOW_EXEC=remote (the EDA server is reached through remot
 is copied to the server, this script runs there, and the report and logs are written back here;
 otherwise VCS must be in PATH (module load vcs).
 
-Test list: the "用例" column of doc/07_dv_plan.md §3 (backticked names, e.g. `test_reset`);
-each test is mapped to the TP of its row. Tests whose name contains "random" run with
+Test list: the test cases of doc/07_dv_plan.md §3 whose 测试活动 is 仿真 (tc_* ids), each
+mapped to the test points it covers. Older plans: the "用例" column (backticked names). Tests whose name contains "random" run with
 seeds 1..N (default 3), the others with seed 1.
 
 Testbench convention (rtl-coding-style §10): every file dv/tb/*.v is compiled (Verilog-2001, +v2k),
@@ -42,6 +42,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import dv_plan  # noqa: E402
 import gen_docs  # noqa: E402
 import remote_exec  # noqa: E402
 
@@ -78,11 +79,16 @@ def vcs_messages(text, limit=40):
 
 
 def plan_tests(ip: Path):
-    """{test: [TP-xxx, ...]} from the 用例 column of 07_dv_plan §3."""
+    """{test: [test point, ...]} from 07_dv_plan §3."""
     p = ip / "doc" / "07_dv_plan.md"
     if not p.exists():
         return {}
-    text = re.sub(r"```.*?```", "", p.read_text(encoding="utf-8", errors="replace"), flags=re.S)
+    raw = p.read_text(encoding="utf-8", errors="replace")
+    cases = dv_plan.parse(raw).cases
+    if cases:
+        return {c.id: c.tps for c in cases if c.simulated}
+    # older format: TP-xxx rows with a 用例 column
+    text = re.sub(r"```.*?```", "", raw, flags=re.S)
     m = re.search(r"^## 3\.[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
     tests, col = {}, None
     for line in (m.group(1) if m else "").splitlines():
@@ -212,7 +218,7 @@ def run(ip: Path, stub=False, only=None, seeds=3):
     tbs = tb_files(ip)
     top_tb = f"{data['name']}_tb"
     if not tests:
-        res["problems"].append("07_dv_plan §3 lists no test (用例 column, backticked names)")
+        res["problems"].append("07_dv_plan §3 lists no simulation test case (tc_* with 测试活动 仿真)")
     if not tbs:
         res["problems"].append("no testbench file in dv/tb/*.v")
     if stub:

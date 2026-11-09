@@ -10,7 +10,7 @@ Stages are cumulative; each enables stricter checks (see SKILL.md gates G0-G3):
     arch     + 02 sub-module table complete, 01 approved (G1)
     rtl      + RTL top-level ports match data/<ip>.yaml, sub-modules of 02 exist in RTL and 05,
                reports/lint.log present, current and without error, 02 approved (G2)
-    dv       + every REQ covered by a TP in 07_dv_plan
+    dv       + every REQ covered by a test point in 07_dv_plan, test points and test cases consistent
     signoff  + no placeholders/TODO/TBD/Open Q/unconfirmed ASM, all docs Released, checklist complete,
                every review gate approved by a person (approved: skipped not allowed)
 
@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import dv_plan  # noqa: E402
 import gen_docs  # noqa: E402
 import run_lint  # noqa: E402
 from check_style import parse_rtl_ports, strip_hdl_comments  # noqa: E402
@@ -265,7 +266,8 @@ def run_checks(ip: Path, stage: str) -> Report:
         return set(re.findall(r"\b" + ID_RE + r"\b", docs.get(stem, "")))
 
     spec_refs, dv_refs = refs_in("01_spec"), refs_in("07_dv_plan")
-    tps = [i for i, s in defs.items() if i.startswith("TP-")]
+    plan = dv_plan.parse(docs.get("07_dv_plan", ""))
+    tps = [i for i, s in defs.items() if i.startswith("TP-")] + list(plan.tps)
     for r in reqs:
         if r not in spec_refs:
             rep.at(at_least("spec"), "01_spec", f"{r} not covered by any spec section")
@@ -273,6 +275,26 @@ def run_checks(ip: Path, stage: str) -> Report:
             rep.at(at_least("dv"), "07_dv_plan", f"{r} not covered by any test point")
     if at_least("dv") and not tps:
         rep.err("07_dv_plan", "no TP defined")
+    covered = {tp for c in plan.cases for tp in c.tps}
+    for i in plan.duplicates:
+        rep.at(at_least("dv"), "07_dv_plan", f"{i} defined more than once")
+    for c in plan.cases:
+        if not c.tps:
+            rep.at(at_least("dv"), "07_dv_plan", f"{c.id} covers no test point")
+        if not c.activity:
+            rep.at(at_least("dv"), "07_dv_plan", f"{c.id} has no 测试活动")
+        for tp in c.tps:
+            if tp not in plan.tps:
+                rep.at(at_least("dv"), "07_dv_plan", f"{c.id} references undefined test point {tp}")
+    for tp in sorted(plan.trace_tps - set(plan.tps)):
+        rep.at(at_least("dv"), "07_dv_plan", f"§6 references undefined test point {tp}")
+    for tp, flag in plan.tps.items():
+        if flag not in ("Yes", "No"):
+            rep.at(at_least("dv"), "07_dv_plan", f"{tp}: 是否被测试用例覆盖 must be Yes or No")
+        elif (flag == "Yes") != (tp in covered):
+            rep.at(at_least("dv"), "07_dv_plan", f"{tp} marked {flag} but covering test cases do not match")
+        elif flag == "No":
+            rep.at(signoff, "07_dv_plan", f"{tp} is not covered by any test case")
 
     # open questions / unconfirmed assumptions
     for cells in table_rows(split_front_matter(req_text)[1] if req_text else ""):

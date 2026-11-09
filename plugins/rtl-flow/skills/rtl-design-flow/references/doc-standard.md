@@ -54,7 +54,8 @@ approved: 0.2@2026-10-22  # 审核通过时的 version@日期；自动模式写 
 | `ASM` | 假设 | 00_requirements | `ASM-001` |
 | `Q` | 待确认问题 | 00_requirements | `Q-001` |
 | `DEC` | 设计决策 | 09_decisions | `DEC-001` |
-| `TP` | 测试点 | 07_dv_plan | `TP-001` |
+| `tp_` | 测试点 | 07_dv_plan | `tp_fun_wr_cache_miss` |
+| `tc_` | 测试用例 | 07_dv_plan | `tc_ccm_smoke_0` |
 | `ITR` | 迭代 | 08_iteration_log | `ITR-001` |
 | `BUG` | 缺陷 | 08_iteration_log | `BUG-001` |
 
