@@ -370,7 +370,7 @@ TASKS = {
         "重新运行 run_lint.py，并在该 ITR 的「修改」表中补充你的修改。不要修改 dv/。",
     ("tb-engineer", "tb"):
         "执行 P4 验证。你看不到、也不能读取 RTL：只根据 00 / 01 / 03 / 04 / 06 与 yaml 构建验证。\n"
-        "1. 编写 07_dv_plan：测试点 TP-xxx 关联 REQ，§3 表「用例」列写反引号用例名（如 `test_reset`）；每条 REQ 都要被 TP 覆盖。\n"
+        "1. 编写 07_dv_plan：§3 按 references/test-plan-template.md 分解测试点（tp_*）和测试用例（tc_*），仿真用例的「测试活动」写「仿真」，用例编号就是 TB 的 TEST 名；§6 写 REQ 到测试点的追溯，每条 REQ 都要被测试点覆盖。\n"
         "2. 编写 dv/tb/<ip>_tb.v：黑盒自检查 testbench（只通过顶层端口访问 DUT，禁止 U_dut.xxx 层次引用），"
         "参考模型逐周期比对，COVER 计数，看门狗；输出格式见 rtl-coding-style §10。\n"
         "3. 运行 run_regress.py <ip_dir> --stub，直到结果为 PASS（证明 TB 能编译、识别全部用例并能结束；桩模块输出恒 0，用例本身失败属正常）。",

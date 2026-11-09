@@ -32,7 +32,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 1. **单一信息源 (SSOT)**：参数、端口、时钟复位、中断、寄存器只写在 `data/<ip>.yaml`。`03_interfaces.md`、`04_registers.md`、`sw/<ip>_regs.h` 由脚本生成，禁止手改（hook 拦截）。
 2. **先文档后代码**：行为变更顺序永远是 `00_requirements` → `01_spec` / `02_architecture` → `data/<ip>.yaml` → RTL → DV。
 3. **不猜测，显式记录**：模糊、矛盾、缺失的地方，要么问用户（`Q-xxx`），要么做假设（`ASM-xxx`），都写进 `00_requirements.md`。
-4. **可追溯**：每条 `REQ-xxx` 必须在 `01_spec.md` 中被引用，并在 `07_dv_plan.md` 中有对应测试点 `TP-xxx`。
+4. **可追溯**：每条 `REQ-xxx` 必须在 `01_spec.md` 中被引用，并在 `07_dv_plan.md` 中有对应测试点 `tp_xxx`。
 5. **设计与验证独立**：tb-engineer 只根据规格编写验证，看不到 RTL（hook 强制执行）。RTL 与 TB 结果不一致时，由 debugger 以规格为准判定谁错。
 6. **流程由程序判定**：是否进入下一阶段由 `flow.py` 调用检查脚本决定，不由模型自行判断。
 7. **原始输入只读**：用户给的原始材料保存在 `<ip>/raw/`，不修改。

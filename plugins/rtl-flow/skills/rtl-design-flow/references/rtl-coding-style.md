@@ -189,7 +189,7 @@ end
 - `reg clk = 1'b0;` 这类声明初值在 0 时刻产生一次 X→0 跳变，`@(negedge clk)` 会在 0 时刻触发，而此时 DUT 的异步复位可能还没有求值（VCS 下必然出现）。下降沿采样的监视器要跳过 0 时刻（`if ($time != 0 && ...)`），真正的第一个下降沿在半个周期之后。
 - **黑盒**：testbench 只通过顶层端口访问 DUT，禁止 `U_dut.xxx` 层次引用。验证由 tb-engineer 只根据规格独立编写，`run_regress.py --stub` 用端口桩代替 RTL 编译 testbench，层次引用会在这里报错。
 - **运行约定**（`run_regress.py` 依赖）：
-  - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名来自 `07_dv_plan.md` §3 的「用例」列（反引号）。
+  - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名是 `07_dv_plan.md` §3 中「测试活动」为仿真的测试用例编号（`tc_*`）。
   - 检查失败打印 `[<time>] ERROR: <说明>`；功能覆盖打印 `COVER <名字>=<命中次数>`（为 0 视为未覆盖，回归失败）。
   - 结束时打印 `TEST <name> SEED <n> PASSED|FAILED errors=<n>` 并 `$finish`。
   - 必须有看门狗：超时后打印 `TEST <name> FAILED errors=<n>` 并 `$finish`（桩检查时 DUT 输出恒 0，依赖看门狗结束）。
