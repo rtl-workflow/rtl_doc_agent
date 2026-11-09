@@ -91,6 +91,15 @@ def enabled():
     return mode == "remote" if mode else configured()
 
 
+def missing_tool_message(name):
+    """Why a local EDA tool cannot be used, with what to do about it."""
+    if os.environ.get("RTLFLOW_EXEC") or configured():
+        return f"ERROR: '{name}' not found in PATH: load the EDA module (module load vcs)"
+    setup = Path(__file__).resolve().parent / "rtlflow.py"
+    return (f"ERROR: '{name}' not found and the remote EDA server is not configured. "
+            f"Run this once in your own terminal (it asks for server, account and password): python \"{setup}\" setup")
+
+
 def load_cfg():
     d = config_dir()
     ini = d / "rexec.ini"

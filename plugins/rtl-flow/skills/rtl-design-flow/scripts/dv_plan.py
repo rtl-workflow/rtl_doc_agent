@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 TP_RE = r"tp_[a-z0-9_]+"
 TC_RE = r"tc_[a-z0-9_]+"
+COV_METRICS = ("line", "cond", "toggle", "fsm", "branch")
 
 
 @dataclass
@@ -42,6 +43,29 @@ def _rows(body):
         s = line.strip()
         if s.startswith("|") and not re.fullmatch(r"\|[\s:\-|]+\|?", s):
             yield [c.strip().strip("`").strip() for c in s.strip("|").split("|")]
+
+
+def coverage_goals(text):
+    """{metric: (target %, waiver text or "")} from the table of §5."""
+    goals, waiver_col = {}, None
+    for cells in _rows(section(text, 5)):
+        if cells[0] == "类型":
+            waiver_col = next((i for i, c in enumerate(cells) if c == "豁免说明"), None)
+            continue
+        name = cells[0].lower()
+        if "代码覆盖率" in name:
+            metrics = [m for m in COV_METRICS if m in name]
+        elif "fsm" in name:
+            metrics = ["fsm"]
+        else:
+            continue
+        m = re.search(r"(\d+(?:\.\d+)?)\s*%", cells[1]) if len(cells) > 1 and "不适用" not in cells[1] else None
+        if not m:
+            continue
+        waiver = cells[waiver_col] if waiver_col is not None and waiver_col < len(cells) else ""
+        for metric in metrics:
+            goals[metric] = (float(m.group(1)), "" if waiver in ("", "—", "-") else waiver)
+    return goals
 
 
 def parse(text):

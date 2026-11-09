@@ -240,7 +240,7 @@ def setup_action():
         return None
     return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" setup',
             "instructions": "这台机器还没有配置远程 EDA 环境。把 command 原样告诉用户，请用户在自己的终端运行一次"
-                            "（需要能访问服务器，只询问服务器地址、账号和密码）。不要向用户索要密码，也不要替用户运行。"
+                            "（需要能访问服务器，向导会让用户自己输入服务器地址、账号和密码，所以必须另开一个终端，不能在对话中运行）。不要向用户索要这些信息，也不要替用户运行。"
                             "用户完成后再运行 flow.py next。"}
 
 

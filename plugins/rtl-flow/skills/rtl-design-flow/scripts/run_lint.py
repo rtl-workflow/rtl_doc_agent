@@ -76,8 +76,7 @@ LICENSE_RE = re.compile(r"licen[cs]e.*(fail|error|unavailable|not available|chec
 def tool_exe(name):
     p = shutil.which(name)
     if not p:
-        sys.exit(f"ERROR: '{name}' not found in PATH: load the EDA module, "
-                 "or set RTLFLOW_EXEC=remote to run on the EDA server")
+        sys.exit(remote_exec.missing_tool_message(name))
     return p
 
 
