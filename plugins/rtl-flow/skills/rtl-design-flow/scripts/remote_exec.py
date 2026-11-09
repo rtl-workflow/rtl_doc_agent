@@ -60,6 +60,9 @@ TEXT_MAX = 20 << 20
 HEARTBEAT_MAX_AGE = 60
 OFFLINE_GRACE = 900            # seconds a finished-job wait survives losing the network (the job keeps running)
 PASSWORD_FILE = "password"     # only where the machine has no credential store, created by `rtlflow.py setup`
+# EDA tools look up host names at start-up and continue when that fails; where the DNS server does not
+# answer, the default resolver timeouts add over a minute to every VCS run. A value set on the server wins.
+REMOTE_ENV = 'RES_OPTIONS="${RES_OPTIONS:-timeout:1 attempts:1}" RTLFLOW_EXEC=local'
 SETUP_HINT = "run `python rtlflow.py setup` in your own terminal"
 
 EXIT_PENDING, EXIT_TIMEOUT, EXIT_INFRA, EXIT_KILLED = 100, 124, 125, 130
@@ -393,7 +396,7 @@ def wait(r, jid, wait_max, offline_grace=OFFLINE_GRACE):
 def _start_ip_job(r, script, ip, args, collect, timeout):
     name = ip.name
     py = shlex.quote(r.cfg["python"])
-    cmd = f"RTLFLOW_EXEC=local {py} scripts/{script} {shlex.quote(name)} " + " ".join(shlex.quote(str(a)) for a in args)
+    cmd = f"{REMOTE_ENV} {py} scripts/{script} {shlex.quote(name)} " + " ".join(shlex.quote(str(a)) for a in args)
     meta = {"script": script, "ip": name}
     if os.environ.get("HUB_RUN_ID"):
         meta["hub_run_id"] = os.environ["HUB_RUN_ID"]

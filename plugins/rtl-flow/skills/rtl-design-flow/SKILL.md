@@ -21,6 +21,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `scripts/check_style.py` / `run_lint.py` | 编码规范检查；风格检查 + SpyGlass lint（`--tool vcs` 用 VCS），写 `reports/lint.log` |
 | `scripts/check_docs.py` | 文档完整性、追溯性、审核记录、RTL 一致性检查 |
 | `scripts/run_regress.py` | 通用回归（VCS），写 `reports/regress.json`；`--stub` 用端口桩代替 RTL 做 TB 自检 |
+| `scripts/run_mutation.py` | 变异测试：自动向 RTL 注入单点缺陷并运行回归，写 `reports/mutation.json`；由用户通过 `/rtl-flow:ip-mutate` 发起，结果含 RTL 内容，不提供给 tb-engineer |
 | `scripts/rtlflow.py` | 一次性环境配置 `setup`、环境检查 `doctor`、接入 OpenCode `install-opencode` |
 | `scripts/remote_exec.py` | 远程 EDA 服务器执行（FTP + 服务器上的 watcher）；`RTLFLOW_EXEC=remote` 时 lint 与回归自动在服务器上运行 |
 | `examples/` | 标杆示例（few-shot）；`examples/demo_timer/` 为完整走完 P0–P6 的参考 IP |
