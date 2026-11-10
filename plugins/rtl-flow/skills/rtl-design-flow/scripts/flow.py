@@ -801,8 +801,6 @@ def step(ip: Path, st):
 def cmd_init(a):
     ip = a.ip_dir.resolve()
     name = ip.name
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
-        raise SystemExit(f"ERROR: IP name '{name}' must be lower_snake_case")
     if (ip / STATE).exists():
         raise SystemExit(f"ERROR: {ip / STATE} already exists; use `flow.py next`")
     tpl = SKILL / "templates"

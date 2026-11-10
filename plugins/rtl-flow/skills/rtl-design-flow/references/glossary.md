@@ -24,7 +24,9 @@
 | 测试点 | test point | 测试项 | |
 | 待定 | TBD | 待补充、暂定 | 必须写作 `TBD(Q-xxx)` |
 
-## 2. 信号命名前缀 / 后缀（华为 Verilog 编码规范，详见 rtl-coding-style §2）
+## 2. 信号命名前缀 / 后缀示例
+
+下表仅解释既有示例中的写法，不是强制命名规则。用户材料已有名称一律原样保留，不据此增删前后缀或修改大小写；极性、方向及同步关系以规格和SSOT为准（详见 rtl-coding-style §2）。
 
 | 前缀 / 后缀 | 含义 | 示例 |
 |---|---|---|
@@ -42,7 +44,7 @@
 | `cur_state` / `nxt_state` | FSM 当前状态 / 次态 | |
 | `ST_` | FSM 状态编码（`localparam`） | `ST_IDLE` |
 | `U_` | 例化名 | `U_core`, `U_sync_0` |
-| 全大写 | `parameter` / `localparam` / `` `define ``，不超过 20 字符 | `DATA_WIDTH` |
+| 全大写 | 部分示例中的参数或宏写法，无大小写和20字符长度要求 | `DATA_WIDTH` |
 
 ## 3. 寄存器软件访问类型 (swaccess)
 

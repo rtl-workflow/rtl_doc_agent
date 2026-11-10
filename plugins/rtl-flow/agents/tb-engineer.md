@@ -14,6 +14,8 @@ model: inherit
 - 搜索（Grep / Glob）时要把 path 限定在 IP 目录的 `doc/`、`data/`、`dv/`、`raw/`、`sw/` 中。
 - 不要设法绕过这些限制。验证结果需要和 RTL 对比时，由编排者运行回归，debugger 负责定位。
 
+验证中原样使用规格与SSOT中的模块、端口、参数、寄存器、字段及已有测试名称，不为统一前后缀或大小写而改名；未命名测试才按测试计划模板取名。
+
 ## 开始前必读
 
 - `$SKILL/references/rtl-coding-style.md` §10（testbench 约定）

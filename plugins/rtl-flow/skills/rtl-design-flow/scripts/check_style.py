@@ -169,8 +169,6 @@ RAW_PATTERNS = [  # checked on raw text, because synthesis pragmas live in comme
 ]
 HEADER_FIELDS = ["Module name", "Function", "Version", "Date"]
 DIR_ORDER = {"input": 0, "inout": 1, "output": 2}
-PORT_PREFIX = {"input": ("i_", "clk", "rst"), "inout": ("io_",), "output": ("o_",)}
-PARAM_RE = re.compile(r"\b(?:parameter|localparam)\b\s*(?:signed\s+)?(?:\[[^\]]*\]\s*)?([A-Za-z_]\w*)\s*=")
 DEFINE_FILE = "define.v"
 DEFINE_RE = re.compile(r"`define\s+([A-Za-z_]\w*)[ \t]*([^\n]*)")
 # macros define.v must provide, with their allowed values
@@ -277,13 +275,15 @@ def check_delays(code):
             yield m.start(), f"delay '{m.group(0)}' not allowed: only <= #`U_DLY"
 
 
-def check_resets(code, std):
+def check_resets(code, std, reset_names=None):
     """Yield (pos, rule, msg) for reset edges (HW-41) and reset conditions (HW-42).
 
-    std maps standard-interface reset names (std_if in data) to their active level; every other
-    rst* signal is an internal reset whose polarity comes from `RST_EDGE / `RST_ACT.
+    std maps standard-interface reset names to their active level. Explicit SSOT names
+    take precedence over the legacy rst* fallback for standalone file checks.
     """
-    for m in re.finditer(r"(\bposedge|\bnegedge|`RST_EDGE)\s+(rst\w*)", code):
+    names = set(reset_names or []) | set(std)
+    pattern = "(?:" + "|".join(re.escape(n) for n in sorted(names)) + ")" if names else r"rst\w*"
+    for m in re.finditer(r"(\bposedge|\bnegedge|`RST_EDGE)\s+(" + pattern + r")\b", code):
         edge, n = m.group(1), m.group(2)
         if n in std:
             want = POLARITY[std[n]][0]
@@ -291,7 +291,7 @@ def check_resets(code, std):
                 yield m.start(), "HW-41", f"standard-interface reset '{n}' is active-{std[n]}: write {want} {n}"
         elif edge != "`RST_EDGE":
             yield m.start(), "HW-41", f"reset edge '{m.group(0)}': write `RST_EDGE {n}"
-    for m in re.finditer(r"\bif\s*\(\s*(rst\w*)\s*==\s*([^)]*?)\s*\)", code):
+    for m in re.finditer(r"\bif\s*\(\s*(" + pattern + r")\s*==\s*([^)]*?)\s*\)", code):
         n, v = m.group(1), m.group(2)
         want = POLARITY[std[n]][1] if n in std else "`RST_ACT"
         if v != want:
@@ -320,8 +320,6 @@ def check_define_file(path: Path, rel: str):
         pos += len(ln)
     for m in DEFINE_RE.finditer(code):
         n, v = m.group(1), m.group(2).strip()
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]*", n) or len(n) > 20:
-            add(m.start(1), "HW-13", f"macro '{n}' must be UPPER_SNAKE_CASE, at most 20 characters")
         if n in macros:
             add(m.start(1), "HW-07", f"macro '{n}' defined twice")
         macros[n] = v
@@ -351,7 +349,7 @@ def check_case_default(code):
                 yield start, "case without default"
 
 
-def check_file(path: Path, rel: str, std=None):
+def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=None):
     """Return [(rel, line, rule, msg)] for one RTL file."""
     raw = path.read_text(encoding="utf-8", errors="replace")
     code = strip_hdl_comments(raw)
@@ -360,13 +358,9 @@ def check_file(path: Path, rel: str, std=None):
     def add(pos, rule, msg):
         out.append((rel, line_of(raw, pos) if pos is not None else 1, rule, msg))
 
-    if path.suffix != ".v":
-        add(None, "HW-02", f"file extension '{path.suffix}' must be .v")
     mods = modules_in(code)
     if len(mods) != 1:
         add(None, "HW-02", f"file must contain exactly one module, found {len(mods)}")
-    elif mods[0] != path.stem:
-        add(None, "HW-02", f"module '{mods[0]}' != file name '{path.stem}'")
 
     first = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
     if not re.fullmatch(r"`timescale\s+1\s*ns\s*/\s*1\s*ps", first):
@@ -388,15 +382,10 @@ def check_file(path: Path, rel: str, std=None):
         add(pos, "HW-61", msg)
     for pos, msg in check_literals(code):
         add(pos, "HW-62", msg)
-    for pos, rule, msg in check_resets(code, std or {}):
+    for pos, rule, msg in check_resets(code, std or {}, reset_names):
         add(pos, rule, msg)
     for pos, msg in check_delays(code):
         add(pos, "HW-50" if msg.startswith("nonblocking") else "HW-60", msg)
-
-    for m in PARAM_RE.finditer(code):
-        n = m.group(1)
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]*", n) or len(n) > 20:
-            add(m.start(1), "HW-13", f"parameter '{n}' must be UPPER_SNAKE_CASE, at most 20 characters")
 
     for mod in mods:
         try:
@@ -407,17 +396,13 @@ def check_file(path: Path, rel: str, std=None):
         pos = code.find("module " + mod)
         last = 0
         for n, (d, _) in ports.items():
-            if not n.startswith(PORT_PREFIX[d]):
-                add(pos, "HW-12", f"{d} port '{n}' must start with {' / '.join(PORT_PREFIX[d])}")
-            if not re.fullmatch(r"[a-z][a-z0-9_]*", n):
-                add(pos, "HW-11", f"port '{n}' must be lower_snake_case")
             if DIR_ORDER[d] < last:
                 add(pos, "HW-30", f"port '{n}': order must be inputs, then inouts, then outputs")
             last = max(last, DIR_ORDER[d])
     return out
 
 
-def check_ip(ip: Path, files, resets=None):
+def check_ip(ip: Path, files, resets=None, source_naming=None):
     """Style violations of the RTL files; resets (data/<ip>.yaml) are checked against define.v."""
     out = []
     std = {r.get("name"): r.get("active") for r in resets or [] if r.get("std_if")}
@@ -439,7 +424,7 @@ def check_ip(ip: Path, files, resets=None):
                 out.append((f, 1, "HW-07", f"internal reset is active-{internal[0]['active']} in data: "
                                            f"RST_EDGE / RST_ACT must be {want[0]} / {want[1]}"))
         else:
-            out += check_file(ip / f, f, std)
+            out += check_file(ip / f, f, std, source_naming, [r['name'] for r in resets or []])
     return sorted(out, key=lambda x: (x[0], x[1]))
 
 
@@ -452,7 +437,7 @@ def main():
     data, derrs, _ = gen_docs.outputs(a.ip_dir)
     if derrs:
         sys.exit("ERROR: data file invalid, run check_docs.py first")
-    vs = check_ip(a.ip_dir, data.get("rtl_files") or [], data.get("resets"))
+    vs = check_ip(a.ip_dir, data.get("rtl_files") or [], data.get("resets"), data.get("source_naming"))
     for f, ln, rule, msg in vs:
         print(f"{f}:{ln}: [{rule}] {msg}")
     print(f"\nstyle: {len(vs)} violation(s)")

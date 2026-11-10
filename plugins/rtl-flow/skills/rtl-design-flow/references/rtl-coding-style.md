@@ -9,7 +9,7 @@
 | 编号 | 规则 | 检查 |
 |---|---|---|
 | HW-01 | RTL 必须使用可综合 Verilog-2001（IEEE 1364-2001），唯一例外是 `$clog2`（来自 1364-2005，用法见 HW-61）。禁止 SystemVerilog 语法：`logic`、`bit`、`always_ff`、`always_comb`、`always_latch`、`typedef`、`enum`、`struct`、`interface`、`package`、`import`、`unique`、`priority`、`'0`/`'1`、`++`/`+=`、`.name` 隐式端口连接；禁止 Verilog-2005 新增的 `uwire` | 自动 |
-| HW-02 | 一个文件只包含一个模块；文件名 = 模块名，后缀 `.v`（`define.v` 不含模块，见 HW-07） | 自动 |
+| HW-02 | 一个文件只包含一个模块；保留原始文件名与模块名，两者无需相同。不强制修改文件扩展名；文件内容仍遵守 HW-01。未指定文件名时可用 `<模块名>.v`（`define.v`见HW-07） | 自动（模块数量） |
 | HW-03 | 每个文件（不含 `define.v`）第一行必须是 `` `timescale 1ns / 1ps `` | 自动 |
 | HW-04 | 每个文件开头必须有文件头（格式见 §8），写明文件名、模块名、功能、版本、日期；`define.v` 不写模块名 | 自动（检查 `Module name` / `Function` / `Version` / `Date` 字段） |
 | HW-05 | RTL 中不使用 `` `include ``；宏只在 `define.v` 中定义（HW-07），模块常量用 `parameter` / `localparam` 在模块内定义 | 自动 |
@@ -42,25 +42,27 @@
 
 宏的取值与 `data/<ip>.yaml` 中内部复位（未标 `std_if`，见 HW-14）的 `active` 一致：`low` 对应 `negedge` / `1'b0`，`high` 对应 `posedge` / `1'b1`。标准接口复位不使用这两个宏。
 
-## 2. 命名
+## 2. 原始命名保留
+
+需求、规格、接口表及已有设计中的名称原样贯穿文档、SSOT、RTL、验证和软件接口，包括 IP、模块、文件、端口、时钟、复位、信号、参数、宏、寄存器、字段、枚举、实例、generate 块及状态名。不得为统一风格追加或删除前后缀、转换大小写、缩写、翻译或替换同义词。名称冲突或目标语言无法表达时先向用户澄清，确认后记录原名、实际名与原因，不自动改名。未命名对象按项目已有风格取名。
 
 | 编号 | 对象 | 规则 | 示例 |
 |---|---|---|---|
-| HW-10 | 模块、文件 | 全小写 `lower_snake_case`，以 IP 名为前缀（`define.v` 除外） | `uart_lite_tx` |
-| HW-11 | `reg` / `wire` / 端口 | 全小写 `lower_snake_case` | `tx_cnt` |
-| HW-12 | 输入 / 输出 / 双向端口 | 前缀 `i_` / `o_` / `io_`（时钟、复位端口除外，见 HW-14） | `i_paddr`, `o_irq`, `io_sda` |
-| HW-13 | `parameter` / `localparam` / `` `define `` | 全大写 `UPPER_SNAKE_CASE`，**不超过 20 个字符** | `DATA_WIDTH`, `ADDR_CTRL` |
-| HW-14 | 时钟 / 复位 | 时钟以 `clk` 为前缀，复位以 `rst` 为前缀；端口不加 `i_`。复位分两类：① **内部复位**：极性由 `define.v` 的 `RST_EDGE` / `RST_ACT` 决定，名字不加后缀；② **标准接口复位**：接口协议规定了极性（如 APB 的 `PRESETn` 低有效），在 `data/<ip>.yaml` 的 `resets` 中标 `std_if: true`，低有效以 `_n` 结尾，高有效不加后缀 | `clk`, `clk_apb`, `rst`, `rst_apb_n` |
-| HW-15 | 低有效信号 | 以 `_n` 结尾（内部复位除外，见 HW-14） | `o_cs_n`, `rst_apb_n` |
-| HW-16 | 三态输出寄存器 | 以 `_z` 结尾 | `sda_out_z` |
-| HW-17 | 时序寄存器 | 以 `_r` 结尾；打拍信号依次 `_r1` / `_r2` | `cnt_r`, `req_r1` |
-| HW-18 | 跨时钟域同步后的信号 | 以 `_sync` 结尾 | `req_sync` |
-| HW-19 | 例化名 | `U_<子模块名去掉 IP 前缀>`；同一模块多次例化时加序号 `_0`、`_1` | `U_core`, `U_sync_0` |
-| HW-20 | generate 块 | 以 `GEN_` 为前缀的块名 | `GEN_LANE` |
-| HW-21 | FSM | 状态编码用 `localparam`，名字以 `ST_` 为前缀；状态寄存器 `cur_state`，次态 `nxt_state` | `ST_IDLE` |
+| HW-10 | 模块、文件 | **输入命名优先**：已给出的模块名、文件名原样复用，不添加IP前缀、不改大小写、不替换同义词。仅未命名的新模块默认用 `lower_snake_case`，IP前缀可选 | 输入 `spi_intf_adapt` → 保留 `spi_intf_adapt` |
+| HW-11 | `reg` / `wire` / 端口 | 保留原名，不限制大小写 | `DataValid` |
+| HW-12 | 输入 / 输出 / 双向端口 | 保留原名，方向由声明表达，不强加前缀 | `PADDR`, `PRDATA` |
+| HW-13 | `parameter` / `localparam` / `` `define `` | 保留原名，不限制大小写或 20 字符长度 | `DataWidth` |
+| HW-14 | 时钟 / 复位 | 保留原名；极性由 `active` 表达，接口类别由 `std_if` 表达，不从名字推断 | `PCLK`, `PRESETn` |
+| HW-15 | 低有效信号 | 保留原名，极性在接口说明中标注 | `CSn` |
+| HW-16 | 三态输出寄存器 | 保留原名，不强加后缀 | `SdaOut` |
+| HW-17 | 时序寄存器 | 保留原名，不强加打拍后缀 | `Count` |
+| HW-18 | 跨时钟域同步后的信号 | 保留原名，同步关系在架构中说明 | `ReqSynced` |
+| HW-19 | 例化名 | 输入已指定则保留；未指定时用 `U_<子模块名>`（已有IP前缀可省略）；多实例加用途或序号 | `U_spi_intf_adapt`, `U_sync_0` |
+| HW-20 | generate 块 | 保留原名，不强加前缀 | `Lane` |
+| HW-21 | FSM | 状态编码用 `localparam`；状态名、状态寄存器和次态信号保留原名 | `Idle` |
 | HW-22 | 向量 | 降序定义，最低位为 0：`[N-1:0]` | `reg [7:0] data_r;` |
 
-HW-11（端口）、HW-12、HW-13 由 `run_lint.py` 自动检查；顶层端口名还会由 `gen_docs.py` 在 `data/<ip>.yaml` 中检查（内部复位名不以 `_n` 结尾且极性相同；标准接口复位低有效以 `_n` 结尾、高有效不加 `_n`）。
+`run_lint.py` 与 `gen_docs.py` 不以命名风格拒绝原名。语法、端口一致性、复位极性等功能检查仍执行。下文代码中的 `clk`、`rst` 等只是示例名称，实际使用原名。
 
 ## 3. 端口与例化
 
