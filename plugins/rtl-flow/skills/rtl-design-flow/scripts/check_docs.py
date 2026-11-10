@@ -336,6 +336,15 @@ def run_checks(ip: Path, stage: str) -> Report:
 
     # ---- architecture sub-modules
     arch_text = docs.get("02_architecture")
+    if at_least("arch") and arch_text is not None:
+        import gen_arch
+        try:
+            expected_arch = gen_arch.render(arch_text)
+            diagram = ip / gen_arch.OUTPUT
+            if not diagram.exists() or diagram.read_text(encoding="utf-8") != expected_arch:
+                rep.err("02_architecture", "architecture HTML missing or stale: run gen_arch.py")
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            rep.err("02_architecture", f"invalid architecture graph: {exc}")
     mods = arch_modules(arch_text) if arch_text else {}
     if at_least("arch") and arch_text is not None:
         if not mods:

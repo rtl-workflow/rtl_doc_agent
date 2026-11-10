@@ -76,7 +76,7 @@ GATES = {"G0": ("00_requirements", "spec-author", "req"),
          "G3": ("07_dv_plan", "tb-engineer", "dv")}
 GATE_SCOPE = {"G0": "00 需求（含 Q 的答复、ASM）",
               "G1": "01 规格、03/04（即 yaml 端口与寄存器）、06 编程指南初稿、新增 ASM",
-              "G2": "02 微架构、本阶段新增的 DEC（09）",
+              "G2": "02 微架构、doc/02_architecture.html离线架构图、本阶段新增的 DEC（09）",
               "G3": "07 测试点、测试用例、需求追溯；dv/ 下激励、参考模型、自检查与随机约束（不含 build 产物）"}
 REVIEW_ERR = ("not approved", "re-review required", "review skipped", "approved is set")
 # implementation stage -> task kind each role gets when it has to fix check problems
@@ -427,6 +427,12 @@ def new_task(ip: Path, st, role, kind, inputs=(), extra=""):
              "", "## 任务", TASKS[(role, kind)].replace("<任务ID>", tid).replace("<ip_dir>", str(ip))]
     if extra:
         lines += ["", "## 附加说明", extra]
+    if role in ("architect", "rtl-engineer"):
+        lines += ["", "## HTML架构图同步",
+                  "每次生成或修改02_architecture.md，都同步其中architecture-graph JSON，遵循references/architecture-html.md。"
+                  "运行python $SKILL/scripts/gen_arch.py <ip_dir>生成doc/02_architecture.html；"
+                  "图中保留原始模块名，明确模块层次/职责、主要数据和控制方向、接口标签及CDC关系。"
+                  "交接outputs列出HTML路径，summary说明图的阅读顺序。".replace("$SKILL", str(SKILL)).replace("<ip_dir>", str(ip))]
     if inputs:
         lines += ["", "## 附加输入（先阅读）"] + [f"- {p}" for p in inputs]
     if note:
@@ -719,6 +725,8 @@ def step(ip: Path, st):
                 set_front_matter(ip, doc, status="Review")
             fm = front_matter(ip, doc)
             docs.append({"gate": g, "doc": f"doc/{doc}.md", "version": fm.get("version"), "scope": GATE_SCOPE[g]})
+            if g == "G2":
+                docs[-1]["diagram"] = "doc/02_architecture.html"
         highlights = {r: v for r, v in st["last_handoff"].items() if r in {GATES[g][1] for g in todo}}
         if "G3" in todo:
             rv["dv_digest"] = dv_review.fingerprint(ip)
