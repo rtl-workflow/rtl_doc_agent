@@ -97,6 +97,42 @@ def review_fields(text):
 
 def edited_text(tool, ti, old):
     """File content after the tool call, or None when an edit would not apply (the tool reports that)."""
+    if tool == "NotebookEdit" and ti.get("old_string", "").startswith("*** Begin Patch"):
+        patch = ti["old_string"].splitlines()
+        target = str(ti.get("file_path", "")).replace("\\", "/")
+        active = False
+        chunks = []
+        before, after = [], []
+        for line in patch:
+            if line.startswith("*** ") or line.startswith("@@"):
+                if before or after:
+                    chunks.append((before, after))
+                    before, after = [], []
+                if line.startswith("*** Update File: "):
+                    active = line[len("*** Update File: "):].strip().replace("\\", "/") == target
+                elif line.startswith("*** Move to:") and active:
+                    raise ValueError("field-scoped edits cannot rename files")
+                elif line.startswith("*** "):
+                    active = False
+                continue
+            if active:
+                if line.startswith(" "):
+                    before.append(line[1:]); after.append(line[1:])
+                elif line.startswith("-"):
+                    before.append(line[1:])
+                elif line.startswith("+"):
+                    after.append(line[1:])
+        if before or after:
+            chunks.append((before, after))
+        text = old.replace("\r\n", "\n")
+        if not chunks:
+            raise ValueError("no verifiable update in patch")
+        for before, after in chunks:
+            needle = "\n".join(before)
+            if not needle or text.count(needle) != 1:
+                raise ValueError("patch context must match exactly once")
+            text = text.replace(needle, "\n".join(after), 1)
+        return text
     if tool == "Write":
         return ti.get("content", "")
     edits = ti.get("edits") if tool == "MultiEdit" else [ti]
@@ -112,14 +148,19 @@ def edited_text(tool, ti, old):
 
 def check_fields(role, rel, tool, ti, path: Path, allowed):
     scope = ", ".join(sorted(allowed))
-    if not path.exists() or tool == "NotebookEdit":
+    if not path.exists():
         deny(f"{role} 只能修改已有 {rel} 的 {scope} 字段")
     try:
         import yaml
     except ImportError:
         deny("检查 yaml 字段需要 pyyaml（pip install pyyaml）")
     old = path.read_text(encoding="utf-8", errors="replace")
-    new = edited_text(tool, ti, old)
+    try:
+        new = edited_text(tool, ti, old)
+    except ValueError as exc:
+        deny(f"无法验证字段补丁: {exc}")
+    if tool == "NotebookEdit" and new is None:
+        deny("无法验证字段补丁")
     if new is None:
         return
     try:

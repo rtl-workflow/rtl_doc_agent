@@ -119,7 +119,7 @@ P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，
 - 用户的口头修改意见同样要落到文档：审核意见用 `review --changes`，需求变更用 `iter --kind change`。
 - `flow.py guard <ip_dir> off` 会关闭路径保护，只能在用户明确要求手工修改时使用，改完后用 `on` 恢复。
 
-**自动模式**（`init --auto`，或用户说「不用等我审核」）：G0–G2 不停顿，审核字段写 `approved: skipped`，汇报中注明「未经人工审核」；P0 的 Q 仍要提问。`skipped` 在 `--stage signoff` 报 ERROR，交付前必须补审。
+**自动模式**（`init --auto`，或用户说「不用等我审核」后运行 `flow.py mode <ip_dir> auto`）：G0–G2 不停顿，审核字段写 `approved: skipped`，汇报中注明「未经人工审核」；P0 的 Q 仍要提问。`skipped` 在 `--stage signoff` 报 ERROR，交付前必须补审。恢复停顿用 `flow.py mode <ip_dir> manual`。
 
 **中断后继续**：直接运行 `flow.py next <ip_dir>`，flow.py 从 `.flow/state.json` 恢复。如果上次派发的 agent 没有完成，flow.py 会让对应 agent 重做。
 
@@ -167,5 +167,13 @@ check_docs 的阶段是累积的：当前阶段及以下的检查失败为 ERROR
 配置完成后（`~/.rtl-flow/`，也可用 `REXEC_CONFIG` 指定；`RTLFLOW_EXEC=local|remote` 可强制覆盖），`run_lint.py` / `run_regress.py` 的命令和输出不变，IP 被复制到 EDA 服务器运行，`reports/` 与 `dv/build/<mode>/logs/` 写回本地。远程不可用、license 失败时脚本以 `ERROR:` 结束且不写报告，属于环境问题，不要为此修改设计。临时命令可用 `python $SKILL/scripts/remote_exec.py run ...`。
 
 ## 7. P6 签核
+
+### VCS波形与远端Verdi
+
+正式RTL回归默认在**同一次仿真**生成FSDB、覆盖率和日志：编译带 `-debug_access+all -kdb`，每个用例/种子以UCLI执行 `dump -file ... -type FSDB`、`dump -add /<tb> -depth 99 -aggregates`、`run`。无需改动测试平台。桩检查不生成波形；`run_regress.py <ip_dir> --no-fsdb` 可显式关闭。默认要求服务器可加载Verdi FSDB dumper；波形缺失/为空会导致回归失败，不静默忽略。
+
+波形保存在远端本次作业的 `dv/build/regress/<test>_<seed>.fsdb`，工作目录及KDB保留，不自动清理。`reports/regress.json`（全量）和 `dv/build/regress/last_result.json`（含单例）记录绝对路径、字节数、用例、种子和源码摘要。波形不自动下载，避免大型FIFO波形占满本地磁盘；可用remote_exec的collect按需下载。保留的远端目录由用户在不再需要调试后清理。
+
+用户要求查看波形时，直接运行 `python $SKILL/scripts/open_verdi.py <ip_dir> [--test tc_name] [--seed N] [--display :1.0]`（或 `/rtl-flow:ip-wave`），不重跑已有仿真。脚本验证DISPLAY、FSDB/KDB及实际Verdi窗口，写 `reports/verdi.json`，包含路径、PID、命令、启动日志和状态。编排者必须汇报远端路径与运行记录；只有 `opened` 才能说已打开。GUI环境失败与功能仿真结果分开记录。旧结果未启用FSDB、文件被清理或需要改变记录范围时才重跑。
 
 签核需用户确认：按 `10_checklist.md` 逐项勾选；所有文档 `status` 改为 `Released` 后运行 `check_docs.py --stage signoff`（Released 状态下 TODO/TBD/占位符/Open 的 Q 都会报 ERROR；三个审核点都必须是人工通过）。签核时如需修改文档，先用 `flow.py guard <ip_dir> off`，完成后恢复。
