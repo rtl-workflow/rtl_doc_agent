@@ -34,7 +34,7 @@ WRITE = {
 # top-level yaml fields a role may change in a file it otherwise cannot write: the RTL file list
 # follows the submodule split (02 / 05), which is the rtl-engineer's, not the spec's
 FIELD_WRITE = {"rtl-engineer": (r"data/[^/]+\.yaml", {"rtl_files"})}
-GENERATED = ["doc/03_interfaces.md", "doc/04_registers.md"]
+GENERATED = ["doc/03_interfaces.md", "doc/04_registers.md", "doc/02_architecture.html"]
 REVIEWED = ["doc/00_requirements.md", "doc/01_spec.md", "doc/02_architecture.md", "doc/07_dv_plan.md"]
 # what the testbench author must not see (independent verification)
 TB_HIDDEN = ["rtl/", "syn/", "reports/", "doc/05_rtl_structure.md", "dv/build/regress/", ".flow/handoff/",
@@ -181,6 +181,8 @@ def check_write(inp, role, tool, ti, path: Path):
         return
     rel = path.relative_to(root).as_posix()
     if rel in GENERATED or re.fullmatch(r"sw/[^/]+_regs\.h", rel):
+        if rel == "doc/02_architecture.html":
+            deny("HTML架构图由gen_arch.py生成，修改02_architecture.md中的architecture-graph后运行gen_arch.py")
         deny(f"{rel} 由 gen_docs.py 从 data/<ip>.yaml 生成，禁止手改：修改 yaml 后运行 gen_docs.py")
     if rel.startswith("raw/") and path.exists():
         deny("raw/ 中的原始材料只读，不得修改")

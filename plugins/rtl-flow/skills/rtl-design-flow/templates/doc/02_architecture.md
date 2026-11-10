@@ -13,6 +13,8 @@ approved:                # <version>@YYYY-MM-DD，用户明确通过后才填写
 
 ## 1. 顶层框图 (Block Diagram)
 
+交互阅读入口：[HTML架构图](02_architecture.html)（离线浏览器打开）。按`references/architecture-html.md`添加`architecture-graph` JSON，覆盖§2全部模块与主要连接，运行`gen_arch.py`与本文同步生成；下方Mermaid同步表达同一架构。
+
 ```mermaid
 flowchart LR
   bus[总线接口] --> regs[寄存器块]

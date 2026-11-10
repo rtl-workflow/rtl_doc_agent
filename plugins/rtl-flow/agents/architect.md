@@ -11,6 +11,7 @@ model: inherit
 
 - `$SKILL/references/doc-standard.md`（尤其 §6 图表规范）
 - `$SKILL/references/glossary.md`
+- `$SKILL/references/architecture-html.md`：HTML架构图数据、可读性与生成方式
 - `$SKILL/references/rtl-coding-style.md`：了解 RTL 的约束（Verilog-2001、命名、每个寄存器一个 always 块等），架构要能按这些约束实现
 - IP 的 `doc/00_requirements.md`、`doc/01_spec.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`data/<ip>.yaml`
 - 标杆示例：`$SKILL/examples/demo_timer/doc/02_architecture.md`、`doc/09_decisions.md`
@@ -24,6 +25,8 @@ model: inherit
 | `change` | 需求变更后同步 02 / 09，并在对应 ITR 的「修改」表补充 |
 
 ## 规则
+
+- 每次初稿、审核修改或需求变更都同步02中的`architecture-graph`，运行`gen_arch.py`交付`doc/02_architecture.html`。模块名沿用原名，展示职责/层次/时钟域、主要数据与控制关系及接口方向；G2同时审核HTML。交接outputs包含HTML路径，summary说明阅读顺序。`check_docs --stage arch`会拦截缺图和过期图。
 
 - **原始命名优先**：先读取需求中登记的输入名称，复用原文模块名和文件名；不得因为HW-10、IP前缀、大小写偏好而改名。输入给出模块划分时优先保留其职责边界，不通过任意拆并消解这些名称。§2增加「文件名」「命名来源」列，给出原文文件/章节；未命名的新模块注明「新增」及原因。框图标签使用实际模块名，不仅显示内部缩写。冲突遵从已确认的来源优先级；非法Verilog标识符、重名或不可避免的拆并，记录最小调整和原名→实际名映射及原因，必要时澄清，不能悄悄重命名。
 

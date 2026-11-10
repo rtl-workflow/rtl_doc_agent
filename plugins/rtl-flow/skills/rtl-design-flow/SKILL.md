@@ -18,6 +18,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/rtl-coding-style.md` | RTL 编码规范（华为 Verilog 规范，Verilog-2001）与 testbench 约定 |
 | `templates/` | 所有文档模板，`flow.py init` 时复制到 IP 目录 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
+| `scripts/gen_arch.py` / `references/architecture-html.md` | 由02中的architecture-graph生成离线HTML架构图，检查模块覆盖与图文同步 |
 | `scripts/check_style.py` / `run_lint.py` | 编码规范检查；风格检查 + SpyGlass lint（`--tool vcs` 用 VCS），写 `reports/lint.log` |
 | `scripts/check_docs.py` | 文档完整性、追溯性、审核记录、RTL 一致性检查 |
 | `scripts/run_regress.py` | 通用回归（VCS），写 `reports/regress.json`；`--stub` 用端口桩代替 RTL 做 TB 自检 |
@@ -134,10 +135,12 @@ G3    人工审核07测试点/用例及dv/激励、参考模型、自检查 ─�
 |---|---|---|
 | G0 | `00_requirements` | Q 的答复、ASM |
 | G1 | `01_spec` | 03 / 04（即 yaml）、06 初稿、新增 ASM |
-| G2 | `02_architecture` | 本阶段新增的 DEC |
+| G2 | `02_architecture` | `doc/02_architecture.html`离线架构图、本阶段新增的 DEC |
 | G3 | `07_dv_plan` | 测试点、测试用例、需求追溯及 `dv/` 下激励、参考模型、自检查（不含 build 产物）；自动模式不可跳过 |
 
 G3汇报须包含测试点覆盖、用例步骤与预期结果、激励文件路径及关键时序/随机约束。`flow.py review --pass`同时记录验证内容摘要`approved_dv_digest`；07或dv源文件变化（包括未提升版本的激励修改）会重新打开G3。审核意见交给tb-engineer修改并重新桩自检，再次人工确认。已有项目从REGRESS/DONE恢复时也需补齐G3。
+
+每次生成或修改微架构文档必须同步生成HTML图，展示原始模块名、职责/层次/时钟域、主要数据与控制连接、接口方向。G2提供HTML路径及阅读顺序，用户可离线浏览；`check_docs --stage arch`会拦截缺失/过期图。详见`references/architecture-html.md`。
 
 `flow.py review --pass` 在被审文档的 front matter 写入：
 
