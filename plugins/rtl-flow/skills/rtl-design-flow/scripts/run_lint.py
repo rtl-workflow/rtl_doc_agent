@@ -184,7 +184,7 @@ def main():
 
     findings, errors, warnings, shown = (lint_spyglass if a.tool == "spyglass" else lint_vcs)(ip, files, top)
 
-    style = check_style.check_ip(ip, files, data.get("resets"))
+    style = check_style.check_ip(ip, files, data.get("resets"), data.get("source_naming"))
     lines = [f"%Error-STYLE: {f}:{ln}: [{rule}] {msg}" for f, ln, rule, msg in style] + findings
     out = "\n".join(lines)
     errors += len(style)

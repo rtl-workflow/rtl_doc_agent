@@ -16,12 +16,12 @@ clocks:
   - {name: clk, freq_mhz: 100, desc: 主时钟}
 
 resets:
-  # 内部复位：名字不加 _n，极性与 rtl/define.v 一致；标准接口规定极性的复位（如 APB PRESETn）加 std_if: true，低有效以 _n 结尾
+  # 保留复位原名；内部复位极性与 rtl/define.v 一致；标准接口复位（如 APB PRESETn）加 std_if: true
   - {name: rst, active: low, type: async_assert_sync_deassert, clock: clk, desc: 主复位，低有效}
 
 params: []
 
-# 命名与顺序见 references/rtl-coding-style.md：输入 i_、输出 o_、双向 io_；按 输入 → 双向 → 输出 排列
+# 保留输入原名，下面名称仅作示例；按 输入 → 双向 → 输出 排列
 ports:
   - {name: clk,   dir: input, width: 1, clock: clk,   desc: 主时钟}
   - {name: rst,   dir: input, width: 1, clock: async, desc: 异步复位，低有效}
