@@ -963,6 +963,16 @@ def cmd_status(a):
         print(f"    {h}")
 
 
+def cmd_mode(a):
+    """Apply an explicit user request to change future review handling."""
+    ip = a.ip_dir.resolve()
+    st = load(ip)
+    st["mode"] = a.mode
+    log(st, f"review mode {a.mode}")
+    save(ip, st)
+    print(f"review mode {a.mode}")
+
+
 def cmd_guard(a):
     ip = a.ip_dir.resolve()
     st = load(ip)
@@ -1001,12 +1011,15 @@ def main():
     p = sub.add_parser("resume")
     p.add_argument("ip_dir", type=Path)
     p.add_argument("--note")
+    p = sub.add_parser("mode")
+    p.add_argument("ip_dir", type=Path)
+    p.add_argument("mode", choices=["manual", "auto"])
     p = sub.add_parser("guard")
     p.add_argument("ip_dir", type=Path)
     p.add_argument("state", choices=["on", "off"])
     a = ap.parse_args()
     {"init": cmd_init, "next": cmd_next, "answers": cmd_answers, "review": cmd_review, "iter": cmd_iter,
-     "resume": cmd_resume, "status": cmd_status, "guard": cmd_guard}[a.cmd](a)
+     "resume": cmd_resume, "status": cmd_status, "guard": cmd_guard, "mode": cmd_mode}[a.cmd](a)
 
 
 if __name__ == "__main__":

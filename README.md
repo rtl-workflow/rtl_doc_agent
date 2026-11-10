@@ -182,3 +182,9 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 | 标杆示例 | `examples/` |
 
 规则本身的修改也应走评审（MR/PR），并在 `plugin.json` 中提升版本号。
+
+## VCS FSDB 与远端 Verdi（0.7.4）
+
+正式 RTL 回归现在默认在同一次 VCS 仿真中生成每用例/种子的 FSDB 和 KDB，保留远端工作目录。`--no-fsdb` 可关闭，桩检查默认关闭。回归报告记录波形绝对路径和大小；大文件保留远端，按需下载。
+
+使用 `/rtl-flow:ip-wave <ip_dir>`，或 `python <skill>/scripts/open_verdi.py <ip_dir> --test <tc_name> --seed 1 --display :1.0`，直接打开已有波形，不重复仿真。启动记录写入 `reports/verdi.json`；真实窗口确认成功才标记 `opened`。远端需 VCS、Verdi/FSDB dumper 和可访问的 VNC/X DISPLAY。

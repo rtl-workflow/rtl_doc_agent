@@ -402,7 +402,9 @@ def _start_ip_job(r, script, ip, args, collect, timeout):
         meta["hub_run_id"] = os.environ["HUB_RUN_ID"]
     jid, _, _ = submit(r, cmd, push=[(ip, name)] + [(p, "scripts") for p in sorted(SCRIPTS.glob("*.py"))],
                        excludes=IP_EXCLUDES, collect=[f"{name}/{c}" for c in collect], timeout=timeout,
-                       cleanup=os.environ.get("RTLFLOW_REMOTE_KEEP") != "1", meta=meta)
+                        cleanup=(os.environ.get("RTLFLOW_REMOTE_KEEP") != "1"
+                                 and not (script == "run_regress.py" and "--stub" not in args
+                                          and "--no-fsdb" not in args)), meta=meta)
     return jid
 
 
