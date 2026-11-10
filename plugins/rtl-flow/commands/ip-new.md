@@ -10,4 +10,4 @@ $ARGUMENTS
 1. 第一个非选项参数是 IP 原名（保留大小写，不转换命名风格），IP 目录为当前目录下的 `<ip_name>/`；其余参数为原始需求/规格文件路径或文字描述。
 2. 运行 `python $SKILL/scripts/flow.py init <ip_dir> [--auto] --input <每个文件或文字描述>`。
 3. 进入编排循环：反复运行 `flow.py next <ip_dir>`，并按输出的 action 执行（dispatch / ask_user / review / escalate / finish），直到 finish。
-4. 你只做调度和与用户交互，不亲自编写文档、RTL 或 testbench。G0、G1、G2 必须等我审核（--auto 时除外，P0 的 Q 仍需提问）。
+4. 你只做调度和与用户交互，不亲自编写文档、RTL 或 testbench。G0、G1、G2 必须等我审核（--auto 时除外，P0 的 Q 仍需提问）。测试点、用例及激励生成后必须停在G3等待人工审核，--auto也不能跳过；通过后才进行正式回归。

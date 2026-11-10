@@ -35,7 +35,7 @@ owner: zhangsan         # 负责人
 ---
 ```
 
-`00_requirements`、`01_spec`、`02_architecture` 是人工审核点（G0 / G1 / G2）的被审文档，另有两个字段：
+`00_requirements`、`01_spec`、`02_architecture`、`07_dv_plan` 是人工审核点（G0 / G1 / G2 / G3）的被审文档，另有两个字段（07另由编排者写入`approved_dv_digest`，绑定验证计划和dv源文件内容）：
 
 ```yaml
 reviewer: lisi          # 审核人
@@ -96,6 +96,6 @@ approved: 0.2@2026-10-22  # 审核通过时的 version@日期；自动模式写 
 
 1. 改行为：按 `00 → 01/02 → yaml → RTL → DV` 顺序修改。
 2. 每次修改在 `08_iteration_log.md` 记 ITR；重要取舍在 `09_decisions.md` 记 DEC。
-3. 文档内容实质变化：提升 front matter `version`，更新 `updated`。已审核的 00 / 01 / 02 提升 version 后须重新审核。
+3. 文档内容实质变化：提升 front matter `version`，更新 `updated`。已审核的 00 / 01 / 02 / 07 提升 version 后须重新审核；07或dv源文件内容变化也会重开G3。
 4. 对外可见变化（端口、寄存器、行为、时序）写入 `CHANGELOG.md`。
 5. 修改 yaml 后必须重新运行 `gen_docs.py`，否则 `check_docs.py` 会报生成文件过期。

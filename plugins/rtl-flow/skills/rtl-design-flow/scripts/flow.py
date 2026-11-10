@@ -50,6 +50,7 @@ import check_docs  # noqa: E402
 import gen_docs  # noqa: E402
 import remote_exec  # noqa: E402
 import run_regress  # noqa: E402
+import dv_review
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -71,10 +72,12 @@ REMOTE_DOWN_HINT = ("这是环境问题，不要修改设计。请确认 VPN 已
 # gate -> (reviewed doc, author role, check stage used to verify review fixes)
 GATES = {"G0": ("00_requirements", "spec-author", "req"),
          "G1": ("01_spec", "spec-author", "spec"),
-         "G2": ("02_architecture", "architect", "arch")}
+         "G2": ("02_architecture", "architect", "arch"),
+         "G3": ("07_dv_plan", "tb-engineer", "dv")}
 GATE_SCOPE = {"G0": "00 需求（含 Q 的答复、ASM）",
               "G1": "01 规格、03/04（即 yaml 端口与寄存器）、06 编程指南初稿、新增 ASM",
-              "G2": "02 微架构、本阶段新增的 DEC（09）"}
+              "G2": "02 微架构、本阶段新增的 DEC（09）",
+              "G3": "07 测试点、测试用例、需求追溯；dv/ 下激励、参考模型、自检查与随机约束（不含 build 产物）"}
 REVIEW_ERR = ("not approved", "re-review required", "review skipped", "approved is set")
 # implementation stage -> task kind each role gets when it has to fix check problems
 IMPL_KIND = {"BUILD": {"rtl-engineer": "rtl", "tb-engineer": "tb"},
@@ -143,7 +146,9 @@ def set_front_matter(ip: Path, doc, **fields):
 def gate_valid(ip: Path, st, gate):
     fm = front_matter(ip, GATES[gate][0])
     appr = fm.get("approved", "")
-    if st["mode"] == "auto" and appr == "skipped":
+    if gate == "G3" and fm.get("approved_dv_digest") != dv_review.fingerprint(ip):
+        return False
+    if gate != "G3" and st["mode"] == "auto" and appr == "skipped":
         return True
     m = check_docs.APPROVED_RE.fullmatch(appr)
     return bool(m and m.group(1) == fm.get("version") and fm.get("reviewer"))
@@ -380,6 +385,11 @@ TASKS = {
         "2. 在说明中的 ITR 下补写「修改」表（标注 TB bug）。\n"
         "3. 运行 run_regress.py <ip_dir> --stub 直到 PASS。\n"
         "如果你认为规格本身有歧义、说明与规格矛盾，status 写 blocked 并在 blocked_reason 中说明。",
+    ("tb-engineer", "review_fix"):
+        "按人工G3审核意见修改07_dv_plan及dv/下测试用例、激励、参考模型、自检查；"
+        "保持规格独立验证，不能读取RTL。实质修改07时提升version，不修改审核字段。"
+        "运行check_docs.py --stage dv（审核未通过类错误除外），运行run_regress.py <ip_dir> --stub直到PASS。"
+        "交接summary列明测试点、用例、激励及预期结果变化，完成后等待再次人工审核，不运行正式回归。",
     ("tb-engineer", "change"):
         "需求变更已更新 00 / 01 / yaml（见附加输入与 ITR）。按更新后的规格修改 07_dv_plan 与 testbench，"
         "在该 ITR 的「修改」表中补充你的修改，运行 run_regress.py <ip_dir> --stub 直到 PASS。",
@@ -413,7 +423,7 @@ def new_task(ip: Path, st, role, kind, inputs=(), extra=""):
     lines = [f"你是 rtl-flow 的 {role}。任务 ID：{tid}",
              f"IP 目录：{ip}",
              f"Skill 目录（$SKILL）：{SKILL}",
-             f"模式：{'自动（不停顿审核）' if st['mode'] == 'auto' else '人工审核'}",
+             f"模式：{'自动（仅G0–G2可跳过，G3必须人工审核）' if st['mode'] == 'auto' else '人工审核'}",
              "", "## 任务", TASKS[(role, kind)].replace("<任务ID>", tid).replace("<ip_dir>", str(ip))]
     if extra:
         lines += ["", "## 附加说明", extra]
@@ -617,7 +627,7 @@ def collect(ip: Path, st):
             agents.append(a)
         if agents:
             return dispatch(agents)
-        goto(st, "REGRESS")
+        enter_review(ip, st, ["G3"], "REGRESS")
     elif stage == "DEBUG":
         t, h = done[0]
         cls = str(h.get("class", "")).strip()
@@ -653,6 +663,10 @@ def step(ip: Path, st):
     if st["pending"]:
         return collect(ip, st)
     stage = st["stage"]
+    # Also covers projects created before G3 existed and resumed at REGRESS/DONE.
+    if stage in ("REGRESS", "DONE") and not gate_valid(ip, st, "G3"):
+        enter_review(ip, st, ["G3"], "REGRESS")
+        return None
     if stage not in ("REVIEW", "ASK", "DONE", "P0", "CHANGE_SPEC") and stale_gates(ip, st):
         enter_review(ip, st, [], stage)
         return None
@@ -690,8 +704,9 @@ def step(ip: Path, st):
         todo = [g for g in rv["gates"] if not gate_valid(ip, st, g)]
         if st["mode"] == "auto":
             for g in todo:
-                set_front_matter(ip, GATES[g][0], reviewer="", approved="skipped")
-            todo = []
+                if g != "G3":
+                    set_front_matter(ip, GATES[g][0], reviewer="", approved="skipped")
+            todo = [g for g in todo if g == "G3"]
         if not todo:
             st["passed"] = sorted(set(st["passed"]) | set(rv["gates"]))
             goto(st, rv["return_to"])
@@ -705,10 +720,12 @@ def step(ip: Path, st):
             fm = front_matter(ip, doc)
             docs.append({"gate": g, "doc": f"doc/{doc}.md", "version": fm.get("version"), "scope": GATE_SCOPE[g]})
         highlights = {r: v for r, v in st["last_handoff"].items() if r in {GATES[g][1] for g in todo}}
+        if "G3" in todo:
+            rv["dv_digest"] = dv_review.fingerprint(ip)
         return {"action": "review", "gates": todo, "docs": docs, "highlights": highlights,
                 "reviewer_known": st.get("reviewer") or None,
                 "comments_file": str(ip / ".flow" / "reviews" / f"review-{st['seq'] + 1:03d}.md"),
-                "instructions": "向用户汇报：被审文档路径、要点（highlights 中的 summary，3–8 条）、新增的 ASM / DEC、需要用户特别判断的地方。"
+                "instructions": "向用户汇报：被审文档路径、要点（highlights 中的 summary，3–8 条）、新增的 ASM / DEC、需要用户特别判断的地方。G3须展示测试点覆盖、用例步骤和预期结果、激励文件及关键时序/随机约束，等待人工确认。"
                                 "然后用提问工具（Claude Code 的 AskUserQuestion、OpenCode 的 question）请用户选择「通过」或「需要修改」（意见可在 Other 中填写）；"
                                 "reviewer_known 为空时同时询问审核人姓名。"
                                 "通过：flow.py review <ip_dir> --pass --reviewer <姓名>；"
@@ -881,15 +898,21 @@ def cmd_review(a):
     rv = st["review"]
     if a.changes:
         rv["changes_file"] = rel(ip, Path(a.changes).resolve())
+        for g in rv["gates"]:
+            set_front_matter(ip, GATES[g][0], approved="", reviewer="")
         log(st, f"review changes {rv['gates']} {rv['changes_file']}")
     else:
         if not a.reviewer:
             raise SystemExit("ERROR: --pass requires --reviewer")
+        if "G3" in rv["gates"] and rv.get("dv_digest") != dv_review.fingerprint(ip):
+            raise SystemExit("ERROR: verification content changed since review; run next and review again")
         for g in rv["gates"]:
             doc = GATES[g][0]
             fm = front_matter(ip, doc)
             set_front_matter(ip, doc, reviewer=a.reviewer, approved=f"{fm.get('version')}@{today()}",
                              status="Review" if fm.get("status") == "Draft" else fm.get("status"))
+            if g == "G3":
+                set_front_matter(ip, doc, approved_dv_digest=rv["dv_digest"])
         st["reviewer"] = a.reviewer
         log(st, f"review pass {rv['gates']} by {a.reviewer}")
     save(ip, st)

@@ -42,7 +42,7 @@ STATUSES = {"Draft", "Review", "Released"}
 FM_FIELDS = ["doc", "ip", "version", "status", "updated", "owner"]
 
 # reviewed doc -> first stage that requires its approval (gate G0/G1/G2)
-REVIEW_GATES = {"00_requirements": "spec", "01_spec": "arch", "02_architecture": "rtl"}
+REVIEW_GATES = {"00_requirements": "spec", "01_spec": "arch", "02_architecture": "rtl", "07_dv_plan": "dv"}
 APPROVED_RE = re.compile(r"(\d+\.\d+)@(\d{4}-\d{2}-\d{2})")
 
 ID_RE = r"(?:REQ-(?:[A-Z]+-)?\d{3}|ASM-\d{3}|Q-\d{3}|DEC-\d{3}|TP-\d{3}|ITR-\d{3}|BUG-\d{3})"
@@ -215,6 +215,12 @@ def run_checks(ip: Path, stage: str) -> Report:
                 rep.err(name, f"status is '{fm.get('status')}', must be Released for signoff")
             if stem in REVIEW_GATES:
                 check_review(rep, name, fm, at_least(REVIEW_GATES[stem]), signoff)
+                if stem == "07_dv_plan":
+                    import dv_review
+                    if fm.get("approved") == "skipped":
+                        rep.at(at_least("dv"), name, "review skipped: G3 requires human approval even in auto mode")
+                    elif fm.get("approved") and fm.get("approved_dv_digest") != dv_review.fingerprint(ip):
+                        rep.at(at_least("dv"), name, "verification content changed: re-review required (G3)")
 
         # mandatory sections from template
         tpl = TEMPLATES / f"{name}.md"

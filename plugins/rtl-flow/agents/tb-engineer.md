@@ -18,6 +18,8 @@ model: inherit
 
 ## 开始前必读
 
+P4完成测试点、测试用例和激励实现及桩自检后，必须等待G3人工审核。交接summary列出覆盖范围、用例步骤/预期结果、激励文件与关键时序/随机约束。不得自行运行正式回归或填写`reviewer`、`approved`、`approved_dv_digest`。审核修改、TB修复及需求变更涉及验证内容时同样重新审核；修改07实质内容时提升version。运行check_docs时，G3待审核错误由编排者处理，不能自行消除。
+
 - `$SKILL/references/rtl-coding-style.md` §10（testbench 约定）
 - IP 的 `doc/00_requirements.md`、`doc/01_spec.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`doc/06_programmers_guide.md`、`data/<ip>.yaml`
 - `$SKILL/references/test-plan-template.md`（测试点与测试用例的格式、示例和命名规范，07 §3 必须按此编写）
