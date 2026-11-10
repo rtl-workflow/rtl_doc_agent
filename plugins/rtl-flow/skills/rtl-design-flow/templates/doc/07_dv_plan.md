@@ -5,6 +5,9 @@ version: 0.1
 status: Draft
 updated: {{date}}
 owner: {{owner}}
+reviewer:
+approved:
+approved_dv_digest:
 ---
 
 # {{ip}} 验证计划
@@ -14,6 +17,8 @@ owner: {{owner}}
 {{验证什么、不验证什么（如后端时序由 STA 覆盖）。}}
 
 ## 2. 验证环境 (Testbench)
+
+G3人工审核范围：本计划的测试点、用例步骤、预期结果与需求追溯，以及`dv/`下的激励、参考模型和自检查实现。提供激励文件路径、复位/时钟时序、输入序列、随机约束/种子及边界场景说明。桩自检通过后暂停，人工审核通过后才进入正式回归；`--auto`不能跳过G3。审核字段由`flow.py review`写入，验证内容变化后需重新审核。
 
 | 项 | 内容 |
 |---|---|

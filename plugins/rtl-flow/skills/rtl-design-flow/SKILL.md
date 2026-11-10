@@ -39,7 +39,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 5. **设计与验证独立**：tb-engineer 只根据规格编写验证，看不到 RTL（hook 强制执行）。RTL 与 TB 结果不一致时，由 debugger 以规格为准判定谁错。
 6. **流程由程序判定**：是否进入下一阶段由 `flow.py` 调用检查脚本决定，不由模型自行判断。
 7. **原始输入只读**：用户给的原始材料保存在 `<ip>/raw/`，不修改。
-8. **人工审核点**：G0（需求）、G1（规格）、G2（架构）必须停下来等待用户审核。审核结果只能由编排者在用户明确通过后通过 `flow.py review` 写入。
+8. **人工审核点**：G0（需求）、G1（规格）、G2（架构）、G3（测试点、测试用例和激励）必须停下来等待用户审核。G3在P4产出及桩自检完成后、正式回归前执行，自动模式也不能跳过。审核结果只能由编排者在用户明确通过后通过 `flow.py review` 写入。
 
 ## 1. IP 目录结构（参考 OpenTitan `hw/ip/<ip>/`）
 
@@ -80,6 +80,7 @@ P1  spec-author 写 yaml / 01 / 06 ─► G1 人工审核
 P2  architect 写 02 / 09 ─► G2 人工审核
 P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，桩检查）   并行，相互看不到
        flow.py 检查：check_docs --stage dv、lint 报告有效、TB 桩检查 PASS；不通过则把问题退回对应 agent
+G3    人工审核07测试点/用例及dv/激励、参考模型、自检查 ─► 通过后进入回归（auto也停顿）
 回归  flow.py 运行 run_regress.py ─► PASS ─► 完成（汇报，签核 P6 由用户确认后进行）
                                   └► FAIL ─► debugger 定位 ─► rtl / tb / both：派对应 agent 修复 ─► 再回归
                                                             └► spec / tool：上报用户决定
@@ -134,6 +135,9 @@ P3‖P4  rtl-engineer（RTL + 05 + lint）  ‖  tb-engineer（07 + 黑盒 TB，
 | G0 | `00_requirements` | Q 的答复、ASM |
 | G1 | `01_spec` | 03 / 04（即 yaml）、06 初稿、新增 ASM |
 | G2 | `02_architecture` | 本阶段新增的 DEC |
+| G3 | `07_dv_plan` | 测试点、测试用例、需求追溯及 `dv/` 下激励、参考模型、自检查（不含 build 产物）；自动模式不可跳过 |
+
+G3汇报须包含测试点覆盖、用例步骤与预期结果、激励文件路径及关键时序/随机约束。`flow.py review --pass`同时记录验证内容摘要`approved_dv_digest`；07或dv源文件变化（包括未提升版本的激励修改）会重新打开G3。审核意见交给tb-engineer修改并重新桩自检，再次人工确认。已有项目从REGRESS/DONE恢复时也需补齐G3。
 
 `flow.py review --pass` 在被审文档的 front matter 写入：
 
@@ -178,4 +182,4 @@ check_docs 的阶段是累积的：当前阶段及以下的检查失败为 ERROR
 
 用户要求查看波形时，直接运行 `python $SKILL/scripts/open_verdi.py <ip_dir> [--test tc_name] [--seed N] [--display :1.0]`（或 `/rtl-flow:ip-wave`），不重跑已有仿真。脚本验证DISPLAY、FSDB/KDB及实际Verdi窗口，写 `reports/verdi.json`，包含路径、PID、命令、启动日志和状态。编排者必须汇报远端路径与运行记录；只有 `opened` 才能说已打开。GUI环境失败与功能仿真结果分开记录。旧结果未启用FSDB、文件被清理或需要改变记录范围时才重跑。
 
-签核需用户确认：按 `10_checklist.md` 逐项勾选；所有文档 `status` 改为 `Released` 后运行 `check_docs.py --stage signoff`（Released 状态下 TODO/TBD/占位符/Open 的 Q 都会报 ERROR；三个审核点都必须是人工通过）。签核时如需修改文档，先用 `flow.py guard <ip_dir> off`，完成后恢复。
+签核需用户确认：按 `10_checklist.md` 逐项勾选；所有文档 `status` 改为 `Released` 后运行 `check_docs.py --stage signoff`（Released 状态下 TODO/TBD/占位符/Open 的 Q 都会报 ERROR；G0–G3四个审核点都必须是人工通过）。签核时如需修改文档，先用 `flow.py guard <ip_dir> off`，完成后恢复。

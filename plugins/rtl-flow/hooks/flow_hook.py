@@ -35,7 +35,7 @@ WRITE = {
 # follows the submodule split (02 / 05), which is the rtl-engineer's, not the spec's
 FIELD_WRITE = {"rtl-engineer": (r"data/[^/]+\.yaml", {"rtl_files"})}
 GENERATED = ["doc/03_interfaces.md", "doc/04_registers.md"]
-REVIEWED = ["doc/00_requirements.md", "doc/01_spec.md", "doc/02_architecture.md"]
+REVIEWED = ["doc/00_requirements.md", "doc/01_spec.md", "doc/02_architecture.md", "doc/07_dv_plan.md"]
 # what the testbench author must not see (independent verification)
 TB_HIDDEN = ["rtl/", "syn/", "reports/", "doc/05_rtl_structure.md", "dv/build/regress/", ".flow/handoff/",
              ".flow/state.json"]
@@ -89,7 +89,7 @@ def review_fields(text):
         return {}
     out = {}
     for line in m.group(1).splitlines():
-        mm = re.match(r"(reviewer|approved)\s*:\s*([^#]*)", line)
+        mm = re.match(r"(reviewer|approved|approved_dv_digest)\s*:\s*([^#]*)", line)
         if mm:
             out[mm.group(1)] = mm.group(2).strip()
     return out
@@ -193,7 +193,7 @@ def check_write(inp, role, tool, ti, path: Path):
         else:
             olds = ti.get("old_string", "") + "".join(e.get("old_string", "") for e in ti.get("edits", []) or [])
             news = ti.get("new_string", "") + "".join(e.get("new_string", "") for e in ti.get("edits", []) or [])
-            if re.search(r"^\s*(reviewer|approved)\s*:", olds + "\n" + news, re.M):
+            if re.search(r"^\s*(reviewer|approved|approved_dv_digest)\s*:", olds + "\n" + news, re.M):
                 deny("reviewer / approved 只能由编排者在用户明确通过后通过 flow.py review 写入")
     if role == "other":
         deny(f"{root.name} 由 rtl-flow 管理，只有 rtl-flow 的 agent 可以修改；如需手工修改请让用户执行 flow.py guard off")
