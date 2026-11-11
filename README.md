@@ -229,6 +229,8 @@ claude plugin list --json
 
 ## 定制与维护
 
+编码规则使用中性的 `RTL-xx` 编号。0.7.5 统一调整了文档、模板、检查器诊断和示例注释中的编号，技术规则与检查条件保持不变；依赖旧诊断编号的外部脚本需同步更新。
+
 | 想改什么 | 改哪里 |
 |---|---|
 | 流程、阶段转移、重试上限 | `scripts/flow.py`（`step` / `collect`、`MAX_ATTEMPTS`、`MAX_ROUNDS`、`TASKS` 中各任务的提示）；`SKILL.md` §3–§4 同步说明 |

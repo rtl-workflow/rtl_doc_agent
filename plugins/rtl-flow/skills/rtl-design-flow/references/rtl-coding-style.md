@@ -1,6 +1,6 @@
 # RTL 编码规范 (RTL Coding Style)
 
-> 以项目 Verilog 编码规范（2001 版，71 条）为基线整理，结合 Cummings SNUG 系列论文的赋值与 FSM 规则补充。团队可按自身规范覆盖本文件。
+> 本文件规定 rtl-flow 的 Verilog-2001 编码、复位、赋值、模块划分与验证约定；赋值与 FSM 规则另参考 Cummings SNUG 系列论文。团队可按自身规范覆盖本文件。
 > 规则编号 `RTL-xx` 供评审、lint 报告与 `05_rtl_structure.md` §6「编码约定与偏离」引用。**标「自动」的规则由 `run_lint.py` 检查，违反即 lint error。**
 > 情态词：`必须`（强制）/ `应`（推荐，偏离须在 05 §6 写明原因，重要偏离记 DEC）。
 
