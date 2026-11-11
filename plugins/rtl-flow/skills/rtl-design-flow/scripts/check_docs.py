@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dv_plan  # noqa: E402
 import gen_docs  # noqa: E402
 import run_lint  # noqa: E402
+import uvm_support  # noqa: E402
 from check_style import parse_rtl_ports, strip_hdl_comments  # noqa: E402
 
 try:
@@ -283,6 +284,14 @@ def run_checks(ip: Path, stage: str) -> Report:
     if at_least("dv") and not tps:
         rep.err("07_dv_plan", "no TP defined")
     covered = {tp for c in plan.cases for tp in c.tps}
+    if at_least("dv") and uvm_support.enabled(ip):
+        try:
+            platform = uvm_support.load(ip)
+            simulation_ids = {c.id for c in plan.cases if c.simulated}
+            for test in sorted(set(platform.test_map) - simulation_ids):
+                rep.err("07_dv_plan", f"UVM test_map key {test} is not a simulation case in §3")
+        except (ValueError, OSError) as exc:
+            rep.err("07_dv_plan", f"UVM platform invalid: {exc}")
     for i in plan.duplicates:
         rep.at(at_least("dv"), "07_dv_plan", f"{i} defined more than once")
     for c in plan.cases:

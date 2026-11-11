@@ -184,18 +184,32 @@ end
 
 ## 10. 断言与 testbench
 
-- RTL 中不写 SVA 与任何仿真语句（RTL-60、RTL-61）。协议与不变式检查放在 testbench 的监视器 `always` 块中，并列入 `07_dv_plan.md` §4。
-- testbench 同样使用 Verilog-2001，文件 `dv/tb/<ip>_tb.v`（可拆成多个 `dv/tb/*.v`），模块 `<ip>_tb`，DUT 例化名 `U_dut`。testbench 不受 RTL-42、RTL-46、RTL-50、RTL-60 ~ RTL-64 限制（可用 `initial`、`task`、`#` 延时、系统任务、`===`）。
-- testbench 不使用 `define.v` 中的宏（`--stub` 模式不编译 RTL 文件），复位按 `data/<ip>.yaml` 中复位的 `active` 驱动。
-- RTL 寄存器输出在时钟沿后 1 ns（`U_DLY`）变化。testbench 在时钟沿后 2 ns 驱动输入并采样输出（或在下降沿采样），不要在沿后 1 ns 采样，否则与 DUT 更新同时发生，读到旧值。
-- `reg clk = 1'b0;` 这类声明初值在 0 时刻产生一次 X→0 跳变，`@(negedge clk)` 会在 0 时刻触发，而此时 DUT 的异步复位可能还没有求值（VCS 下必然出现）。下降沿采样的监视器要跳过 0 时刻（`if ($time != 0 && ...)`），真正的第一个下降沿在半个周期之后。
-- **黑盒**：testbench 只通过顶层端口访问 DUT，禁止 `U_dut.xxx` 层次引用。验证由 tb-engineer 只根据规格独立编写，`run_regress.py --stub` 用端口桩代替 RTL 编译 testbench，层次引用会在这里报错。
-- **运行约定**（`run_regress.py` 依赖）：
-  - 用例选择 `+TEST=<name>`、`+SEED=<n>`；名字含 `random` 的用例按多个种子运行。用例名是 `07_dv_plan.md` §3 中「测试活动」为仿真的测试用例编号（`tc_*`）。
-  - 检查失败打印 `[<time>] ERROR: <说明>`；功能覆盖打印 `COVER <名字>=<命中次数>`（为 0 视为未覆盖，回归失败）。
-  - 结束时打印 `TEST <name> SEED <n> PASSED|FAILED errors=<n>` 并 `$finish`。
-  - 代码覆盖率由 `run_regress.py` 用 VCS `-cm` 和 `urg` 采集，范围是 `<ip>_tb.U_dut`，TB 不需要做任何处理；目标和豁免写在 `07_dv_plan.md` §5。
-  - 必须有看门狗：超时后打印 `TEST <name> FAILED errors=<n>` 并 `$finish`（桩检查时 DUT 输出恒 0，依赖看门狗结束）。
+- RTL 保持 Verilog-2001，不写 SVA 与仿真语句（RTL-60、RTL-61）；新验证平台使用 SystemVerilog/UVM，协议检查放 monitor 或 TB interface 的 SVA 中，列入 `07_dv_plan.md` §4。验证代码不受 RTL 的可综合语法限制。
+- 结构为 `dv/top/`（interface / tb_top）、`dv/env/`（cfg、common、trans、gen、bfm、rm、scb、funcov、按需 ral）、`dv/tests/`、`dv/sim/scripts/tb_list.f`。`dv/uvm.yaml` 指定顶层、UVM 版本、filelist 和 test_map；默认顶层 `<ip>_tb`，DUT 例化名 `U_dut`。
+- **黑盒**：tb-engineer 只依据规格 / SSOT 实现验证，通过顶层端口和 virtual interface 接线，禁止 `U_dut.xxx` 内部层次引用、backdoor RAL 或 bind 到内部信号。RAL 使用 frontdoor adapter。不能 include RTL 文件或依赖 `rtl/define.v`；验证所需常量从 SSOT 在 `dv/env/common/` 定义。
+- **采样**：在 interface 中显式定义 driver / monitor clocking block 和 skew，避开 DUT 更新竞争。项目 RTL 使用 `U_DLY=1ns` 时，上升沿 `input #1step` 观察的是更新前值；如检查更新后值，应采用规格允许的另一时钟相位或足够的采样间隔，并解释对应周期。不能把 `#1step` 当成“等 NBA 更新后采样”。跳过 0 时刻伪边沿，复位极性按 SSOT。
+- **编译**：manifest 存在时使用 `-sverilog -ntb_opts <uvm_version>`（默认 `uvm-1.2`）；filelist 只列验证编译单元，package 内 include 的 `.svh` 不再单独编译。DUT 来源由 runner 从 SSOT 添加；`--stub` 用自动生成的端口桩替换 DUT 源码。
+- **选择与随机化**：07 中“测试活动”为“仿真”的用例 ID 传 `+TEST=<id>`，类名由 test_map 或同名规则决定，传 `+UVM_TESTNAME=<class>`。`+SEED=<n>` 用于报告，`+ntb_random_seed=<n>` 初始化仿真随机化；名字含 `random` 的用例运行多个种子。
+- **基类协议**：新测试继承 `dv/env/common/rtlflow_test_base.svh`。`execute_test()` 完成实际场景、scoreboard 清空 / 剩余项检查；基类管理 run-phase objection 和 UVM watchdog。`report_coverage()` 输出真实 `COVER <名字>=<命中次数>`。派生类重写其他 phase 时调用 super，不覆盖 / 省略基类的开始与完成协议，不提前 `$finish`。
+- **结果**：基类在 start_of_simulation 输出 `RTL_FLOW_UVM_STARTED <id> SEED <n> CLASS <class>`；final_phase 输出对应 `RTL_FLOW_UVM_COMPLETED` 和 `TEST <id> SEED <n> PASSED|FAILED errors=<n>`。runner 核对唯一的开始 / 完成 / 结果、用例名、类名与种子。UVM 报告的 ERROR / FATAL 也独立计入，不能仅凭退出码或 PASSED 文本通过。
+- **失败与覆盖**：功能比对错误用 `uvm_error`，缺少 interface / 非法配置 / 超时用 `uvm_fatal`。真实回归要求无 UVM_ERROR / UVM_FATAL、用例完整结束、存在功能 COVER 计数且汇总无零命中项。代码覆盖仍由 VCS `-cm` 和 `urg` 采集，仅统计 `<manifest.top>.U_dut`；目标和豁免写 07 §5。
+- **桩自检**：端口桩输出恒 0，完整执行后出现功能 UVM_ERROR / FAILED 可接受；UVM_FATAL、超时或缺少完成标记不能通过。通过检查只证明编译、用例识别与正常终止，不能声明功能通过。`RTLFLOW_STUB` 由 runner 定义，但不得用于禁用激励 / monitor / scoreboard；等待 DUT 响应要有界，功能超时应报告并清理结束，避免全局 watchdog 才能退出。
+- **旧项目兼容**：没有 `dv/uvm.yaml` 时继续编译 `dv/tb/*.v`（`+v2k`），顶层 `<ip>_tb`，沿后 2ns 或下降沿采样；保留 `+TEST/+SEED`、`ERROR:`、`COVER`、`TEST ... PASSED|FAILED errors=...` 和有界 `$finish` 约定。不要给旧项目只加一个空 manifest 就宣称已迁移。
+
+### 10.1 验证代码质量与生成参考
+
+以下合并自 `logic-verify-uvm-tc-gen` 的“好代码标准”；本节是通用验证质量规则的维护位置，前述原生 testbench 语言与运行契约不变。
+
+- 分离激励、协议驱动、monitor、参考模型、scoreboard 和覆盖统计；参数 / 业务配置集中管理，复用已有 VIP 或公共 task。每个 task 负责一件明确的事，避免各用例复制公共读写 / 配置 / 比对逻辑。
+- 参考模型仅由规格和输入建立预期，实际结果由接口观察获得；不从 DUT 内部信号或 driver 的发送缓存直接取得“实际结果”。配置与业务处理使用抽象接口。
+- 检查参数范围、握手、时序、复位后状态、初始化完成、传输中的规格可观察不变式及结束时残留事务；通过公开端口或寄存器检查，保持黑盒隔离。
+- 关键步骤注释说明测试意图、约束来源与预期结果；失败日志包含用例 / seed、时刻、观测值和期望值，便于复现。
+- 定向边界与受约束随机结合；检查随机化失败，记录种子、值域和组合约束。COVER 只统计真实命中，不用“已发送”替代“已完成检查”。
+- 使用看门狗和有界完成条件；避免无进展轮询、无界事务堆积和不必要的逐拍海量日志。若项目提供仿真加速开关，明确其行为等价性，不能通过关检查加速。
+- 自测试应验证驱动 / 采样 / 比对链路；原生桩检查只能证明编译、用例识别和终止，不能证明 DUT 功能通过。保留检查命令、状态和日志。
+- UVM 工程按实际平台使用 cfg / config_db、factory、继承和 callback；原生 Verilog TB 使用等价的模块 / task 分层，不引入不被 runner 支持的 class 语法。
+
+按任务阅读：[BFM 生成](uvm-bfm-generation.md)（接口契约、打包 / 采样）、[平台集成](uvm-platform-generation.md)（连接、参数、依赖）、[用例生成](uvm-testcase-generation.md)（输入、因子到步骤 / 代码）。测试点 / 用例格式与因子表统一见 [测试计划模板](test-plan-template.md)。
 
 ## 11. Lint
 

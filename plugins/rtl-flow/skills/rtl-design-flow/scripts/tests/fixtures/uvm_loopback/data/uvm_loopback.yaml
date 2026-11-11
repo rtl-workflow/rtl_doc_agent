@@ -1,0 +1,16 @@
+name: uvm_loopback
+version: 0.1.0
+desc: UVM runner integration fixture; one-cycle registered byte loopback
+top: uvm_loopback
+rtl_files: [rtl/define.v, rtl/uvm_loopback.v]
+clocks: [{name: clk, freq_mhz: 100}]
+resets: [{name: rst_n, active: low, clock: clk}]
+params: []
+ports:
+  - {name: clk, dir: input, width: 1}
+  - {name: rst_n, dir: input, width: 1}
+  - {name: in_valid, dir: input, width: 1}
+  - {name: in_data, dir: input, width: 8}
+  - {name: out_valid, dir: output, width: 1}
+  - {name: out_data, dir: output, width: 8}
+registers: []

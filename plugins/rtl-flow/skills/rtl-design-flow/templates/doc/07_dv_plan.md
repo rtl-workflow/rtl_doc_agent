@@ -23,9 +23,11 @@ G3人工审核范围：本计划的测试点、用例步骤、预期结果与需
 | 项 | 内容 |
 |---|---|
 | 仿真器 | {{VCS（run_regress.py）}} |
-| 方法学 | {{自检查 SV testbench / cocotb / UVM}} |
+| 方法学 | SystemVerilog/UVM 黑盒验证：GEN/sequence、BFM、RM、scoreboard、功能覆盖；默认 UVM 1.2 |
 | 目录 | `dv/` |
-| 运行命令 | `{{make sim TEST=xxx}}` |
+| 运行命令 | `python $SKILL/scripts/run_regress.py <ip_dir> --stub`（tb-engineer 自检；正式回归由编排者在 G3 后运行） |
+
+填写环境结构、组件 / 接口契约、驱动与采样时序、参考模型 / scoreboard 数据路径、平台配置 API、`dv/uvm.yaml`、filelist 和用例类映射。环境集成参考 `$SKILL/references/uvm-platform-generation.md`；生成或修改 driver / monitor 时参考 `$SKILL/references/uvm-bfm-generation.md`。采样、公共测试基类和运行输出协议以编码规范 §10 为准。迁移已有平台时记录保留的类名 / 目录和配置差异。
 
 ```mermaid
 flowchart LR
@@ -35,7 +37,7 @@ flowchart LR
 
 ## 3. 测试点 (Test Points)
 
-> 字段含义、填写示例和命名规范见 `references/test-plan-template.md`。
+> 字段含义、填写示例、命名与测试因子方法见 `$SKILL/references/test-plan-template.md`；输入解析和步骤到代码的生成方法见 `$SKILL/references/uvm-testcase-generation.md`。
 
 ### 3.1 测试点列表（Feature / Test Point）
 
@@ -59,6 +61,10 @@ flowchart LR
 | 测试活动 | {{仿真 / 现场 / FPGA 等}} |
 | 测试人员 | {{责任人，无则写 —}} |
 | 备注/建议 | {{补充说明，无则写 —}} |
+
+### 3.3 测试因子与实现映射（适用时填写）
+
+按测试计划模板 §五记录因子来源、值域 / 边界、前提 / 依赖、配置或激励 API、观测 / 检查点和未匹配项；说明组合策略与随机种子。用例表继续作为测试清单的唯一来源。详细因子或平台理解文档放在 `dv/` 时，从本计划链接，并在 G3 一并审核。
 
 ## 4. 断言 (Assertions)
 

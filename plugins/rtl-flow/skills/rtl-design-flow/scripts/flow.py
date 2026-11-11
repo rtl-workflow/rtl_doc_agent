@@ -186,7 +186,10 @@ def regress_current(ip: Path):
     data, derrs, _ = gen_docs.outputs(ip)
     if derrs or res.get("mode") != "rtl":
         return None
-    cur = run_regress.digests(ip, data)
+    try:
+        cur = run_regress.digests(ip, data)
+    except (ValueError, OSError):
+        return None
     return res if all(res.get(k) == v for k, v in cur.items()) else None
 
 
@@ -199,7 +202,10 @@ def stub_current(ip: Path):
     data, derrs, _ = gen_docs.outputs(ip)
     if derrs or res.get("mode") != "stub":
         return None
-    cur = run_regress.digests(ip, data)
+    try:
+        cur = run_regress.digests(ip, data, include_rtl=False)
+    except (ValueError, OSError):
+        return None
     return res if all(res.get(k) == cur[k] for k in ("tb_sha256", "tests_sha256")) else None
 
 
@@ -376,8 +382,9 @@ TASKS = {
     ("tb-engineer", "tb"):
         "执行 P4 验证。你看不到、也不能读取 RTL：只根据 00 / 01 / 03 / 04 / 06 与 yaml 构建验证。\n"
         "1. 编写 07_dv_plan：§3 按 references/test-plan-template.md 分解测试点（tp_*）和测试用例（tc_*），仿真用例的「测试活动」写「仿真」，用例编号就是 TB 的 TEST 名；§6 写 REQ 到测试点的追溯，每条 REQ 都要被测试点覆盖。\n"
-        "2. 编写 dv/tb/<ip>_tb.v：黑盒自检查 testbench（只通过顶层端口访问 DUT，禁止 U_dut.xxx 层次引用），"
-        "参考模型逐周期比对，COVER 计数，看门狗；输出格式见 rtl-coding-style §10。\n"
+        "2. 默认完成dv/下标准UVM平台：uvm.yaml、top/interface、env/cfg、trans、gen、bfm、rm、scb、funcov、tests和sim/scripts/tb_list.f；"
+        "有寄存器时补RAL。用例继承rtlflow_test_base，完成execute_test与report_coverage；只通过顶层端口访问DUT，禁止U_dut.xxx内部层次引用。"
+        "参考模型按规格独立预测，scoreboard比对、COVER计数、有界结束；配置与输出协议见rtl-coding-style §10。无manifest的已有项目保留原生TB入口。\n"
         "3. 运行 run_regress.py <ip_dir> --stub，直到结果为 PASS（证明 TB 能编译、识别全部用例并能结束；桩模块输出恒 0，用例本身失败属正常）。",
     ("tb-engineer", "fix"):
         "回归失败，debugger 判定测试平台有问题，说明见附加输入（只描述与规格不符之处）。\n"
@@ -398,7 +405,7 @@ TASKS = {
         "- rtl：RTL 行为与规格不符；tb：testbench / 参考模型期望与规格不符；both：两者都有；\n"
         "- spec：规格没有写清或自相矛盾，需要用户决定；tool：仿真工具或环境问题。\n"
         "以规格（00 / 01 / 04 / 06 / yaml）为准判定谁错。可以读取全部文件、运行仿真；"
-        "需要临时测试时放在 dv/build/debug/，不要修改 rtl/ 与 dv/tb/。\n"
+        "需要临时测试时放在 dv/build/debug/，不要修改 rtl/ 或 dv/ 下的验证源码和manifest/filelist。\n"
         "1. 在 08_iteration_log 新增 ITR：触发、现象、根因（含类别）；「修改」和「回归结果」留给修复者和编排者。\n"
         "2. 写完整报告 .flow/debug/<任务ID>.md：失败用例、第一个不匹配的时刻与信号、根因、建议修改（文件 / 位置）。\n"
         "3. 涉及 TB（tb / both）时另写 .flow/debug/<任务ID>_tb.md：只用规格语言说明 TB 哪个期望与规格哪一条不符，"
@@ -427,6 +434,19 @@ def new_task(ip: Path, st, role, kind, inputs=(), extra=""):
              "", "## 任务", TASKS[(role, kind)].replace("<任务ID>", tid).replace("<ip_dir>", str(ip))]
     if extra:
         lines += ["", "## 附加说明", extra]
+    if role == "tb-engineer":
+        refs = SKILL / "references"
+        lines += ["", "## 验证生成参考（首次生成、修复、审核修改和需求变更均适用）",
+                  f"先读 {refs / 'uvm-platform-generation.md'} §1，采用标准UVM结构及manifest/filelist运行协议；无manifest的已有Verilog项目保持兼容。",
+                  f"测试点 / 用例格式和因子方法：{refs / 'test-plan-template.md'}；"
+                  f"输入、平台映射、步骤到代码与检查：{refs / 'uvm-testcase-generation.md'}。",
+                  f"生成或修改接口激励、driver、monitor、receiver 时读 {refs / 'uvm-bfm-generation.md'}；"
+                  f"搭建或修改环境、组件连接、参数或编译清单时读 {refs / 'uvm-platform-generation.md'} 其余章节。",
+                  f"UVM结构、采样、基类输出协议、旧TB兼容与通用质量规则：{refs / 'rtl-coding-style.md'} §10。",
+                  "这些文件是技术参考，不能覆盖规格、SSOT、信息隔离和G3审核。"
+                  "当前runner根据dv/uvm.yaml启用-sverilog/-ntb_opts，filelist仅引用dv/内验证文件，RTL由runner单独加入。"
+                  "桩检查用SSOT端口桩，不读取RTL；不得用空测试、禁用检查或缺失的外部skill替代实现。"
+                  "summary说明采用的参考、对应实现及未适用/未验证项；仍只做桩自检，正式回归由编排者执行。"]
     if role in ("architect", "rtl-engineer"):
         lines += ["", "## HTML架构图同步",
                   "每次生成或修改02_architecture.md，都同步其中architecture-graph JSON，遵循references/architecture-html.md。"
@@ -839,6 +859,10 @@ def cmd_init(a):
         dst.parent.mkdir(parents=True, exist_ok=True)
         text = src.read_text(encoding="utf-8").replace("{{ip}}", name).replace("{{date}}", today())
         dst.write_text(text, encoding="utf-8", newline="\n")
+    for directory in ("common", "trans", "gen", "bfm", "rm", "scb", "funcov", "ral"):
+        (ip / "dv" / "env" / directory).mkdir(parents=True, exist_ok=True)
+    for directory in ("top", "tests", "sim/scripts"):
+        (ip / "dv" / directory).mkdir(parents=True, exist_ok=True)
     raw, inputs, texts = ip / "raw", [], []
     raw.mkdir(exist_ok=True)
     for x in a.input or []:

@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gen_docs  # noqa: E402
 import remote_exec  # noqa: E402
 import run_regress  # noqa: E402
+import uvm_support  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -139,7 +140,8 @@ def select(mutants, limit):
 
 def compile_rtl(ip: Path, work: Path, top_tb, srcs, incdirs):
     work.mkdir(parents=True, exist_ok=True)
-    cmd = [run_regress.tool("vcs"), "-full64", "+v2k", "-timescale=1ns/1ps", "+vcs+lic+wait", "-top", top_tb,
+    language = uvm_support.load(ip).compile_args() if uvm_support.enabled(ip) else ["+v2k"]
+    cmd = [run_regress.tool("vcs"), "-full64"] + language + ["-timescale=1ns/1ps", "+vcs+lic+wait", "-top", top_tb,
            "-Mdir=csrc", "-o", "simv", "-l", "compile.log"] + [f"+incdir+{d}" for d in incdirs] + [str(s) for s in srcs]
     p = subprocess.run(cmd, cwd=work, capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = p.stdout + p.stderr
@@ -148,20 +150,26 @@ def compile_rtl(ip: Path, work: Path, top_tb, srcs, incdirs):
     return p.returncode == 0, out
 
 
-def run_test(work: Path, test, timeout):
+def run_test(work: Path, test, timeout, platform=None):
     """'pass', or why the test failed."""
     try:
-        p = subprocess.run([str((work / "simv").resolve()), f"+TEST={test}", "+SEED=1", "+vcs+lic+wait"], cwd=work,
+        p = subprocess.run([str((work / "simv").resolve()), f"+TEST={test}", "+SEED=1", "+vcs+lic+wait"]
+                           + (platform.run_args(test, 1) if platform else []), cwd=work,
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
         return "timeout"
+    if p.returncode != 0:
+        return f"simulator exit {p.returncode}"
+    if platform:
+        result = uvm_support.parse_result(p.stdout + p.stderr, test, 1, platform.test_class(test))
+        return "pass" if not result["problems"] and result["status"] == "PASSED" and result["errors"] == 0 else "failed"
     m = next((x for x in run_regress.RESULT_RE.finditer(p.stdout + p.stderr) if x.group(1) == test), None)
     if not m:
         return "no result"
     return "pass" if m.group(3) == "PASSED" and m.group(4) == "0" else "failed"
 
 
-def evaluate(m: Mutant, ip: Path, build: Path, top_tb, sources, incdirs, tests, timeout):
+def evaluate(m: Mutant, ip: Path, build: Path, top_tb, sources, incdirs, tests, timeout, platform=None):
     work = build / m.id
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
@@ -177,7 +185,7 @@ def evaluate(m: Mutant, ip: Path, build: Path, top_tb, sources, incdirs, tests, 
     if ok:
         result["status"] = "survived"
         for test in tests:
-            why = run_test(work, test, timeout)
+            why = run_test(work, test, timeout, platform)
             if why != "pass":
                 result.update(status="killed", killed_by=test, reason=why)
                 break
@@ -190,10 +198,14 @@ def run_local(ip: Path, limit, jobs):
     if derrs:
         raise SystemExit("ERROR: data file invalid, run check_docs.py first")
     tests = sorted(run_regress.plan_tests(ip), key=lambda t: "random" in t)
-    tbs = run_regress.tb_files(ip)
+    try:
+        platform = uvm_support.load(ip) if uvm_support.enabled(ip) else None
+        tbs = platform.sources if platform else run_regress.tb_files(ip)
+    except (ValueError, OSError) as exc:
+        raise SystemExit(f"ERROR: invalid verification platform: {exc}") from exc
     if not tests or not tbs:
         raise SystemExit("ERROR: no simulation test case or testbench to run")
-    build, top_tb = ip / BUILD, f"{data['name']}_tb"
+    build, top_tb = ip / BUILD, platform.top if platform else f"{data['name']}_tb"
     shutil.rmtree(build, ignore_errors=True)
     sources = [(ip / f).resolve() for f in data["rtl_files"]] + [t.resolve() for t in tbs]
     incdirs = sorted({str(s.parent) for s in sources})
@@ -204,7 +216,7 @@ def run_local(ip: Path, limit, jobs):
         raise SystemExit("ERROR: the unmodified design does not compile:\n" + "\n".join(out.splitlines()[-15:]))
     started = datetime.now()
     with ThreadPoolExecutor(jobs) as pool:
-        verdicts = list(pool.map(lambda t: (t, run_test(base, t, run_regress.TEST_TIMEOUT_S)), tests))
+        verdicts = list(pool.map(lambda t: (t, run_test(base, t, run_regress.TEST_TIMEOUT_S, platform)), tests))
     bad = [f"{t}: {v}" for t, v in verdicts if v != "pass"]
     if bad:
         raise SystemExit("ERROR: the regression fails on the unmodified design, fix that first: " + "; ".join(bad))
@@ -215,7 +227,7 @@ def run_local(ip: Path, limit, jobs):
     print(f"{len(every)} mutants generated, running {len(chosen)} with {jobs} jobs", flush=True)
     results = []
     with ThreadPoolExecutor(jobs) as pool:
-        futures = [pool.submit(evaluate, m, ip, build, top_tb, sources, incdirs, tests, timeout) for m in chosen]
+        futures = [pool.submit(evaluate, m, ip, build, top_tb, sources, incdirs, tests, timeout, platform) for m in chosen]
         for n, f in enumerate(futures, 1):
             results.append(f.result())
             print(f"[{n}/{len(chosen)}] {results[-1]['id']} {results[-1]['status']}", flush=True)

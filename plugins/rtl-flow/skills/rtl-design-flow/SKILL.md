@@ -16,6 +16,10 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/glossary.md` | 术语表、信号命名后缀、寄存器访问类型 |
 | `references/data-schema.md` | IP 描述文件 `data/<ip>.yaml`（单一信息源）字段定义 |
 | `references/rtl-coding-style.md` | RTL 编码规范（项目 Verilog 规范，Verilog-2001）与 testbench 约定 |
+| `references/test-plan-template.md` | 测试点 / 用例字段、命名、需求追溯及测试因子提取、组合与平台映射 |
+| `references/uvm-bfm-generation.md` | 接口契约、BFM 驱动 / 采样 / 事务重组、自测试；生成或修复接口激励时阅读 |
+| `references/uvm-platform-generation.md` | 原生 TB / UVM 边界、组件 / 参数 / 连接集成、工作模式、编译依赖；搭建或修改环境时阅读 |
+| `references/uvm-testcase-generation.md` | 测试点 / Excel 输入、因子到步骤 / 代码、用例登记与检查；所有验证生成和修改任务阅读 |
 | `templates/` | 所有文档模板，`flow.py init` 时复制到 IP 目录 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
 | `scripts/gen_arch.py` / `references/architecture-html.md` | 由02中的architecture-graph生成离线HTML架构图，检查模块覆盖与图文同步 |
@@ -28,6 +32,8 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `examples/` | 标杆示例（few-shot）；`examples/demo_timer/` 为完整走完 P0–P6 的参考 IP |
 
 角色 agent 定义在插件的 `agents/` 目录，hook 定义在插件的 `hooks/` 目录。
+
+三个 `logic-verify-uvm-*` skill 的技术内容已按上表整理为参考；共用格式 / 因子方法维护在测试计划模板，通用质量规则维护在编码规范 §10.1。`flow.py` 对 tb-engineer 的 `tb`、`fix`、`review_fix`、`change` 派发均提供明确阅读路径。新项目默认采用标准 SystemVerilog/UVM 黑盒平台，VCS 入口由 `dv/uvm.yaml` 和有序 filelist 配置；默认 UVM 1.2。没有 manifest 的已有 Verilog TB 保持兼容。运行协议、组件目录及原 Gaea/Superbench 规则的条件适用范围见平台参考 §1。
 
 ## 0. 基本原则
 
@@ -51,7 +57,11 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 ├── data/<ip>.yaml             # 单一信息源
 ├── doc/00_requirements.md … 10_checklist.md   # 03/04 为生成文件
 ├── rtl/                       # RTL 源码
-├── dv/tb/<ip>_tb.v            # 黑盒自检查 testbench（dv/build/ 为运行产物，不提交）
+├── dv/uvm.yaml               # UVM 顶层、库版本、filelist、测试类映射
+├── dv/top/                   # interface、tb_top.sv，DUT 例化名 U_dut
+├── dv/env/                   # env/cfg、common、trans、gen、bfm、rm、scb、funcov、ral
+├── dv/tests/                 # 派生 UVM 测试类
+├── dv/sim/scripts/tb_list.f  # 编译清单（dv/build/ 为运行产物，不提交）
 ├── syn/                       # 综合脚本（可选）
 ├── reports/lint.log           # [生成] run_lint.py
 ├── reports/regress.json       # [生成] run_regress.py
