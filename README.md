@@ -2,6 +2,29 @@
 
 把「不规范的需求/规格」变成「RTL + 一整套标准化文档」的 Claude Code 插件。文档体系参考 OpenTitan。
 
+## 安装入口（用户与安装 agent 必读）
+
+在 Claude Code 或 OpenCode 中，都只需要发送同一句话：
+
+```text
+请按照 https://github.com/rtl-workflow/rtl_doc_agent 的 README 中的提示，为我安装这个插件。
+```
+
+**以下步骤由安装 agent 执行，用户无需选择安装指南或补充安装命令：**
+
+1. 识别承载当前对话的工具是 Claude Code 还是 OpenCode。以当前会话环境为准，不根据机器上是否装有某个 CLI 来猜测；确实无法识别时才询问用户。
+2. 根据下表读取对应的完整安装指南，再实际执行安装。通过网页读取 README 时，可直接读取表内的原始文档链接；从本地仓库读取时使用相对路径。不要只复述步骤或停在“建议安装”。
+3. 检查现有安装，按对应指南复用或更新；首次安装默认面向当前用户，不改项目共享配置。不要因两个工具都已安装就同时给两个工具安装。
+4. 按指南核验安装记录和加载结果。只能完成重启前检查时，报告已完成部分和用户需要执行的重启 / 重载操作，不提前宣称全部可用。遇到错误先处理或报告，不自行换成另一种安装方式。
+5. 插件安装完成后再说明 EDA 配置入口；不要在安装阶段索取服务器密码或启动交互式配置向导。
+
+| 当前工具 | 安装指南 | 完成标准 |
+|---|---|---|
+| Claude Code | [市场安装指南](.claude-plugin/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.claude-plugin/INSTALL.md) | 添加 `rtl-flow` 市场，安装并启用 `rtl-flow@rtl-flow`，核验已安装列表与加载结果 |
+| OpenCode | [安装指南](.opencode/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.opencode/INSTALL.md) | 克隆完整仓库，运行 `install-opencode` 注册加载器，重启后核验命令、agent 和 skill |
+
+**Claude Code 默认走插件市场。** AI 在 shell 中执行 `claude plugin marketplace add ...` 和 `claude plugin install ...`；用户在聊天输入框使用 `/plugin ...`。仅执行 `git clone`、复制 skill 或使用 `--plugin-dir` 不算完成市场安装。只有用户明确要求源码开发、离线复制或临时调试时，才采用相应方式。不要把 OpenCode 的克隆安装步骤用于 Claude Code。
+
 从 0.4.0 起采用**多 agent 工作流**：主会话担任编排者，由 `flow.py` 状态机决定每一步；5 个角色 agent 分工完成；检查脚本判定能否进入下一阶段；hook 强制执行角色权限。验证 agent 看不到 RTL，与设计相互独立。
 
 ## 包含内容
@@ -111,16 +134,31 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 
 本仓库就是一个插件市场：<https://github.com/rtl-workflow/rtl_doc_agent>。
 
-1. 在 Claude Code 里添加市场并安装插件：
+**让 Claude Code 安装：** 使用本文开头的统一提示词“请按照本仓库的 README 中的提示，为我安装这个插件”。Claude Code 应自动选择市场安装指南。
+
+安装 agent 应读取 [完整指南](.claude-plugin/INSTALL.md)，检查现有安装后，通过 shell 逐条执行（前一步成功后再继续）：
+
+```sh
+claude plugin marketplace add https://github.com/rtl-workflow/rtl_doc_agent.git
+claude plugin install rtl-flow@rtl-flow --scope user
+claude plugin list --json
+```
+
+已存在的正确市场无需重复添加；已安装插件按指南更新。安装范围默认为当前用户，不修改项目共享配置。不能只添加市场而跳过插件安装，也不能以克隆目录存在作为成功依据。
+
+**用户手动安装：**
+
+1. 在 Claude Code 的聊天输入框中逐条输入：
    ```
    /plugin marketplace add rtl-workflow/rtl_doc_agent
    /plugin install rtl-flow@rtl-flow
    ```
    也可以写完整地址：`/plugin marketplace add https://github.com/rtl-workflow/rtl_doc_agent.git`。
-2. 安装后重启 Claude Code（或执行 `/reload-plugins`），输入 `/rtl-flow:` 能看到 `ip-new`、`ip-run`、`ip-status`、`ip-iter`、`ip-check` 即安装成功；`/agents` 中能看到 `rtl-flow:spec-author` 等 5 个 agent。
-3. 升级：维护者修改后提升 `plugins/rtl-flow/.claude-plugin/plugin.json` 的 `version` 并推送，用户执行 `/plugin marketplace update rtl-flow`。
+2. 若打开插件详情面板，选择安装到当前用户并完成安装；在 `/plugin` 的 Installed 页确认 `rtl-flow@rtl-flow` 已安装并启用。
+3. 根据安装结果提示执行 `/reload-plugins` 或重启 Claude Code。输入 `/rtl-flow:` 检查命令，`/agents` 中检查 `rtl-flow:spec-author` 等 5 个角色；命令或角色未加载时按完整指南排查。
+4. 升级：维护者提升插件版本并推送后，在终端依次执行 `claude plugin marketplace update rtl-flow` 和 `claude plugin update rtl-flow@rtl-flow --scope user`，随后重新加载并验收。只刷新市场目录不能作为已安装插件更新完成的依据。
 
-本地调试也可以直接添加目录：`/plugin marketplace add C:/path/to/rtl_doc_agent`。
+仅在用户明确要求本地源码调试时，可以添加本地市场：`/plugin marketplace add C:/path/to/rtl_doc_agent`，之后仍须安装 `rtl-flow@rtl-flow`。
 
 ### 方式 2：项目仓库内自动启用（团队零配置）
 
@@ -151,11 +189,15 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 
 与 Claude Code 功能相同：同样的 5 个角色 agent、斜杠命令、skill、状态机和权限隔离。
 
-1. 克隆本仓库，并保留在固定位置：`git clone https://github.com/rtl-workflow/rtl_doc_agent.git`
-2. 运行上面“首次配置”中的 `setup`，检测到 OpenCode 时会自动接入（也可以单独运行 `rtlflow.py install-opencode`）。
-3. 重启 OpenCode，使用 `/rtl-flow:ip-new`、`/rtl-flow:ip-run` 等命令。
+**让 OpenCode 安装：** 使用本文开头的统一提示词“请按照本仓库的 README 中的提示，为我安装这个插件”。OpenCode 应自动选择自己的安装指南。
 
-升级时执行 `git pull` 并重启 OpenCode 即可。`plugins/rtl-flow/opencode/rtl-flow.js` 只负责翻译工具调用：agent、命令和 skill 都从同一批 Markdown 动态注册，权限判断调用同一个 `hooks/flow_hook.py`，修改规则时只改一处。
+只给仓库地址时，也应先读取 [OpenCode 安装指南](.opencode/INSTALL.md)，再执行其中的安装步骤。指南包含 Windows PowerShell、macOS/Linux、重复安装、验收和故障排查。
+
+当前适配器面向 **OpenCode 1.x**；2.x 的插件接口尚未适配。安装会克隆完整仓库并运行 `rtlflow.py install-opencode`，生成全局加载器；无需 npm 安装、软链接或手改 `opencode.json`。插件安装不需要 EDA 账号；需要运行 lint / 仿真时，再由用户在自己的终端执行 [首次配置](#首次配置每台机器一次)。
+
+安装后重启 OpenCode，确认能看到 `/rtl-flow:ip-new`、`/rtl-flow:ip-run` 和 `rtl-design-flow` skill。更新时在安装目录执行 `git pull --ff-only`，重新运行 `install-opencode`，再重启 OpenCode。
+
+`plugins/rtl-flow/opencode/rtl-flow.js` 负责翻译工具调用：agent、命令和 skill 都从同一批 Markdown 动态注册，权限判断调用同一个 `hooks/flow_hook.py`，修改规则时只改一处。
 
 ### 其他工具
 
