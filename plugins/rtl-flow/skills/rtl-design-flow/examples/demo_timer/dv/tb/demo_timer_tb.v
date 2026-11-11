@@ -34,7 +34,7 @@ wire            irq;
 
 always #5 clk = ~clk;  // 100 MHz
 
-// 驱动与采样点：posedge 后 2 ns，晚于 RTL 输出变化（时钟沿后 1 ns，rtl-coding-style HW-50 / §10）
+// 驱动与采样点：posedge 后 2 ns，晚于 RTL 输出变化（时钟沿后 1 ns，rtl-coding-style RTL-50 / §10）
 localparam TB_SKEW = 2;
 
 demo_timer U_dut (

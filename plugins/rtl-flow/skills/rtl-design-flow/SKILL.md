@@ -15,7 +15,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/doc-standard.md` | 文档体系、front matter、ID 规则、写作规范 |
 | `references/glossary.md` | 术语表、信号命名后缀、寄存器访问类型 |
 | `references/data-schema.md` | IP 描述文件 `data/<ip>.yaml`（单一信息源）字段定义 |
-| `references/rtl-coding-style.md` | RTL 编码规范（华为 Verilog 规范，Verilog-2001）与 testbench 约定 |
+| `references/rtl-coding-style.md` | RTL 编码规范（项目 Verilog 规范，Verilog-2001）与 testbench 约定 |
 | `templates/` | 所有文档模板，`flow.py init` 时复制到 IP 目录 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
 | `scripts/gen_arch.py` / `references/architecture-html.md` | 由02中的architecture-graph生成离线HTML架构图，检查模块覆盖与图文同步 |

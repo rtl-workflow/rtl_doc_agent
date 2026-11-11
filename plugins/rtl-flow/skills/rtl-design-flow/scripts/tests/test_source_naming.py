@@ -17,7 +17,7 @@ class SourceNamingTests(unittest.TestCase):
             file.write_text('module SPI_WRAP(); endmodule\n')
             def errors(mapping):
                 return [x for x in check_style.check_file(file, 'rtl/spi_adapter.v', source_naming=mapping)
-                        if x[2] == 'HW-02']
+                        if x[2] == 'RTL-02']
             self.assertFalse(errors([]))
             self.assertFalse(errors([{'module': 'SPI_WRAP', 'file': 'rtl/spi_adapter.v'}]))
             self.assertFalse(errors([{'module': 'SPI_WRAP', 'file': 'rtl/other.v', 'source': 'raw/a.md'}]))
@@ -28,7 +28,7 @@ class SourceNamingTests(unittest.TestCase):
             file = Path(folder) / 'spi_intf_adapt.v'
             file.write_text('module spi_intf_adapt(); endmodule\n')
             self.assertFalse([x for x in check_style.check_file(file, 'rtl/spi_intf_adapt.v')
-                               if x[2] in ('HW-02', 'HW-10')])
+                               if x[2] in ('RTL-02', 'RTL-10')])
 
     def test_mixed_case_interface_and_generated_header(self):
         d = dict(name='OriginalIP', version='1.0.0', desc='original names', top='SPI_WRAP',
@@ -54,14 +54,14 @@ class SourceNamingTests(unittest.TestCase):
             file.write_text('module DifferentModule #(parameter OriginalLongParameterName = 1) '
                             '(input PCLK, input PRESETn, output DataOut); endmodule\n')
             rules = [x[2] for x in check_style.check_file(file, file.name)]
-            self.assertFalse(set(rules) & {'HW-02', 'HW-11', 'HW-12', 'HW-13'})
+            self.assertFalse(set(rules) & {'RTL-02', 'RTL-11', 'RTL-12', 'RTL-13'})
             file.write_text('module A(); endmodule\nmodule B(); endmodule\n')
-            self.assertIn('HW-02', [x[2] for x in check_style.check_file(file, file.name)])
+            self.assertIn('RTL-02', [x[2] for x in check_style.check_file(file, file.name)])
 
     def test_original_reset_names_still_check_polarity(self):
         code = "always @(posedge PCLK or posedge PRESETn) if (PRESETn == 1'b1) Q <= D;"
         errors = list(check_style.check_resets(code, {'PRESETn': 'low'}))
-        self.assertEqual({'HW-41', 'HW-42'}, {e[1] for e in errors})
+        self.assertEqual({'RTL-41', 'RTL-42'}, {e[1] for e in errors})
         self.assertFalse(list(check_style.check_resets(
             code.replace('posedge PRESETn', 'negedge PRESETn').replace("1'b1", "1'b0"),
             {'PRESETn': 'low'})))

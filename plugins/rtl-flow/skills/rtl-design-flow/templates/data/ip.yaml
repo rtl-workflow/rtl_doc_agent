@@ -5,7 +5,7 @@ version: 0.1.0
 desc: "{{一句话描述}}"
 top: "{{ip}}"
 rtl_files:
-  - rtl/define.v          # 全局宏，必须放第一个（rtl-coding-style HW-07）
+  - rtl/define.v          # 全局宏，必须放第一个（rtl-coding-style RTL-07）
   - "rtl/{{ip}}.v"
 bus:
   protocol: apb

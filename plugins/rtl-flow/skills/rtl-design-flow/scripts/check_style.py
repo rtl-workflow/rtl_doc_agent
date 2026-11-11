@@ -138,34 +138,34 @@ def modules_in(src):
 # --------------------------------------------------------------------------- rules
 # (rule, pattern on comment-stripped code, message)
 PATTERNS = [
-    ("HW-01", r"\b(logic|bit|byte|shortint|int|longint|string|always_ff|always_comb|always_latch|typedef|enum|"
+    ("RTL-01", r"\b(logic|bit|byte|shortint|int|longint|string|always_ff|always_comb|always_latch|typedef|enum|"
               r"struct|union|interface|modport|package|import|unique|priority|uwire)\b",
      "keyword '{0}' not allowed in Verilog-2001 RTL"),
-    ("HW-01", r"(?<![\w'])'[01xzXZ]\b", "unsized fill literal '{0}': write {{N{{1'b0}}}} instead"),
-    ("HW-01", r"\+\+|--|[-+*/|&^]=(?!=)", "SystemVerilog operator '{0}'"),
-    ("HW-01", r"[(,]\s*\.\s*(?:\*|[A-Za-z_]\w*\s*(?=[,)]))", "implicit port connection '{0}': use .port(signal)"),
-    ("HW-05", r"`include\b", "`include not allowed"),
-    ("HW-34", r"\d*'[sS]?[bBoOhH][0-9a-fA-F_]*[zZ][0-9a-fA-F_zZ]*", "tri-state value '{0}' not allowed inside IP"),
-    ("HW-07", r"`(?:define|undef)\b", "'{0}' only allowed in define.v"),
-    ("HW-42", r"\bif\s*\(\s*[!~]?\s*rst\w*\s*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
-    ("HW-42", r"\bif\s*\(\s*rst\w*\s*!=[^)]*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
-    ("HW-46", r"\breg\b[^;=()]*=(?!=)", "initial value in reg declaration: initialize by reset"),
-    ("HW-51", r"\balways\s*@\s*\((?![^)]*\b(?:posedge|negedge)\b)(?![^)]*`RST_EDGE\b)(?!\s*\*\s*\))[^)]*\)",
+    ("RTL-01", r"(?<![\w'])'[01xzXZ]\b", "unsized fill literal '{0}': write {{N{{1'b0}}}} instead"),
+    ("RTL-01", r"\+\+|--|[-+*/|&^]=(?!=)", "SystemVerilog operator '{0}'"),
+    ("RTL-01", r"[(,]\s*\.\s*(?:\*|[A-Za-z_]\w*\s*(?=[,)]))", "implicit port connection '{0}': use .port(signal)"),
+    ("RTL-05", r"`include\b", "`include not allowed"),
+    ("RTL-34", r"\d*'[sS]?[bBoOhH][0-9a-fA-F_]*[zZ][0-9a-fA-F_zZ]*", "tri-state value '{0}' not allowed inside IP"),
+    ("RTL-07", r"`(?:define|undef)\b", "'{0}' only allowed in define.v"),
+    ("RTL-42", r"\bif\s*\(\s*[!~]?\s*rst\w*\s*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
+    ("RTL-42", r"\bif\s*\(\s*rst\w*\s*!=[^)]*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
+    ("RTL-46", r"\breg\b[^;=()]*=(?!=)", "initial value in reg declaration: initialize by reset"),
+    ("RTL-51", r"\balways\s*@\s*\((?![^)]*\b(?:posedge|negedge)\b)(?![^)]*`RST_EDGE\b)(?!\s*\*\s*\))[^)]*\)",
      "combinational sensitivity list '{0}': use always @(*)"),
-    ("HW-54", r"\bcasex\b", "'{0}' not allowed: use case or casez"),
-    ("HW-60", r"\b(initial|wait|fork|join|disable|force|release|deassign|event)\b", "'{0}' not allowed in RTL"),
-    ("HW-60", r"#\s*\d", "delay '{0}' not allowed in RTL: write <= #`U_DLY"),
-    ("HW-60", r"#\s*[A-Za-z_]\w*", "delay '{0}' not allowed in RTL: write <= #`U_DLY"),
-    ("HW-62", r"===|!==", "'{0}' not synthesizable"),
-    ("HW-62", r"\d*'[sS]?[bBoOhH][0-9a-fA-F_?zZ]*[xX][0-9a-fA-F_xX?zZ]*", "x literal '{0}' not allowed in RTL"),
-    ("HW-63", r"\b(real|realtime|time|integer)\b", "'{0}' type not allowed in RTL"),
-    ("HW-64", r"\b(forever|repeat|while|task)\b", "'{0}' not allowed in RTL"),
-    ("HW-65", r"\b(tri0|tri1|triand|trior|trireg|supply0|supply1|nmos|pmos|cmos|rnmos|rpmos|rcmos|tran|tranif0|"
+    ("RTL-54", r"\bcasex\b", "'{0}' not allowed: use case or casez"),
+    ("RTL-60", r"\b(initial|wait|fork|join|disable|force|release|deassign|event)\b", "'{0}' not allowed in RTL"),
+    ("RTL-60", r"#\s*\d", "delay '{0}' not allowed in RTL: write <= #`U_DLY"),
+    ("RTL-60", r"#\s*[A-Za-z_]\w*", "delay '{0}' not allowed in RTL: write <= #`U_DLY"),
+    ("RTL-62", r"===|!==", "'{0}' not synthesizable"),
+    ("RTL-62", r"\d*'[sS]?[bBoOhH][0-9a-fA-F_?zZ]*[xX][0-9a-fA-F_xX?zZ]*", "x literal '{0}' not allowed in RTL"),
+    ("RTL-63", r"\b(real|realtime|time|integer)\b", "'{0}' type not allowed in RTL"),
+    ("RTL-64", r"\b(forever|repeat|while|task)\b", "'{0}' not allowed in RTL"),
+    ("RTL-65", r"\b(tri0|tri1|triand|trior|trireg|supply0|supply1|nmos|pmos|cmos|rnmos|rpmos|rcmos|tran|tranif0|"
               r"tranif1|rtran|rtranif0|rtranif1|strong0|strong1|weak0|weak1|pull0|pull1|highz0|highz1|"
               r"specify|primitive)\b", "'{0}' not allowed in RTL"),
 ]
 RAW_PATTERNS = [  # checked on raw text, because synthesis pragmas live in comments
-    ("HW-54", r"\b(full_case|parallel_case)\b", "synthesis directive '{0}' not allowed"),
+    ("RTL-54", r"\b(full_case|parallel_case)\b", "synthesis directive '{0}' not allowed"),
 ]
 HEADER_FIELDS = ["Module name", "Function", "Version", "Date"]
 DIR_ORDER = {"input": 0, "inout": 1, "output": 2}
@@ -211,7 +211,7 @@ def param_spans(code):
 
 
 def check_system_calls(code):
-    """Yield (pos, msg): system tasks/functions, except $clog2 on the right side of a parameter (HW-61)."""
+    """Yield (pos, msg): system tasks/functions, except $clog2 on the right side of a parameter (RTL-61)."""
     params = param_spans(code)
     for m in re.finditer(r"\$\w+", code):
         if m.group(0) == "$clog2":
@@ -222,7 +222,7 @@ def check_system_calls(code):
 
 
 def check_literals(code):
-    """Yield (pos, msg) for '?' literals outside casez item labels (HW-62)."""
+    """Yield (pos, msg) for '?' literals outside casez item labels (RTL-62)."""
     casez = spans(code, r"\bcasez\b", "endcase")
     for m in LITERAL_RE.finditer(code):
         lit = m.group(0)
@@ -233,7 +233,7 @@ def check_literals(code):
 
 
 def check_delays(code):
-    """Yield (pos, msg): nonblocking assignments without #`U_DLY (HW-50), other macro delays (HW-60)."""
+    """Yield (pos, msg): nonblocking assignments without #`U_DLY (RTL-50), other macro delays (RTL-60)."""
     loops = []
     for m in re.finditer(r"\bfor\s*\(", code):
         loops.append((m.end(), matching(code, m.end() - 1)))
@@ -276,7 +276,7 @@ def check_delays(code):
 
 
 def check_resets(code, std, reset_names=None):
-    """Yield (pos, rule, msg) for reset edges (HW-41) and reset conditions (HW-42).
+    """Yield (pos, rule, msg) for reset edges (RTL-41) and reset conditions (RTL-42).
 
     std maps standard-interface reset names to their active level. Explicit SSOT names
     take precedence over the legacy rst* fallback for standalone file checks.
@@ -288,18 +288,18 @@ def check_resets(code, std, reset_names=None):
         if n in std:
             want = POLARITY[std[n]][0]
             if edge != want:
-                yield m.start(), "HW-41", f"standard-interface reset '{n}' is active-{std[n]}: write {want} {n}"
+                yield m.start(), "RTL-41", f"standard-interface reset '{n}' is active-{std[n]}: write {want} {n}"
         elif edge != "`RST_EDGE":
-            yield m.start(), "HW-41", f"reset edge '{m.group(0)}': write `RST_EDGE {n}"
+            yield m.start(), "RTL-41", f"reset edge '{m.group(0)}': write `RST_EDGE {n}"
     for m in re.finditer(r"\bif\s*\(\s*(" + pattern + r")\s*==\s*([^)]*?)\s*\)", code):
         n, v = m.group(1), m.group(2)
         want = POLARITY[std[n]][1] if n in std else "`RST_ACT"
         if v != want:
-            yield m.start(), "HW-42", f"reset condition '{m.group(0)}': write if ({n} == {want})"
+            yield m.start(), "RTL-42", f"reset condition '{m.group(0)}': write if ({n} == {want})"
 
 
 def check_define_file(path: Path, rel: str):
-    """Return ([(rel, line, rule, msg)], {macro: value}) for define.v (HW-07)."""
+    """Return ([(rel, line, rule, msg)], {macro: value}) for define.v (RTL-07)."""
     raw = path.read_text(encoding="utf-8", errors="replace")
     code = strip_hdl_comments(raw)
     out, macros = [], {}
@@ -310,27 +310,27 @@ def check_define_file(path: Path, rel: str):
     head = "\n".join(raw.splitlines()[:30])
     for f in HEADER_FIELDS[1:]:
         if not re.search(r"//.*\b" + f + r"\s*:", head):
-            add(None, "HW-04", f"file header field '{f}' missing")
+            add(None, "RTL-04", f"file header field '{f}' missing")
 
     pos = 0
     for ln in code.splitlines(keepends=True):
         s = ln.strip()
         if s and not re.match(r"`define\b", s):
-            add(pos, "HW-07", f"define.v may only contain `define: '{s[:40]}'")
+            add(pos, "RTL-07", f"define.v may only contain `define: '{s[:40]}'")
         pos += len(ln)
     for m in DEFINE_RE.finditer(code):
         n, v = m.group(1), m.group(2).strip()
         if n in macros:
-            add(m.start(1), "HW-07", f"macro '{n}' defined twice")
+            add(m.start(1), "RTL-07", f"macro '{n}' defined twice")
         macros[n] = v
     for n, pat in REQUIRED_MACROS.items():
         if n not in macros:
-            add(None, "HW-07", f"macro '{n}' must be defined in define.v")
+            add(None, "RTL-07", f"macro '{n}' must be defined in define.v")
         elif not re.fullmatch(pat, macros[n]):
-            add(code.find(n), "HW-07", f"macro '{n}' = '{macros[n]}' is not one of {pat}")
+            add(code.find(n), "RTL-07", f"macro '{n}' = '{macros[n]}' is not one of {pat}")
     edge, act = macros.get("RST_EDGE"), macros.get("RST_ACT")
     if (edge, act) in (("negedge", "1'b1"), ("posedge", "1'b0")):
-        add(code.find("RST_ACT"), "HW-07", f"RST_EDGE = {edge} does not match RST_ACT = {act}")
+        add(code.find("RST_ACT"), "RTL-07", f"RST_EDGE = {edge} does not match RST_ACT = {act}")
     return out, macros
 
 
@@ -360,15 +360,15 @@ def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=N
 
     mods = modules_in(code)
     if len(mods) != 1:
-        add(None, "HW-02", f"file must contain exactly one module, found {len(mods)}")
+        add(None, "RTL-02", f"file must contain exactly one module, found {len(mods)}")
 
     first = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
     if not re.fullmatch(r"`timescale\s+1\s*ns\s*/\s*1\s*ps", first):
-        add(None, "HW-03", "first line must be `timescale 1ns / 1ps")
+        add(None, "RTL-03", "first line must be `timescale 1ns / 1ps")
     head = "\n".join(raw.splitlines()[:30])
     for f in HEADER_FIELDS:
         if not re.search(r"//.*\b" + f + r"\s*:", head):
-            add(None, "HW-04", f"file header field '{f}' missing")
+            add(None, "RTL-04", f"file header field '{f}' missing")
 
     for rule, pat, msg in PATTERNS:
         for m in re.finditer(pat, code):
@@ -377,27 +377,27 @@ def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=N
         for m in re.finditer(pat, raw):
             add(m.start(), rule, msg.format(m.group(0)))
     for pos, msg in check_case_default(code):
-        add(pos, "HW-54", msg)
+        add(pos, "RTL-54", msg)
     for pos, msg in check_system_calls(code):
-        add(pos, "HW-61", msg)
+        add(pos, "RTL-61", msg)
     for pos, msg in check_literals(code):
-        add(pos, "HW-62", msg)
+        add(pos, "RTL-62", msg)
     for pos, rule, msg in check_resets(code, std or {}, reset_names):
         add(pos, rule, msg)
     for pos, msg in check_delays(code):
-        add(pos, "HW-50" if msg.startswith("nonblocking") else "HW-60", msg)
+        add(pos, "RTL-50" if msg.startswith("nonblocking") else "RTL-60", msg)
 
     for mod in mods:
         try:
             ports = module_ports(code, mod)
         except ValueError as e:
-            add(None, "HW-30", str(e))
+            add(None, "RTL-30", str(e))
             continue
         pos = code.find("module " + mod)
         last = 0
         for n, (d, _) in ports.items():
             if DIR_ORDER[d] < last:
-                add(pos, "HW-30", f"port '{n}': order must be inputs, then inouts, then outputs")
+                add(pos, "RTL-30", f"port '{n}': order must be inputs, then inouts, then outputs")
             last = max(last, DIR_ORDER[d])
     return out
 
@@ -409,10 +409,10 @@ def check_ip(ip: Path, files, resets=None, source_naming=None):
     internal = [r for r in resets or [] if not r.get("std_if")]
     defs = [f for f in files if is_define_file(f)]
     if not files or not is_define_file(files[0]):
-        out.append((files[0] if files else "rtl_files", 1, "HW-07",
+        out.append((files[0] if files else "rtl_files", 1, "RTL-07",
                     f"rtl_files must list rtl/{DEFINE_FILE} first"))
     for f in defs[1:]:
-        out.append((f, 1, "HW-07", f"only one {DEFINE_FILE} allowed in rtl_files"))
+        out.append((f, 1, "RTL-07", f"only one {DEFINE_FILE} allowed in rtl_files"))
     for f in files:
         if not (ip / f).exists():
             continue
@@ -421,7 +421,7 @@ def check_ip(ip: Path, files, resets=None, source_naming=None):
             out += vs
             want = POLARITY.get(internal[0].get("active")) if internal else None
             if want and (macros.get("RST_EDGE"), macros.get("RST_ACT")) != want:
-                out.append((f, 1, "HW-07", f"internal reset is active-{internal[0]['active']} in data: "
+                out.append((f, 1, "RTL-07", f"internal reset is active-{internal[0]['active']} in data: "
                                            f"RST_EDGE / RST_ACT must be {want[0]} / {want[1]}"))
         else:
             out += check_file(ip / f, f, std, source_naming, [r['name'] for r in resets or []])

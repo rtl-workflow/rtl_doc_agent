@@ -13,7 +13,7 @@ owner: rtl-flow-example
 
 | 文件 | 模块 | 说明 |
 |---|---|---|
-| `rtl/define.v` | — | 全局宏：`RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`（低有效复位，ASM-004）、`U_DLY` = 1（HW-07） |
+| `rtl/define.v` | — | 全局宏：`RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`（低有效复位，ASM-004）、`U_DLY` = 1（RTL-07） |
 | `rtl/demo_timer.v` | `demo_timer` | 顶层，连接子模块并生成 `o_irq` |
 | `rtl/demo_timer_reg.v` | `demo_timer_reg` | APB3 从接口与寄存器块 |
 | `rtl/demo_timer_core.v` | `demo_timer_core` | 计数器与到时比较 |
@@ -75,16 +75,16 @@ rtl/demo_timer_reg.v
 rtl/demo_timer_core.v
 ```
 
-按 `data/demo_timer.yaml` 的 `rtl_files` 顺序编译。`rtl/define.v` 必须在最前（HW-07），其余文件之间顺序不敏感。无 package、无 `` `include ``。
+按 `data/demo_timer.yaml` 的 `rtl_files` 顺序编译。`rtl/define.v` 必须在最前（RTL-07），其余文件之间顺序不敏感。无 package、无 `` `include ``。
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 
-遵循 `rtl-coding-style.md`（华为 Verilog 编码规范，Verilog-2001）。带复位的时序块统一写作 ``always @(posedge clk or `RST_EDGE rst)`` / ``if (rst == `RST_ACT)``，非阻塞赋值统一带 ``#`U_DLY``。`run_lint.py` 风格检查 0 违规。偏离项：
+遵循 `rtl-coding-style.md`（项目 Verilog 编码规范，Verilog-2001）。带复位的时序块统一写作 ``always @(posedge clk or `RST_EDGE rst)`` / ``if (rst == `RST_ACT)``，非阻塞赋值统一带 ``#`U_DLY``。`run_lint.py` 风格检查 0 违规。偏离项：
 
 | 位置 | 规则 | 偏离内容 | 原因 | DEC |
 |---|---|---|---|---|
-| `demo_timer.o_irq`；`demo_timer_reg.o_prdata`、`o_pslverr`、`o_pready` | HW-33 | 顶层输出未经寄存器，`o_prdata` / `o_pslverr` / `o_irq` 为寄存器值的组合逻辑，`o_pready` 为常量 | APB 零等待要求读数据与错误响应在访问周期内组合给出（REQ-IF-001）；`o_irq` 加寄存器会多 1 周期延迟，改变 01_spec §7 已审核的时序 | DEC-007 |
-| `demo_timer`、`demo_timer_reg`、`demo_timer_core` | HW-09 | 有效代码均不足 300 行 | IP 整体规模小（全部 RTL 约 270 行，含注释与声明），合并成一个模块也不足 300 行；按 02 §2 的寄存器 / 计数器划分保留两个子模块，便于对照架构与评审 | — |
+| `demo_timer.o_irq`；`demo_timer_reg.o_prdata`、`o_pslverr`、`o_pready` | RTL-33 | 顶层输出未经寄存器，`o_prdata` / `o_pslverr` / `o_irq` 为寄存器值的组合逻辑，`o_pready` 为常量 | APB 零等待要求读数据与错误响应在访问周期内组合给出（REQ-IF-001）；`o_irq` 加寄存器会多 1 周期延迟，改变 01_spec §7 已审核的时序 | DEC-007 |
+| `demo_timer`、`demo_timer_reg`、`demo_timer_core` | RTL-09 | 有效代码均不足 300 行 | IP 整体规模小（全部 RTL 约 270 行，含注释与声明），合并成一个模块也不足 300 行；按 02 §2 的寄存器 / 计数器划分保留两个子模块，便于对照架构与评审 | — |
 
 断言：规范 §10 规定 RTL 中不写 SVA，协议与不变式检查在 testbench 监视器中实现（DEC-004），不属于偏离。
 

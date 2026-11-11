@@ -67,7 +67,7 @@ plugins/rtl-flow/
     ├── templates/               # README、CHANGELOG、data/ip.yaml、doc/00–10 模板
     ├── scripts/flow.py          # 编排状态机：init / next / answers / review / iter / resume / status / guard
     ├── scripts/gen_docs.py      # yaml → 接口文档 / 寄存器文档 / C 头文件
-    ├── scripts/check_style.py   # 编码规范检查（华为 Verilog 规范，HW-xx 规则）
+    ├── scripts/check_style.py   # 编码规范检查（项目 Verilog 规范，RTL-xx 规则）
     ├── scripts/run_lint.py      # 风格检查 + lint → reports/lint.log（SpyGlass lint_rtl，或 --tool vcs）
     ├── scripts/run_regress.py   # 通用回归（VCS）→ reports/regress.json；--stub 用端口桩做 TB 自检
     ├── scripts/remote_exec.py   # 远程 EDA 服务器执行（FTP + watcher）；RTLFLOW_EXEC=remote 时 lint / 回归在服务器上运行
@@ -229,6 +229,8 @@ claude plugin list --json
 
 ## 定制与维护
 
+编码规则使用中性的 `RTL-xx` 编号。0.7.5 统一调整了文档、模板、检查器诊断和示例注释中的编号，技术规则与检查条件保持不变；依赖旧诊断编号的外部脚本需同步更新。
+
 | 想改什么 | 改哪里 |
 |---|---|
 | 流程、阶段转移、重试上限 | `scripts/flow.py`（`step` / `collect`、`MAX_ATTEMPTS`、`MAX_ROUNDS`、`TASKS` 中各任务的提示）；`SKILL.md` §3–§4 同步说明 |
@@ -236,7 +238,7 @@ claude plugin list --json
 | 角色读写权限 | `hooks/flow_hook.py` 中的 `WRITE`、`TB_HIDDEN`、`TB_BASH_DENY` |
 | 文档章节 | `templates/doc/*.md`（二级标题即必填章节，检查脚本自动跟随） |
 | 术语、命名后缀、访问类型 | `references/glossary.md`（访问类型还需同步 `gen_docs.py` 中的 `SWACCESS/HWACCESS`） |
-| RTL 编码规范 | `references/rtl-coding-style.md`（华为 Verilog 规范）；自动检查规则在 `scripts/check_style.py` 的 `PATTERNS` |
+| RTL 编码规范 | `references/rtl-coding-style.md`（项目 Verilog 规范）；自动检查规则在 `scripts/check_style.py` 的 `PATTERNS` |
 | 标杆示例 | `examples/` |
 
 规则本身的修改也应走评审（MR/PR），并在 `plugin.json` 中提升版本号。

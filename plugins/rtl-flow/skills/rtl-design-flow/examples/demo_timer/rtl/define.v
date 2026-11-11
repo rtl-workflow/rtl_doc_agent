@@ -1,6 +1,6 @@
 //==============================================================================
 // File name   : define.v
-// Function    : 全局宏定义：复位极性、仿真延时（rtl-coding-style HW-07）
+// Function    : 全局宏定义：复位极性、仿真延时（rtl-coding-style RTL-07）
 // Version     : 1.0
 // Date        : 2026-10-26
 // Doc         : doc/05_rtl_structure.md

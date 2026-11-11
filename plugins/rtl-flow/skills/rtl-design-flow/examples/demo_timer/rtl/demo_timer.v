@@ -60,7 +60,7 @@ demo_timer_core U_core (
     .o_expire       (expire         )
 );
 
-// REQ-FUNC-005：电平中断（组合输出，05 §6 偏离 HW-33，DEC-007）
+// REQ-FUNC-005：电平中断（组合输出，05 §6 偏离 RTL-33，DEC-007）
 assign o_irq = intr_state & intr_enable;
 
 endmodule

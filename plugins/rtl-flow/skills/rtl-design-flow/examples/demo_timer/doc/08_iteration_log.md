@@ -22,7 +22,7 @@ owner: rtl-flow-example
 | ITR-005 | 2026-10-22 | 需求变更 | 需求变化 | CR-1：新增 `CTRL.CLR` 计数清零（REQ-FUNC-006），IP 版本 1.0.0 → 1.1.0 | 14/14 通过；变异 7/7 检出 |
 | ITR-006 | 2026-10-22 | 签核 | — | 签核回归：`test_random` 50 个种子 | 59/59 通过；覆盖点 13/13 |
 | ITR-007 | 2026-10-22 | 用户反馈 | — | rtl-flow 0.2.0 流程升级：补审核记录、lint 报告入库 | 不涉及 RTL；lint PASS；signoff 0 error |
-| ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为华为 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
+| ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为项目 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
 | ITR-009 | 2026-10-25 | 用户反馈 | — | testbench 改为黑盒：删除 21 处 `U_dut.xxx` 层次引用，`run_regress.py --stub` 可通过 | 59/59 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
 | ITR-010 | 2026-10-26 | 用户反馈 | — | 编码规范更新：新增 `rtl/define.v`，复位端口 `rst_n` → `rst`，复位写法改用宏，非阻塞赋值带 ``#`U_DLY``，IP 版本 2.0.0 → 3.0.0 | 11/11 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
 
@@ -152,21 +152,21 @@ owner: rtl-flow-example
 - **关联**：无
 - **回归结果**：不涉及 RTL，无需仿真回归；`run_lint.py` PASS；`check_docs.py --stage signoff` 0 error。
 
-### ITR-008 编码规范改为华为 Verilog 编码规范
+### ITR-008 编码规范改为项目 Verilog 编码规范
 
 - **日期**：2026-10-23
-- **触发**：用户反馈：团队需要 Verilog 风格的代码，以华为 Verilog 编码规范为准。rtl-flow 将 `rtl-coding-style.md` 改写为华为规范（HW-xx 规则），`run_lint.py` 新增风格检查后，本示例原 RTL 报 126 条风格违规（SystemVerilog 关键字 75、端口命名 29、文件头 12、文件后缀 / 文件名 3、`timescale` 3、复位写法 2、端口顺序 2），`gen_docs.py` 报 yaml 端口命名错误。
+- **触发**：用户反馈：团队需要 Verilog 风格的代码，以项目 Verilog 编码规范为准。rtl-flow 将 `rtl-coding-style.md` 改写为项目规范（RTL-xx 规则），`run_lint.py` 新增风格检查后，本示例原 RTL 报 126 条风格违规（SystemVerilog 关键字 75、端口命名 29、文件头 12、文件后缀 / 文件名 3、`timescale` 3、复位写法 2、端口顺序 2），`gen_docs.py` 报 yaml 端口命名错误。
 - **现象**：RTL 与 testbench 为 SystemVerilog（`logic`、`always_ff`、`unique case`、`string`），端口用 `_i` / `_o` 后缀，寄存器用 `_q` / `_d`，复位写作 `if (!rst_ni)`。
 - **根因**：编码规范变更，不是设计问题。（类别：不适用）
 - **修改**：
   | 文件 | 修改摘要 |
   |---|---|
   | `data/demo_timer.yaml` | 版本 2.0.0；端口改名（对照表见 DEC-006）；`rtl_files` 改为 `.v` |
-  | `rtl/demo_timer.v`、`rtl/demo_timer_reg.v`、`rtl/demo_timer_core.v` | 替代原 `.sv` 文件。Verilog-2001；华为规范文件头与命名；每个寄存器一个时序 `always` 块，用 `if` / `else if` 优先级链表达 DEC-002、DEC-003；读数据选择改为 `case (i_paddr)`；子模块 `demo_timer_reg_top` 改名 `demo_timer_reg` |
+  | `rtl/demo_timer.v`、`rtl/demo_timer_reg.v`、`rtl/demo_timer_core.v` | 替代原 `.sv` 文件。Verilog-2001；项目规范文件头与命名；每个寄存器一个时序 `always` 块，用 `if` / `else if` 优先级链表达 DEC-002、DEC-003；读数据选择改为 `case (i_paddr)`；子模块 `demo_timer_reg_top` 改名 `demo_timer_reg` |
   | `dv/tb/demo_timer_tb.v` | 由 `tb_demo_timer.sv` 改写为 Verilog-2001：`string` 改为定宽 `reg`，`$sformatf` 改为 `$sformat`，局部数组改为选择函数；检查与覆盖点逻辑不变 |
   | `dv/run_sim.py`、`dv/run_mutation.py` | `iverilog -g2001`；testbench 路径与顶层名；M1 ~ M7 的注入位置按新 RTL 更新，注入的缺陷不变 |
   | `syn/synth.ys` | `read_verilog` 去掉 `-sv`，读取新文件 |
-  | `doc/00`、`01`、`02`、`05`、`06`、`07`、`09`、`README.md` | 信号名、文件名、模块名更新；02 §8 组合逻辑门数更新为实测 494；05 §6 记录 HW-33 偏离；09 新增 DEC-006、DEC-007 |
+  | `doc/00`、`01`、`02`、`05`、`06`、`07`、`09`、`README.md` | 信号名、文件名、模块名更新；02 §8 组合逻辑门数更新为实测 494；05 §6 记录 RTL-33 偏离；09 新增 DEC-006、DEC-007 |
   | `doc/03_interfaces.md`、`doc/04_registers.md` | 重新生成 |
   | `reports/lint.log` | 重新生成：风格检查 0 违规，Verilator（`--default-language 1364-2001`）0 error / 0 warning |
   | `CHANGELOG.md` | 新增 2.0.0 |
@@ -195,7 +195,7 @@ owner: rtl-flow-example
 ### ITR-010 编码规范更新：define.v、复位宏与赋值延时
 
 - **日期**：2026-10-26
-- **触发**：用户反馈：团队修改了 `rtl-coding-style.md`：宏统一定义在 `rtl/define.v` 并放在编译列表最前（HW-07）；内部复位统一命名为 `rst`，极性由 `RST_EDGE` / `RST_ACT` 决定，标准接口复位可保留 `rst_n`（HW-14、HW-41、HW-42）；非阻塞赋值写作 ``<= #`U_DLY``（HW-50）；允许 `casez` 与参数中的 `$clog2`（HW-54、HW-61）；基础重用模块有效代码 < 500 行、普通模块 300 ~ 1000 行（HW-08、HW-09）；例化 3 个及以上子模块的模块不写功能逻辑（HW-35）。`run_lint.py` 的风格检查同步更新后，本示例原 RTL 不符合 HW-07、HW-41、HW-42、HW-50，`gen_docs.py` 拒绝复位名 `rst_n`。
+- **触发**：用户反馈：团队修改了 `rtl-coding-style.md`：宏统一定义在 `rtl/define.v` 并放在编译列表最前（RTL-07）；内部复位统一命名为 `rst`，极性由 `RST_EDGE` / `RST_ACT` 决定，标准接口复位可保留 `rst_n`（RTL-14、RTL-41、RTL-42）；非阻塞赋值写作 ``<= #`U_DLY``（RTL-50）；允许 `casez` 与参数中的 `$clog2`（RTL-54、RTL-61）；基础重用模块有效代码 < 500 行、普通模块 300 ~ 1000 行（RTL-08、RTL-09）；例化 3 个及以上子模块的模块不写功能逻辑（RTL-35）。`run_lint.py` 的风格检查同步更新后，本示例原 RTL 不符合 RTL-07、RTL-41、RTL-42、RTL-50，`gen_docs.py` 拒绝复位名 `rst_n`。
 - **现象**：复位端口 `rst_n`，复位写作 `negedge rst_n` / `if (rst_n == 1'b0)`；非阻塞赋值不带延时；无 `define.v`。
 - **根因**：编码规范变更，不是设计问题。（类别：不适用）
 - **修改**：
@@ -207,7 +207,7 @@ owner: rtl-flow-example
   | `dv/tb/demo_timer_tb.v` | 端口 `rst`；驱动与采样点由时钟沿后 1 ns 改为 2 ns（`TB_SKEW`），晚于 RTL 输出变化 |
   | `dv/run_mutation.py` | M2、M3、M5 注入位置按新赋值写法更新，注入的缺陷不变 |
   | `syn/synth.ys` | 先读 `rtl/define.v` |
-  | `doc/00`、`01`、`02`、`05`、`07`、`09` | 信号名与复位写法；05 文件清单、编译顺序、Lint 命令（`1364-2005`），§6 记录 HW-09 偏离；09 新增 DEC-008 |
+  | `doc/00`、`01`、`02`、`05`、`07`、`09` | 信号名与复位写法；05 文件清单、编译顺序、Lint 命令（`1364-2005`），§6 记录 RTL-09 偏离；09 新增 DEC-008 |
   | `doc/03_interfaces.md` | 重新生成 |
   | `reports/lint.log`、`reports/regress.json` | 重新生成 |
   | `CHANGELOG.md` | 新增 3.0.0 |

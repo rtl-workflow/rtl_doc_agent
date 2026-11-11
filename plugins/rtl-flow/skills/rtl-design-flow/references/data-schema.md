@@ -10,7 +10,7 @@
 | `version` | 是 | str | IP 版本，语义化版本 `x.y.z` |
 | `desc` | 是 | str | 一句话描述 |
 | `top` | 是 | str | 顶层模块名 |
-| `rtl_files` | 是 | list[str] | RTL 文件（相对 IP 目录），即编译顺序：第一个必须是 `rtl/define.v`（rtl-coding-style HW-07），第二个是顶层所在文件 |
+| `rtl_files` | 是 | list[str] | RTL 文件（相对 IP 目录），即编译顺序：第一个必须是 `rtl/define.v`（rtl-coding-style RTL-07），第二个是顶层所在文件 |
 | `bus` | 否 | map | `protocol`（apb/ahb/axi4lite/tlul/wishbone/custom）、`data_width`（默认 32）、`addr_width` |
 | `clocks` | 是 | list | 见下 |
 | `resets` | 是 | list | 见下 |
@@ -25,7 +25,7 @@
 ## resets[]
 `name`（原始复位名）、`active`（low/high）、`std_if`（bool，默认 false）、`type`（async / sync / async_assert_sync_deassert）、`clock`（关联时钟原名）、`desc`
 
-复位分两类（rtl-coding-style HW-14、HW-41、HW-42）：
+复位分两类（rtl-coding-style RTL-14、RTL-41、RTL-42）：
 - **内部复位**（`std_if` 不写或为 false）：保留原名；全部内部复位极性相同，与 `rtl/define.v` 的 `RST_EDGE` / `RST_ACT` 一致。
 - **标准接口复位**（`std_if: true`）：接口协议规定了极性，如 APB 的 `PRESETn`，保留原名；RTL 中直接写 `negedge PRESETn` / `if (PRESETn == 1'b0)`。不根据名称后缀推断极性。
 
@@ -41,7 +41,7 @@
 | `clock` | 所属时钟域（异步信号写 `async`） |
 | `desc` | 描述 |
 
-端口必须按「输入 → 双向 → 输出」排列（与 RTL 一致，见 rtl-coding-style HW-30）。`gen_docs.py` 校验顺序，不施加命名风格。
+端口必须按「输入 → 双向 → 输出」排列（与 RTL 一致，见 rtl-coding-style RTL-30）。`gen_docs.py` 校验顺序，不施加命名风格。
 
 `check_docs.py --stage rtl` 会把 `width: N` 对应到 RTL 中的 `[N-1:0]`，`width: "Expr"` 对应 `[Expr-1:0]`，1 对应无位宽。
 

@@ -13,7 +13,7 @@ owner: {{owner}}
 
 | 文件 | 模块 | 说明 |
 |---|---|---|
-| `rtl/define.v` | — | 全局宏：`RST_EDGE`、`RST_ACT`、`U_DLY`（rtl-coding-style HW-07） |
+| `rtl/define.v` | — | 全局宏：`RST_EDGE`、`RST_ACT`、`U_DLY`（rtl-coding-style RTL-07） |
 | `rtl/{{ip}}.v` | `{{ip}}` | 顶层 |
 
 ## 2. 模块层次 (Hierarchy)
@@ -46,11 +46,11 @@ rtl/{{ip}}_reg.v
 rtl/{{ip}}_core.v
 ```
 
-按 `data/{{ip}}.yaml` 的 `rtl_files` 顺序编译，`rtl/define.v` 必须在最前（HW-07）。
+按 `data/{{ip}}.yaml` 的 `rtl_files` 顺序编译，`rtl/define.v` 必须在最前（RTL-07）。
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 
-遵循 `rtl-coding-style.md`（华为 Verilog 编码规范）。偏离项（引用规则编号 HW-xx）：
+遵循 `rtl-coding-style.md`（项目 Verilog 编码规范）。偏离项（引用规则编号 RTL-xx）：
 
 | 位置 | 规则 | 偏离内容 | 原因 | DEC |
 |---|---|---|---|---|

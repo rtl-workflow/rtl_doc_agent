@@ -4,7 +4,9 @@ AI 执行 rtl-design-flow 时，应**优先模仿本目录示例的写法、粒�
 
 ## demo_timer（内置示例）
 
-从一句话的不规范需求出发，完整走完 P0–P6，并包含一次需求变更迭代。所有仿真、lint、综合结果均为真实运行结果，可通过 `check_docs.py --stage signoff` 与 `run_regress.py --stub`。
+从一句话的不规范需求出发，完整走完 P0–P6，并包含一次需求变更迭代。仓库保留示例开发时的仿真、lint、综合结果供参考。
+
+0.7.5 统一了编码规则编号，示例 RTL / TB 的相关注释随之更新，功能逻辑未改。历史报告没有重新运行，也没有改写其中的源码摘要，因此不能作为当前文件的验证证据；重新运行 lint、桩自检和回归，并按当前审核与签核要求检查后，才能用于新交付。
 
 | 可以参考的写法 | 位置 |
 |---|---|
@@ -19,8 +21,8 @@ AI 执行 rtl-design-flow 时，应**优先模仿本目录示例的写法、粒�
 | lint 报告（含 RTL 摘要，供检查脚本判断是否过期） | `reports/lint.log` |
 | 02 子模块表：模块名与 RTL、05 一一对应 | `doc/02_architecture.md` §2 |
 | 不适用项的写法（附原因与替代证据） | `doc/10_checklist.md` |
-| 华为 Verilog 编码规范的 RTL 写法：文件头、`i_`/`o_` 端口、每个寄存器一个 `always` 块、`define.v` 中的复位 / 延时宏、``if (rst == `RST_ACT)``、``<= #`U_DLY`` | `rtl/*.v` |
-| 规范偏离的记录方式（HW-33） | `doc/05_rtl_structure.md` §6、DEC-007 |
+| 项目 Verilog 编码规范的 RTL 写法：文件头、`i_`/`o_` 端口、每个寄存器一个 `always` 块、`define.v` 中的复位 / 延时宏、``if (rst == `RST_ACT)``、``<= #`U_DLY`` | `rtl/*.v` |
+| 规范偏离的记录方式（RTL-33） | `doc/05_rtl_structure.md` §6、DEC-007 |
 | 黑盒自检查 Verilog-2001 testbench：只通过顶层端口访问 DUT；定向 + 参考模型逐周期比对 + 覆盖点 | `dv/tb/demo_timer_tb.v` |
 | 黑盒下观测内部行为：寄存器回读比对、`o_irq` 上升沿 + 时钟沿计数器测时间、按参考模型计数值对齐同拍冲突 | `dv/tb/demo_timer_tb.v`（`wait_count`、`test_periodic`、`test_priority`）、`doc/07_dv_plan.md` §2 |
 | 用变异测试证明 testbench 有效 | `dv/run_mutation.py` |

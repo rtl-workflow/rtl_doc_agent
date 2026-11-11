@@ -9,7 +9,9 @@ owner: rtl-flow-example
 
 # demo_timer
 
-> 这是 rtl-flow 插件的**标杆示例**：从一句话的不规范需求（`raw/timer需求.txt`）出发，完整走完 P0–P6，包含一次需求变更迭代。所有仿真、lint、综合结果均为真实运行结果。
+> 这是 rtl-flow 插件的**标杆示例**：从一句话的不规范需求（`raw/timer需求.txt`）出发，完整走完 P0–P6，包含一次需求变更迭代。仓库保留示例开发时的仿真、lint、综合结果供参考。
+>
+> 0.7.5 统一了编码规则编号，RTL / TB 仅修改相关注释，功能逻辑未改。历史报告未重新运行，其源码摘要仍对应原文件，不能作为当前版本的验证证据。使用前需重新运行 lint、桩自检、回归，并按当前流程完成审核与签核。
 
 ## 概述 (Overview)
 
@@ -47,7 +49,7 @@ owner: rtl-flow-example
 |---|---|
 | 设计阶段 | D3 |
 | 验证阶段 | V3 |
-| 最近一次迭代 | ITR-008 编码规范改为华为 Verilog 规范 |
+| 最近一次迭代 | ITR-008 编码规范改为项目 Verilog 规范 |
 | 人工审核 | 00 / 01 / 02 已审核（v1.2，2026-10-24） |
 
 ## 目录与命令
@@ -56,7 +58,7 @@ owner: rtl-flow-example
 raw/            原始需求（只读）
 data/           单一信息源 demo_timer.yaml
 doc/            00–10 文档
-rtl/            demo_timer.v / demo_timer_reg.v / demo_timer_core.v（Verilog-2001，华为编码规范）
+rtl/            demo_timer.v / demo_timer_reg.v / demo_timer_core.v（Verilog-2001，项目编码规范）
 dv/tb/          黑盒自检查 testbench（只通过顶层端口访问 DUT）
 dv/run_sim.py   回归；dv/run_mutation.py 变异测试
 syn/synth.ys    Yosys 综合（无 latch 检查、逻辑深度）

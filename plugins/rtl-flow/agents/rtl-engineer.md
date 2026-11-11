@@ -15,7 +15,7 @@ model: inherit
 
 修改02微架构时，按`$SKILL/references/architecture-html.md`同步其中的architecture-graph，并运行`python $SKILL/scripts/gen_arch.py <ip_dir>`更新`doc/02_architecture.html`，随后重新G2审核。
 
-- `$SKILL/references/rtl-coding-style.md`：编码规范（华为 Verilog 规范，Verilog-2001），**必须严格遵守**
+- `$SKILL/references/rtl-coding-style.md`：编码规范（项目 Verilog 规范，Verilog-2001），**必须严格遵守**
 - `$SKILL/references/glossary.md`
 - IP 的 `doc/01_spec.md`、`doc/02_architecture.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`data/<ip>.yaml`
 - 标杆示例：`$SKILL/examples/demo_timer/rtl/*.v`、`doc/05_rtl_structure.md`

@@ -70,7 +70,7 @@ def validate(d: dict) -> list:
             errs.append(f"missing top-level field '{key}'")
     if errs:
         return errs
-    # Preserve source spelling; direction order remains HW-30.
+    # Preserve source spelling; direction order remains RTL-30.
     port_names, last = set(), 0
     for p in d.get("ports") or []:
         n = p.get("name")
@@ -83,7 +83,7 @@ def validate(d: dict) -> list:
         if "width" not in p:
             errs.append(f"port '{n}': missing width")
         if DIR_ORDER[p["dir"]] < last:
-            errs.append(f"port '{n}': ports must be ordered inputs, inouts, outputs (rtl-coding-style HW-30)")
+            errs.append(f"port '{n}': ports must be ordered inputs, inouts, outputs (rtl-coding-style RTL-30)")
         last = max(last, DIR_ORDER[p["dir"]])
     for c in d.get("clocks") or []:
         if c.get("name") not in port_names:
@@ -96,10 +96,10 @@ def validate(d: dict) -> list:
             errs.append(f"reset '{rn}': active must be low or high")
     if len({r.get("active") for r in d.get("resets") or [] if not r.get("std_if")}) > 1:
         errs.append("resets: internal resets must share one polarity, set by RST_EDGE / RST_ACT in define.v "
-                    "(rtl-coding-style HW-41)")
+                    "(rtl-coding-style RTL-41)")
     files = d.get("rtl_files") or []
     if files and Path(str(files[0])).name != "define.v":
-        errs.append("rtl_files: rtl/define.v must be listed first (rtl-coding-style HW-07)")
+        errs.append("rtl_files: rtl/define.v must be listed first (rtl-coding-style RTL-07)")
 
     dw = int((d.get("bus") or {}).get("data_width", 32))
     offsets = {}
