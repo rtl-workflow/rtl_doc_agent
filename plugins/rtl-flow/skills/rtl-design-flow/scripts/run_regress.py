@@ -16,8 +16,10 @@ Test list: the test cases of doc/07_dv_plan.md §3 whose 测试活动 is 仿真 
 mapped to the test points it covers. Older plans: the "用例" column (backticked names). Tests whose name contains "random" run with
 seeds 1..N (default 3), the others with seed 1.
 
-Testbench convention (rtl-coding-style §10): every file dv/tb/*.v is compiled (Verilog-2001, +v2k),
-top module <ip>_tb, `simv +TEST=<name> +SEED=<n>`; the TB prints
+Testbench convention (rtl-coding-style §10): new projects use dv/uvm.yaml and an ordered
+UVM filelist (-sverilog -ntb_opts uvm-1.2). Legacy projects without the manifest compile
+dv/tb/*.v (+v2k). Both use +TEST/+SEED; UVM also receives +UVM_TESTNAME/+ntb_random_seed.
+The TB prints
     [<time>] ERROR: <msg>                       on every check failure
     COVER <name>=<hits>                         functional cover counters
     TEST <name> [SEED <n>] PASSED|FAILED errors=<n>
@@ -49,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dv_plan  # noqa: E402
 import gen_docs  # noqa: E402
 import remote_exec  # noqa: E402
+import uvm_support  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -146,6 +149,8 @@ def plan_tests(ip: Path):
 
 
 def tb_files(ip: Path):
+    if uvm_support.enabled(ip):
+        return uvm_support.load(ip).sources
     return sorted((ip / "dv" / "tb").glob("*.v"))
 
 
@@ -157,11 +162,12 @@ def digest(ip: Path, files):
     return h.hexdigest()
 
 
-def digests(ip: Path, data):
+def digests(ip: Path, data, include_rtl=True):
     """Digests that decide whether a regression result is current."""
-    rtl = [ip / f for f in data.get("rtl_files") or [] if (ip / f).exists()]
+    rtl = [ip / f for f in data.get("rtl_files") or [] if (ip / f).exists()] if include_rtl else []
+    verification = uvm_support.input_files(ip) if uvm_support.enabled(ip) else tb_files(ip)
     return {"rtl_sha256": digest(ip, rtl),
-            "tb_sha256": digest(ip, tb_files(ip)),
+            "tb_sha256": digest(ip, verification),
             "tests_sha256": hashlib.sha256(json.dumps(plan_tests(ip), sort_keys=True).encode()).hexdigest()}
 
 
@@ -275,11 +281,23 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
     build = ip / "dv" / "build" / ("stub" if stub else "regress")
     (build / "logs").mkdir(parents=True, exist_ok=True)
     res = {"mode": "stub" if stub else "rtl", "date": datetime.now().isoformat(timespec="seconds"),
-           **digests(ip, data), "compile": {"ok": False, "messages": []}, "tests": [], "cover": {},
+           "compile": {"ok": False, "messages": []}, "tests": [], "cover": {},
            "uncovered": [], "problems": []}
 
-    tbs = tb_files(ip)
-    top_tb = f"{data['name']}_tb"
+    try:
+        platform = uvm_support.load(ip) if uvm_support.enabled(ip) else None
+        tbs = platform.sources if platform else tb_files(ip)
+        res.update(digests(ip, data, include_rtl=not stub))
+    except (ValueError, OSError) as exc:
+        res["problems"].append(f"invalid verification platform: {exc}")
+        return finish(ip, res, stub, partial=bool(only))
+    res["backend"] = "uvm" if platform else "verilog"
+    if platform:
+        res["uvm_version"] = platform.version
+        unknown = set(platform.test_map) - set(tests)
+        if unknown:
+            res["problems"].append("test_map contains tests absent from the simulation plan: " + ", ".join(sorted(unknown)))
+    top_tb = platform.top if platform else f"{data['name']}_tb"
     if not tests:
         res["problems"].append("07_dv_plan §3 lists no simulation test case (tc_* with 测试活动 仿真)")
     if only and only not in tests:
@@ -298,7 +316,7 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
         if missing:
             res["problems"].append(f"rtl files missing: {', '.join(missing)}")
     if res["problems"]:
-        return finish(ip, res, stub)
+        return finish(ip, res, stub, partial=bool(only))
 
     simv = build / "simv"
     res["waveforms"] = {"enabled": fsdb, "format": "FSDB", "build_dir": str(build.resolve()),
@@ -310,7 +328,10 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
         (build / "cov.hier").write_text(f"+tree {top_tb}.U_dut\n", encoding="utf-8")
         cov_args = ["-cm", COV_METRICS, "-cm_dir", COV_DB]
     # +vcs+lic+wait: queue for a license instead of failing when all are in use
-    comp = subprocess.run([tool("vcs"), "-full64", "+v2k", "-timescale=1ns/1ps", "+vcs+lic+wait",
+    language_args = platform.compile_args() if platform else ["+v2k"]
+    comp = subprocess.run([tool("vcs"), "-full64"] + language_args
+                          + (["+define+RTLFLOW_STUB"] if stub else [])
+                          + ["-timescale=1ns/1ps", "+vcs+lic+wait",
                            "-top", top_tb, "-Mdir=csrc", "-o", "simv", "-l", "compile.log"]
                           + (["-debug_access+all", "-kdb"] if fsdb else [])
                           + cov_args + (["-cm_hier", "cov.hier"] if cov_args else [])
@@ -325,7 +346,7 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
     res["compile"] = {"ok": comp.returncode == 0, "messages": msgs}
     if comp.returncode != 0:
         res["problems"].append("compile failed")
-        return finish(ip, res, stub)
+        return finish(ip, res, stub, partial=bool(only))
 
     runs = []
     for t in tests:
@@ -344,6 +365,7 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
         exit_code = None
         try:
             p = subprocess.run([str(simv.resolve()), f"+TEST={test}", f"+SEED={seed}", "+vcs+lic+wait"]
+                               + (platform.run_args(test, seed) if platform else [])
                                + wave_args
                                + cov_args + (["-cm_name", f"{test}_{seed}"] if cov_args else []),
                                cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -355,12 +377,17 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
             out += f"\n<run_regress: killed after {TEST_TIMEOUT_S} s>"
         log.write_text(out, encoding="utf-8")
         m = next((x for x in RESULT_RE.finditer(out) if x.group(1) == test), None)
-        errs = [l.strip() for l in out.splitlines() if "ERROR" in l]
+        errs = [l.strip() for l in out.splitlines() if "ERROR" in l or "UVM_FATAL" in l]
         res["tests"].append({"test": test, "tp": tests[test], "seed": seed,
                              "status": m.group(3) if m else "NO RESULT",
                              "errors": int(m.group(4)) if m else None,
                              "first_errors": errs[:5], "log": log.relative_to(ip).as_posix()})
         res["tests"][-1]["exit_code"] = exit_code
+        if platform:
+            parsed = uvm_support.parse_result(out, test, seed, platform.test_class(test), stub)
+            res["tests"][-1].update({k: v for k, v in parsed.items() if k != "problems"})
+            res["tests"][-1]["uvm_test"] = platform.test_class(test)
+            res["problems"] += [f"{test} seed {seed}: {msg}" for msg in parsed["problems"]]
         if exit_code != 0:
             res["problems"].append(f"{test} seed {seed}: simulator exit {exit_code}")
         if fsdb:
@@ -371,6 +398,8 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
         for name, n in re.findall(r"^COVER (\w+)=(\d+)", out, re.M):
             res["cover"][name] = res["cover"].get(name, 0) + int(n)
     res["uncovered"] = sorted(n for n, c in res["cover"].items() if c == 0)
+    if platform and not stub and not res["cover"]:
+        res["problems"].append("UVM run produced no functional COVER counters")
     if not stub and not only and res["tests"]:
         res["coverage"] = collect_coverage(build)
     return finish(ip, res, stub, partial=bool(only))
@@ -379,7 +408,7 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
 def finish(ip: Path, res, stub, partial=False):
     t = res["tests"]
     if stub:
-        ok = not res["problems"] and all(x["status"] != "NO RESULT" for x in t)
+        ok = not res["problems"] and bool(t) and all(x["status"] != "NO RESULT" for x in t)
     else:
         ok = (not res["problems"] and bool(t) and all(x["status"] == "PASSED" for x in t)
               and (partial or not res["uncovered"]))

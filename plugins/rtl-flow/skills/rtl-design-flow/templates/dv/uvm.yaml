@@ -1,0 +1,8 @@
+# All filelist paths are relative to this dv/ directory.
+schema_version: 1
+top: {{ip}}_tb
+uvm_version: uvm-1.2
+filelist: sim/scripts/tb_list.f
+# Default: 07 test ID == factory-registered UVM test class.
+# For inherited svf_* classes: {tc_example: svf_example}
+test_map: {}

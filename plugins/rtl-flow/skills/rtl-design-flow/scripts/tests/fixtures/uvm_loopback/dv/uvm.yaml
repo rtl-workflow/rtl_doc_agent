@@ -1,0 +1,5 @@
+schema_version: 1
+top: uvm_loopback_tb
+uvm_version: uvm-1.2
+filelist: sim/scripts/tb_list.f
+test_map: {}

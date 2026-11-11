@@ -37,6 +37,16 @@
 
 P4生成测试点、测试用例与testbench激励并完成桩自检后，流程停在G3，用户审核`doc/07_dv_plan.md`和`dv/`下激励、参考模型、自检查，通过后才进入正式回归。`--auto`仅跳过G0–G2，不能跳过G3。审核意见派回tb-engineer修改后再次审核；验证内容摘要用于检测修改，测试计划或激励改变后须重新审核。已有项目继续回归/完成流程时也会补审G3。
 
+### UVM 验证平台
+
+新项目默认采用标准 SystemVerilog/UVM 结构：`dv/top/` 连接 interface 与 DUT，`dv/env/` 包含 common、trans、gen、bfm、rm、scb、funcov 和按需 RAL，`dv/tests/` 保存测试类。`flow.py init` 提供配置、目录、filelist 和公共测试基类；P4 验证 agent 根据规格补齐具体平台与场景，初始化骨架本身不代表可编译或功能通过。
+
+`dv/uvm.yaml` 指定顶层、UVM 版本、filelist 和测试类映射；默认 VCS `-sverilog -ntb_opts uvm-1.2`。`dv/sim/scripts/tb_list.f` 的路径统一相对 dv/，只包含验证依赖；真实 RTL 由 runner 从 SSOT 加入，桩检查改用 SSOT 端口桩。07 的用例 ID 通过 `+TEST` 传递，同名类或 `test_map` 对应的类通过 `+UVM_TESTNAME` 选择，随机种子同时传给 VCS 和报告接口。
+
+用例继承 `rtlflow_test_base`，由其管理 objection、watchdog 和开始 / 完成 / TEST 输出，派生类实现激励、收尾检查与功能覆盖。正式回归会检查 UVM_ERROR / UVM_FATAL，不能仅凭进程退出码判通过。桩自检允许正常结束后的功能比对失败，但不允许 UVM_FATAL、超时或缺少完成标记。已有无 manifest 的 `dv/tb/*.v` 项目保持兼容，G3 审核和验证独立性不变。
+
+生成规则见 [平台参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-platform-generation.md)、[BFM参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-bfm-generation.md)、[用例参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-testcase-generation.md)。本地 Python 测试可用 `python -m unittest discover -s plugins/rtl-flow/skills/rtl-design-flow/scripts/tests`；这些测试不替代已配置 VCS 环境上的编译 / 仿真。
+
 ### 原始名称保留
 
 需求、规格、接口表及已有设计中的名称原样贯穿文档、SSOT、RTL、验证与软件接口；不为统一风格增删前后缀、改变大小写、缩写或替换同义名。IP名、模块与文件名、端口、时钟复位、参数、寄存器及字段等均适用。未命名对象按项目已有风格命名；冲突或非法标识符先向用户澄清并记录确认后的映射。
