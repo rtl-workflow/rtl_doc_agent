@@ -349,7 +349,28 @@ def check_case_default(code):
                 yield start, "case without default"
 
 
-def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=None):
+def top_pad_assignments(code, top):
+    """RHS spans of continuous assignments to declared top output/inout pads.
+
+    RTL-34 permits chip-boundary tri-states, never internal nets or child modules.
+    Keep unfamiliar assignment forms subject to the normal rule (fail closed).
+    """
+    if not top or modules_in(code) != [top]:
+        return []
+    try:
+        ports = module_ports(code, top)
+    except ValueError:
+        return []
+    regions = []
+    for m in re.finditer(r"\bassign\s+([A-Za-z_]\w*)\s*(?:\[[^\]]+\]\s*)?=\s*([^;]+);", code):
+        # A comma may introduce another assignment to an internal net. Do not
+        # extend the pad exception to that statement (or unfamiliar RHS syntax).
+        if "," not in m.group(2) and ports.get(m.group(1), (None,))[0] in ("output", "inout"):
+            regions.append(m.span(2))
+    return regions
+
+
+def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=None, top=None):
     """Return [(rel, line, rule, msg)] for one RTL file."""
     raw = path.read_text(encoding="utf-8", errors="replace")
     code = strip_hdl_comments(raw)
@@ -370,8 +391,11 @@ def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=N
         if not re.search(r"//.*\b" + f + r"\s*:", head):
             add(None, "RTL-04", f"file header field '{f}' missing")
 
+    pad_assignments = top_pad_assignments(code, top)
     for rule, pat, msg in PATTERNS:
         for m in re.finditer(pat, code):
+            if rule == "RTL-34" and inside(m.start(), pad_assignments):
+                continue
             add(m.start(), rule, msg.format(m.group(0).strip()))
     for rule, pat, msg in RAW_PATTERNS:
         for m in re.finditer(pat, raw):
@@ -402,7 +426,7 @@ def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=N
     return out
 
 
-def check_ip(ip: Path, files, resets=None, source_naming=None):
+def check_ip(ip: Path, files, resets=None, source_naming=None, top=None):
     """Style violations of the RTL files; resets (data/<ip>.yaml) are checked against define.v."""
     out = []
     std = {r.get("name"): r.get("active") for r in resets or [] if r.get("std_if")}
@@ -424,8 +448,37 @@ def check_ip(ip: Path, files, resets=None, source_naming=None):
                 out.append((f, 1, "RTL-07", f"internal reset is active-{internal[0]['active']} in data: "
                                            f"RST_EDGE / RST_ACT must be {want[0]} / {want[1]}"))
         else:
-            out += check_file(ip / f, f, std, source_naming, [r['name'] for r in resets or []])
+            out += check_file(ip / f, f, std, source_naming, [r['name'] for r in resets or []], top=top)
+    waived = load_waivers(ip)
+    out = [v for v in out if v[2] not in waived]
     return sorted(out, key=lambda x: (x[0], x[1]))
+
+
+WAIVABLE_RULES = {"RTL-41", "RTL-42", "RTL-50"}
+WAIVER_FILE = "data/style_waivers.txt"
+
+
+def load_waivers(ip: Path):
+    """Project-scoped rule waivers: data/style_waivers.txt, one '<RULE-ID> <reason>' per line.
+
+    Only WAIVABLE_RULES may be waived and each needs a reason; anything else is ignored with a
+    warning on stderr so that a waiver can never silently disable an unrelated check.
+    """
+    path = ip / WAIVER_FILE
+    if not path.exists():
+        return set()
+    out = set()
+    for n, ln in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        s = ln.split("#", 1)[0].strip()
+        if not s:
+            continue
+        rule, _, reason = s.partition(" ")
+        if rule not in WAIVABLE_RULES or not reason.strip():
+            print(f"WARN: {WAIVER_FILE}:{n}: ignored '{s}' (waivable: {sorted(WAIVABLE_RULES)}, reason required)",
+                  file=sys.stderr)
+            continue
+        out.add(rule)
+    return out
 
 
 def main():
@@ -437,7 +490,7 @@ def main():
     data, derrs, _ = gen_docs.outputs(a.ip_dir)
     if derrs:
         sys.exit("ERROR: data file invalid, run check_docs.py first")
-    vs = check_ip(a.ip_dir, data.get("rtl_files") or [], data.get("resets"), data.get("source_naming"))
+    vs = check_ip(a.ip_dir, data.get("rtl_files") or [], data.get("resets"), data.get("source_naming"), top=data.get("top"))
     for f, ln, rule, msg in vs:
         print(f"{f}:{ln}: [{rule}] {msg}")
     print(f"\nstyle: {len(vs)} violation(s)")

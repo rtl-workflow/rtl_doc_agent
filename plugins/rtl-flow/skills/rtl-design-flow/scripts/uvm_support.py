@@ -152,7 +152,10 @@ def load(ip):
 def input_files(ip):
     """Fingerprint all verification sources/config, including newly added files."""
     files = []
-    for path in sorted((ip / "dv").rglob("*")):
+    # Path ordering is case-insensitive on Windows, but not on Linux. Hash
+    # inputs must use the same relative POSIX string order on both hosts.
+    for path in sorted((ip / "dv").rglob("*"),
+                       key=lambda p: p.relative_to(ip).as_posix()):
         rel = path.relative_to(ip / "dv")
         if {"build", "__pycache__"}.intersection(rel.parts) or not path.is_file():
             continue
