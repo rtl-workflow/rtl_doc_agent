@@ -5,8 +5,9 @@ import re
 
 def fingerprint(ip):
     files = [ip / 'doc' / '07_dv_plan.md']
-    files += sorted(p for p in (ip / 'dv').rglob('*') if p.is_file()
-                    and not {'build', '__pycache__'}.intersection(p.relative_to(ip / 'dv').parts))
+    files += sorted((p for p in (ip / 'dv').rglob('*') if p.is_file()
+                     and not {'build', '__pycache__'}.intersection(p.relative_to(ip / 'dv').parts)),
+                    key=lambda p: p.relative_to(ip).as_posix())
     digest = hashlib.sha256()
     for path in files:
         if not path.exists():

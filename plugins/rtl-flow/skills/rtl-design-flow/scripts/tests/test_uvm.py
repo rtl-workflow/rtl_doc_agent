@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -93,6 +94,25 @@ class UvmTests(unittest.TestCase):
         (self.ip / "dv/build").mkdir()
         (self.ip / "dv/build/compile.log").write_text("build output\n")
         self.assertEqual(after, regress.digests(self.ip, self.data))
+
+    def test_mixed_case_fingerprint_uses_portable_order(self):
+        (self.ip / "dv/README.md").write_text("Mixed-case path\n")
+        (self.ip / "dv/a_notes.md").write_text("lowercase path\n")
+        files = uvm.input_files(self.ip)
+        names = [p.relative_to(self.ip).as_posix() for p in files]
+        self.assertEqual(sorted(names), names)
+        self.assertLess(names.index("dv/README.md"), names.index("dv/a_notes.md"))
+        self.assertEqual(
+            regress.digest(self.ip, sorted(files, key=lambda p: p.relative_to(self.ip).as_posix())),
+            regress.digests(self.ip, self.data)["tb_sha256"],
+        )
+        review_hash = hashlib.sha256()
+        for path in [self.ip / "doc/07_dv_plan.md"] + files:
+            content = path.read_bytes()
+            if path.suffix == ".md" and path.parent.name == "doc":
+                content = content.replace(b"\r\n", b"\n")
+            review_hash.update(path.relative_to(self.ip).as_posix().encode() + b"\0" + content + b"\0")
+        self.assertEqual(review_hash.hexdigest(), dv_review.fingerprint(self.ip))
 
     def test_mapping_change_invalidates_cache(self):
         before = regress.digests(self.ip, self.data)
