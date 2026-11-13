@@ -50,9 +50,14 @@ rtl/{{ip}}_core.v
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 
-遵循 `rtl-coding-style.md`（项目 Verilog 编码规范）。偏离项（引用规则编号 RTL-xx）：
+遵循 `rtl-coding-style.md`（项目 Verilog 编码规范，RTL-xx，脚本自动检查）。偏离项（引用规则编号 RTL-xx）：
 
 | 位置 | 规则 | 偏离内容 | 原因 | DEC |
+|---|---|---|---|---|
+
+设计质量参考为 `rtl-implementation-guide.md`（DG-xx，不被脚本检查）。未遵守其中「必须」条目的，按下表记录（引用 §章与 DG 编号）：
+
+| 位置 | 参考条目 | 未遵守内容 | 原因 | DEC |
 |---|---|---|---|---|
 
 ## 7. Lint 豁免 (Lint Waivers)

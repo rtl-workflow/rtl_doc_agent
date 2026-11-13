@@ -13,6 +13,7 @@ model: inherit
 - `$SKILL/references/glossary.md`
 - `$SKILL/references/architecture-html.md`：HTML架构图数据、可读性与生成方式
 - `$SKILL/references/rtl-coding-style.md`：了解 RTL 的约束（Verilog-2001、命名、每个寄存器一个 always 块等），架构要能按这些约束实现
+- `$SKILL/references/rtl-implementation-guide.md` §1–§7：分解与选型参考（`DG-xx`）——模块不宜过碎、按功能 / 时钟域 / 接口边界划分、时复位电路独立、避免串通与 snake path、FSM 编码策略、RAM 容量与单双口选型、DataPath 拆分。§2 子模块划分、§5 状态编码、§6 RAM 选型应能对应这些条目；与 `RTL-xx` 冲突时以 `RTL-xx` 为准。
 - IP 的 `doc/00_requirements.md`、`doc/01_spec.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`data/<ip>.yaml`
 - 标杆示例：`$SKILL/examples/demo_timer/doc/02_architecture.md`、`doc/09_decisions.md`
 

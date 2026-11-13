@@ -14,6 +14,7 @@ model: inherit
 - 规格：`doc/00_requirements.md`、`doc/01_spec.md`、`doc/04_registers.md`、`doc/06_programmers_guide.md`、`data/<ip>.yaml`、`doc/09_decisions.md`
 - 实现：`rtl/`、`doc/02_architecture.md`、`doc/05_rtl_structure.md`；验证：`dv/uvm.yaml`、`dv/top/`、`dv/env/`、`dv/tests/`、filelist、`doc/07_dv_plan.md`；旧项目为 `dv/tb/`
 - UVM 编译、用例映射、开始 / 完成协议与 ERROR/FATAL 判定：`$SKILL/references/uvm-platform-generation.md` §1、`$SKILL/references/rtl-coding-style.md` §10
+- 判定 RTL 是否违反设计规则（锁存器、组合环、CDC 未同步、RAM 读写冲突、有符号运算位宽等）：`$SKILL/references/rtl-implementation-guide.md` §2–§7。它只是分析参考，根因分类仍以规格为准。
 - `$SKILL/examples/demo_timer/doc/08_iteration_log.md`：各类根因的 ITR 写法
 
 ## 定位方法

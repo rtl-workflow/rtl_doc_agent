@@ -15,7 +15,8 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/doc-standard.md` | 文档体系、front matter、ID 规则、写作规范 |
 | `references/glossary.md` | 术语表、信号命名后缀、寄存器访问类型 |
 | `references/data-schema.md` | IP 描述文件 `data/<ip>.yaml`（单一信息源）字段定义 |
-| `references/rtl-coding-style.md` | RTL 编码规范（项目 Verilog 规范，Verilog-2001）与 testbench 约定 |
+| `references/rtl-coding-style.md` | RTL 编码规范（项目 Verilog 规范，Verilog-2001）与 testbench 约定；`RTL-xx` 为唯一自动检查的硬约束 |
+| `references/rtl-implementation-guide.md` | RTL 实现参考（`DG-xx`）：设计分解、编码细则、FSM / RAM / DataPath / 低功耗与成本要点、生成前后自检清单、与外规差异；architect 与 rtl-engineer 阅读 |
 | `references/test-plan-template.md` | 测试点 / 用例字段、命名、需求追溯及测试因子提取、组合与平台映射 |
 | `references/uvm-bfm-generation.md` | 接口契约、BFM 驱动 / 采样 / 事务重组、自测试；生成或修复接口激励时阅读 |
 | `references/uvm-platform-generation.md` | 原生 TB / UVM 边界、组件 / 参数 / 连接集成、工作模式、编译依赖；搭建或修改环境时阅读 |
