@@ -241,6 +241,8 @@ claude plugin list --json
 
 编码规则使用中性的 `RTL-xx` 编号。0.7.5 统一调整了文档、模板、检查器诊断和示例注释中的编号，技术规则与检查条件保持不变；依赖旧诊断编号的外部脚本需同步更新。
 
+0.9.0 新增 `references/rtl-implementation-guide.md`：把外部 Verilog 编码规范与逻辑军规（J1–J8）中对设计质量有用的内容整理为 `DG-xx` 参考（分解、编码细则、FSM、RAM、DataPath、低功耗、自检清单、与外规差异），供 architect / rtl-engineer 阅读，debugger 用于分析。它不参与自动检查，冲突时以 `RTL-xx`、SSOT 和原始命名为准；`05_rtl_structure` §6 增加了 DG 偏离表。同版本起 `RTL-43` / `RTL-44` 改为自动检查：时序块敏感列表中的时钟 / 异步复位必须直接是本模块 `input` 端口（模块内生成、取反、门控、分频、位选均报 error）；独立的时钟 / 复位产生模块在 `data/style_waivers.txt` 写 `RTL-43 <模块名> <原因>` 按模块豁免。已有项目若存在内部生成时钟，升级后 lint 会失败，需修改或补豁免。
+
 | 想改什么 | 改哪里 |
 |---|---|
 | 流程、阶段转移、重试上限 | `scripts/flow.py`（`step` / `collect`、`MAX_ATTEMPTS`、`MAX_ROUNDS`、`TASKS` 中各任务的提示）；`SKILL.md` §3–§4 同步说明 |
@@ -249,6 +251,7 @@ claude plugin list --json
 | 文档章节 | `templates/doc/*.md`（二级标题即必填章节，检查脚本自动跟随） |
 | 术语、命名后缀、访问类型 | `references/glossary.md`（访问类型还需同步 `gen_docs.py` 中的 `SWACCESS/HWACCESS`） |
 | RTL 编码规范 | `references/rtl-coding-style.md`（项目 Verilog 规范）；自动检查规则在 `scripts/check_style.py` 的 `PATTERNS` |
+| RTL 实现参考 | `references/rtl-implementation-guide.md`（`DG-xx` 设计质量条目，不被脚本检查）；由 `agents/architect.md`、`agents/rtl-engineer.md` 与 `scripts/flow.py` 的 `TASKS` 提示引用 |
 | 标杆示例 | `examples/` |
 
 规则本身的修改也应走评审（MR/PR），并在 `plugin.json` 中提升版本号。

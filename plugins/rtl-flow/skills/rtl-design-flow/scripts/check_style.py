@@ -298,6 +298,65 @@ def check_resets(code, std, reset_names=None):
             yield m.start(), "RTL-42", f"reset condition '{m.group(0)}': write if ({n} == {want})"
 
 
+EDGE_ITEM_RE = re.compile(r"^(posedge|negedge|`RST_EDGE)\s+(.+)$", re.S)
+
+
+def module_span(code, mod):
+    """(start, end) of `module mod ... endmodule` in comment-stripped code."""
+    m = re.search(r"\bmodule\s+" + re.escape(mod) + r"\b", code)
+    if not m:
+        return None
+    e = re.compile(r"\bendmodule\b").search(code, m.end())
+    return m.start(), (e.end() if e else len(code))
+
+
+def check_clock_sources(code, mod, ports, reset_names=()):
+    """Yield (pos, rule, msg) for edge-sensitive signals that do not come straight from an input port.
+
+    RTL-43: no clock / async reset generated inside a module (combinational logic, inverters,
+    gating, dividers, registered or instance outputs). RTL-44: no clock taken from a vector.
+    A dedicated clock / reset generation module is waived per module in data/style_waivers.txt.
+    """
+    span = module_span(code, mod)
+    if not span:
+        return
+    resets = set(reset_names or ())
+    for m in re.finditer(r"\balways\s*@\s*\(", code[span[0]:span[1]]):
+        open_ = span[0] + m.end() - 1
+        close = matching(code, open_)
+        if close < 0:
+            continue
+        sens = code[open_ + 1:close]
+        offset = open_ + 1
+        for item in re.split(r"\bor\b|,", sens):
+            s = item.strip()
+            em = EDGE_ITEM_RE.match(s)
+            if not em:
+                continue
+            pos = offset + sens.find(s)
+            edge, sig = em.group(1), em.group(2).strip()
+            role = "async reset" if (edge == "`RST_EDGE" or sig in resets) else "clock"
+            vm = re.fullmatch(r"([A-Za-z_]\w*)\s*\[[^\]]*\]", sig)
+            if vm:
+                yield pos, "RTL-44", (f"{role} '{sig}' in module '{mod}' is a bit of a vector: "
+                                      f"each clock / reset must be its own scalar input port")
+                continue
+            if not re.fullmatch(r"[A-Za-z_]\w*", sig):
+                yield pos, "RTL-43", (f"{role} expression '{edge} {sig}' in module '{mod}': "
+                                      f"clocks and async resets must come straight from an input port, "
+                                      f"no logic on the clock / reset path")
+                continue
+            d = ports.get(sig, (None,))[0]
+            if d == "input":
+                continue
+            where = f"{d} port" if d else "signal generated inside the module"
+            yield pos, "RTL-43", (f"{role} '{sig}' in module '{mod}' is a {where}: clocks and async resets "
+                                  f"must come straight from an input port (no assign / inverter / gating / "
+                                  f"divider / register output). Use the original clock with an enable, or "
+                                  f"synchronize the signal and detect its edge; a dedicated clock / reset "
+                                  f"generation module needs 'RTL-43 {mod} <reason>' in {WAIVER_FILE}")
+
+
 def check_define_file(path: Path, rel: str):
     """Return ([(rel, line, rule, msg)], {macro: value}) for define.v (RTL-07)."""
     raw = path.read_text(encoding="utf-8", errors="replace")
@@ -423,6 +482,8 @@ def check_file(path: Path, rel: str, std=None, source_naming=None, reset_names=N
             if DIR_ORDER[d] < last:
                 add(pos, "RTL-30", f"port '{n}': order must be inputs, then inouts, then outputs")
             last = max(last, DIR_ORDER[d])
+        for p, rule, msg in check_clock_sources(code, mod, ports, reset_names):
+            add(p, rule, msg)
     return out
 
 
@@ -449,36 +510,56 @@ def check_ip(ip: Path, files, resets=None, source_naming=None, top=None):
                                            f"RST_EDGE / RST_ACT must be {want[0]} / {want[1]}"))
         else:
             out += check_file(ip / f, f, std, source_naming, [r['name'] for r in resets or []], top=top)
-    waived = load_waivers(ip)
-    out = [v for v in out if v[2] not in waived]
+    waived, waived_mods = load_waivers(ip)
+    out = [v for v in out if v[2] not in waived and not module_waived(v, waived_mods)]
     return sorted(out, key=lambda x: (x[0], x[1]))
 
 
 WAIVABLE_RULES = {"RTL-41", "RTL-42", "RTL-50"}
+MODULE_WAIVABLE_RULES = {"RTL-43"}   # waived only for named modules, never project-wide
 WAIVER_FILE = "data/style_waivers.txt"
 
 
-def load_waivers(ip: Path):
-    """Project-scoped rule waivers: data/style_waivers.txt, one '<RULE-ID> <reason>' per line.
+def module_waived(v, waived_mods):
+    """True if violation v = (rel, line, rule, msg) belongs to a module waived for its rule."""
+    mods = waived_mods.get(v[2])
+    if not mods:
+        return False
+    m = re.search(r"in module '([A-Za-z_]\w*)'", v[3])
+    return bool(m and m.group(1) in mods)
 
-    Only WAIVABLE_RULES may be waived and each needs a reason; anything else is ignored with a
-    warning on stderr so that a waiver can never silently disable an unrelated check.
+
+def load_waivers(ip: Path):
+    """Rule waivers from data/style_waivers.txt.
+
+    '<RULE-ID> <reason>'           project-wide, only for WAIVABLE_RULES;
+    '<RULE-ID> <module> <reason>'  one module, only for MODULE_WAIVABLE_RULES (e.g. a dedicated
+                                   clock / reset generation module, RTL-43).
+    Every waiver needs a reason; anything else is ignored with a warning on stderr so that a
+    waiver can never silently disable an unrelated check. Returns (rules, {rule: {modules}}).
     """
     path = ip / WAIVER_FILE
     if not path.exists():
-        return set()
-    out = set()
+        return set(), {}
+    out, mods = set(), {}
     for n, ln in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         s = ln.split("#", 1)[0].strip()
         if not s:
             continue
-        rule, _, reason = s.partition(" ")
-        if rule not in WAIVABLE_RULES or not reason.strip():
-            print(f"WARN: {WAIVER_FILE}:{n}: ignored '{s}' (waivable: {sorted(WAIVABLE_RULES)}, reason required)",
-                  file=sys.stderr)
+        rule, _, rest = s.partition(" ")
+        if rule in MODULE_WAIVABLE_RULES:
+            mod, _, reason = rest.strip().partition(" ")
+            if re.fullmatch(r"[A-Za-z_]\w*", mod or "") and reason.strip():
+                mods.setdefault(rule, set()).add(mod)
+                continue
+            print(f"WARN: {WAIVER_FILE}:{n}: ignored '{s}' ({rule} needs '<module> <reason>')", file=sys.stderr)
+            continue
+        if rule not in WAIVABLE_RULES or not rest.strip():
+            print(f"WARN: {WAIVER_FILE}:{n}: ignored '{s}' (waivable: {sorted(WAIVABLE_RULES)}, "
+                  f"per-module: {sorted(MODULE_WAIVABLE_RULES)}, reason required)", file=sys.stderr)
             continue
         out.add(rule)
-    return out
+    return out, mods
 
 
 def main():

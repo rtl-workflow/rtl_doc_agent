@@ -86,8 +86,8 @@
 | RTL-40 | 同步设计；一个时序 `always` 块只有一个时钟、只在一个沿动作，写作 `posedge clk` / `negedge clk` | lint |
 | RTL-41 | 默认复位方案：异步复位、同步释放（复位同步器在 IP 外部或独立模块中）。内部复位的高低有效由 `define.v` 统一决定，所有内部复位极性相同，时序块固定写作 `` always @(posedge clk or `RST_EDGE rst) ``，不直接写 `posedge rst` / `negedge rst`。标准接口复位（RTL-14）极性固定，直接写 `always @(posedge clk or negedge rst_n)`（低有效）或 `always @(posedge clk or posedge rst)`（高有效），沿与 yaml 中的 `active` 一致。大位宽数据只做打拍时可以不复位，写作 `always @(posedge clk)`（见 RTL-45） | 自动（内部复位必须写 `` `RST_EDGE ``；标准接口复位的沿与 `active` 一致） |
 | RTL-42 | 复位判断必须写成比较形式：内部复位固定为 `` if (rst == `RST_ACT) ``；标准接口复位与常量比较，`if (rst_n == 1'b0)`（低有效）或 `if (rst == 1'b1)`（高有效），常量与 `active` 一致。不写 `if (!rst_n)`、`if (rst)` | 自动 |
-| RTL-43 | 时钟、复位路径上不加门控、不加 buffer；不在模块内生成时钟（分频用使能代替）；时钟不作为数据使用 | 评审 |
-| RTL-44 | 不用向量定义一组时钟；顶层时钟必须是独立端口 | 评审 |
+| RTL-43 | 时钟、复位路径上不加门控、不加 buffer；不在模块内生成时钟（分频用使能代替）；时钟不作为数据使用。**时序 `always` 敏感列表中 `posedge` / `negedge` / `` `RST_EDGE `` 后面的信号必须直接是本模块的 `input` 端口**：内部 `assign` / 取反 / 门控 / 分频 / 寄存器或例化输出、`output` 端口、表达式（如 `posedge (a & b)`）均不允许。例如 `assign cs_clock = !cs_n;` 后写 `always @(posedge cs_clock)` 即违规，应改为用系统时钟同步 `cs_n` 并做边沿检测产生使能。确属独立的时钟 / 复位产生模块（`rtl-implementation-guide.md` DG-13）按模块豁免：`data/style_waivers.txt` 写一行 `RTL-43 <模块名> <原因>`，并在 05 §6 与 09 DEC 说明；不支持整项目豁免 | 自动（时钟 / 复位来源）；评审（时钟作数据） |
+| RTL-44 | 不用向量定义一组时钟；顶层时钟必须是独立端口 | 自动（敏感列表中的位选时钟 / 复位，如 `posedge clks[0]`）；评审（顶层端口形式） |
 | RTL-45 | 控制通路寄存器必须复位；纯数据通路寄存器（如大位宽数据打拍）可不复位，但须在 05 中说明；有复位与无复位的寄存器分别写在不同 `always` 块中 | 评审 |
 | RTL-46 | 用复位初始化，不在声明处赋初值，不使用 `initial` | 自动 |
 

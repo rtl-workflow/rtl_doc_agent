@@ -355,8 +355,10 @@ TASKS = {
     ("architect", "arch"):
         "执行 P2 微架构。\n"
         "1. 编写 02_architecture：框图（Mermaid）、§2 子模块表（第一列 `模块名`，职责、关键接口必填）、数据通路、FSM（状态图 + 状态表）、时钟复位、CDC、关键时序（WaveDrom）、PPA 估计。\n"
-        "2. 重要取舍记入 09_decisions（DEC-xxx）。\n"
-        "3. 运行 check_docs.py --stage arch，直到没有 ERROR（not approved 类除外）。",
+        "2. 分解与选型对照 references/rtl-implementation-guide.md §1–§7（DG-xx）：模块按功能/时钟域/接口边界划分且不宜过碎、时复位电路独立、避免串通与 snake path；"
+        "FSM 状态集合与编码策略、RAM 容量/单双口选型、DataPath 拆分方式写进 02；与 RTL-xx 冲突时以 RTL-xx 为准。\n"
+        "3. 重要取舍记入 09_decisions（DEC-xxx）。\n"
+        "4. 运行 check_docs.py --stage arch，直到没有 ERROR（not approved 类除外）。",
     ("architect", "review_fix"):
         "用户在人工审核中要求修改，意见见附加输入。按意见修改 02 / 09，不要修改 reviewer / approved。"
         "完成后运行 check_docs.py --stage arch，直到没有 ERROR。",
@@ -367,17 +369,22 @@ TASKS = {
         "执行 P3 RTL 实现。\n"
         "1. 按 02 子模块表和 references/rtl-coding-style.md 编写 rtl/ 下全部模块；顶层端口（含顺序）与 yaml 一致；"
         "把全部 RTL 文件写进 yaml 的 rtl_files（define.v 第一、顶层第二；yaml 中只能改这个字段）。\n"
-        "2. 编写 05_rtl_structure（文件清单、层次、模块职责、参数、偏离说明）。\n"
-        "3. 运行 run_lint.py，修复全部 error；warning 修复或在 05 §7 写豁免原因。\n"
-        "4. 在 08_iteration_log 新增 ITR（触发：初始实现），回归结果留空（由编排者填写）；交接文件写 itr。\n"
-        "5. 不要编写或修改 dv/（验证由 tb-engineer 独立完成）。",
+        "2. 编码前读 references/rtl-implementation-guide.md 并逐项确认 §9.2 生成前清单（模块边界、命名、时钟域/复位、FSM 来源、CDC、参数化）；"
+        "写完后过 §9.3 提交前清单，再运行脚本。该文件是设计质量参考（DG-xx），不替代 RTL-xx、SSOT 和原始命名；"
+        "违反 DG-xx 的条目写进 05 §6。\n"
+        "3. 编写 05_rtl_structure（文件清单、层次、模块职责、参数、偏离说明）。\n"
+        "4. 运行 run_lint.py，修复全部 error；warning 修复或在 05 §7 写豁免原因。\n"
+        "5. 在 08_iteration_log 新增 ITR（触发：初始实现），回归结果留空（由编排者填写）；交接文件写 itr。\n"
+        "6. 不要编写或修改 dv/（验证由 tb-engineer 独立完成）。",
     ("rtl-engineer", "fix"):
         "回归失败，debugger 的定位报告见附加输入。修复 RTL：\n"
         "1. 只改报告指出的问题；影响微架构时同步 02 / 05（02 实质变化须提升 version）。\n"
-        "2. 在报告中的 ITR 下补写「修改」表和「影响文档」。\n"
-        "3. 重新运行 run_lint.py。不要修改 dv/。",
+        "2. 修复时对照 references/rtl-implementation-guide.md §9.4：不靠试错改代码，不为让用例通过而放宽或改写规格规定的行为。\n"
+        "3. 在报告中的 ITR 下补写「修改」表和「影响文档」。\n"
+        "4. 重新运行 run_lint.py。不要修改 dv/。",
     ("rtl-engineer", "change"):
         "需求变更已更新 00 / 01 / 02 / yaml（见附加输入与 ITR）。按更新后的文档修改 RTL 与 05，"
+        "改动后重新过 references/rtl-implementation-guide.md §9.3 自检清单，"
         "重新运行 run_lint.py，并在该 ITR 的「修改」表中补充你的修改。不要修改 dv/。",
     ("tb-engineer", "tb"):
         "执行 P4 验证。你看不到、也不能读取 RTL：只根据 00 / 01 / 03 / 04 / 06 与 yaml 构建验证。\n"
@@ -405,6 +412,8 @@ TASKS = {
         "- rtl：RTL 行为与规格不符；tb：testbench / 参考模型期望与规格不符；both：两者都有；\n"
         "- spec：规格没有写清或自相矛盾，需要用户决定；tool：仿真工具或环境问题。\n"
         "以规格（00 / 01 / 04 / 06 / yaml）为准判定谁错。可以读取全部文件、运行仿真；"
+        "判定 RTL 是否违反设计规则（锁存、组合环、CDC 未同步、RAM 地址溢出/读写冲突、有符号位宽等）时可对照 "
+        "references/rtl-implementation-guide.md §2–§7，但它只是分析参考，不改变以规格为准的分类。\n"
         "需要临时测试时放在 dv/build/debug/，不要修改 rtl/ 或 dv/ 下的验证源码和manifest/filelist。\n"
         "1. 在 08_iteration_log 新增 ITR：触发、现象、根因（含类别）；「修改」和「回归结果」留给修复者和编排者。\n"
         "2. 写完整报告 .flow/debug/<任务ID>.md：失败用例、第一个不匹配的时刻与信号、根因、建议修改（文件 / 位置）。\n"
