@@ -21,6 +21,7 @@ description: 数字 IC / RTL IP 设计全流程规范（多 agent）。当用户
 | `references/uvm-bfm-generation.md` | 接口契约、BFM 驱动 / 采样 / 事务重组、自测试；生成或修复接口激励时阅读 |
 | `references/uvm-platform-generation.md` | 原生 TB / UVM 边界、组件 / 参数 / 连接集成、工作模式、编译依赖；搭建或修改环境时阅读 |
 | `references/uvm-testcase-generation.md` | 测试点 / Excel 输入、因子到步骤 / 代码、用例登记与检查；所有验证生成和修改任务阅读 |
+| `references/verification-evidence.md` / `scripts/verification_evidence.py` | 可选 `dv/evidence.json`：显式种子、真实观测/检查指标和独立尝试档案；不替代 G3、黑盒隔离或真实 DUT 实验 |
 | `templates/` | 所有文档模板，`flow.py init` 时复制到 IP 目录 |
 | `scripts/gen_docs.py` | 由 `data/<ip>.yaml` 生成接口文档、寄存器文档、C 头文件 |
 | `scripts/gen_arch.py` / `references/architecture-html.md` | 由02中的architecture-graph生成离线HTML架构图，检查模块覆盖与图文同步 |

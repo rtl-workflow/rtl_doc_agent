@@ -44,6 +44,7 @@ import re
 import shutil
 import subprocess
 import sys
+import yaml
 from datetime import datetime
 from pathlib import Path
 
@@ -52,6 +53,7 @@ import dv_plan  # noqa: E402
 import gen_docs  # noqa: E402
 import remote_exec  # noqa: E402
 import uvm_support  # noqa: E402
+import verification_evidence as evidence  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -166,9 +168,18 @@ def digests(ip: Path, data, include_rtl=True):
     """Digests that decide whether a regression result is current."""
     rtl = [ip / f for f in data.get("rtl_files") or [] if (ip / f).exists()] if include_rtl else []
     verification = uvm_support.input_files(ip) if uvm_support.enabled(ip) else tb_files(ip)
-    return {"rtl_sha256": digest(ip, rtl),
-            "tb_sha256": digest(ip, verification),
-            "tests_sha256": hashlib.sha256(json.dumps(plan_tests(ip), sort_keys=True).encode()).hexdigest()}
+    evidence_hash = evidence.fingerprint(ip)
+    if evidence_hash != "absent" and ip / evidence.CONFIG not in verification:
+        verification = verification + [ip / evidence.CONFIG]
+    result = {"rtl_sha256": digest(ip, rtl),
+              "tb_sha256": digest(ip, verification),
+              "tests_sha256": hashlib.sha256(json.dumps(plan_tests(ip), sort_keys=True).encode()).hexdigest(),
+              "evidence_sha256": evidence_hash}
+    if evidence_hash != "absent":
+        result["plan_sha256"] = evidence.text_sha(ip / "doc/07_dv_plan.md")
+        result["data_sha256"] = digest(ip, sorted((p for p in (ip / "data").rglob("*") if p.is_file()),
+                                                 key=lambda p: p.as_posix()))
+    return result
 
 
 def width_decl(w):
@@ -211,7 +222,7 @@ def remote_job(stub=False, only=None, seeds=3, fsdb=True):
     args = (["--stub"] if stub else []) + (["--test", only] if only else []) + ["--seeds", seeds]
     if not fsdb:
         args += ["--no-fsdb"]
-    collect = [f"{build}/{LAST}", f"{build}/compile.log", f"{build}/logs/**"]
+    collect = [f"{build}/{LAST}", f"{build}/compile.log", f"{build}/logs/**", "reports/evidence/**"]
     if not only:
         collect.append((STUB_REPORT if stub else REPORT).as_posix())
         if not stub:
@@ -224,7 +235,15 @@ def remote_result(ip: Path, build, fin):
     if f"{ip.name}/{build}/{LAST}" not in fin.files:
         raise SystemExit("ERROR: remote regression stopped before producing a result:\n" +
                          "\n".join(fin.output().splitlines()[-20:]))
-    return json.loads(last.read_text(encoding="utf-8"))
+    result = json.loads(last.read_text(encoding="utf-8"))
+    if result.get("evidence"):
+        try:
+            evidence.verify_archive(ip, result, fin.files, last)
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            raise SystemExit("ERROR: remote evidence archive invalid or not collected: " + str(exc))
+    elif (ip / evidence.CONFIG).exists():
+        raise SystemExit("ERROR: remote result is missing required evidence archive")
+    return result
 
 
 def run_remote(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
@@ -233,7 +252,7 @@ def run_remote(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
     args, build, collect = remote_job(stub, only, seeds, fsdb)
     try:
         fin = remote_exec.run_ip_script("run_regress.py", ip, args, collect, timeout=REMOTE_TIMEOUT_S,
-                                        clean_local=[build])
+                                        clean_local=[] if only else [build])
     except remote_exec.RemoteError as e:
         raise SystemExit(f"ERROR: remote regression could not run (environment problem): {e}")
     return remote_result(ip, build, fin)
@@ -273,21 +292,41 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
     """Run the regression and return the result dict (also written to the report file)."""
     if remote_exec.enabled():
         return run_remote(ip, stub, only, seeds, fsdb)
+    res = {"mode": "stub" if stub else "rtl", "date": datetime.now().isoformat(timespec="seconds"),
+           "compile": {"ok": False, "messages": []}, "tests": [], "cover": {},
+           "uncovered": [], "problems": [], "partial": bool(only)}
+    if (ip / evidence.CONFIG).exists():
+        res["evidence"] = evidence.begin(ip, stub, bool(only))
+    try:
+        return _run_local(ip, stub, only, seeds, fsdb, res)
+    except (SystemExit, OSError, ValueError, subprocess.SubprocessError, yaml.YAMLError) as exc:
+        if "evidence" not in res or "result" in res:
+            raise
+        res["problems"].append(str(exc))
+        return finish(ip, res, stub, partial=bool(only))
+
+
+def _run_local(ip, stub, only, seeds, fsdb, res):
     fsdb = fsdb and not stub
     data, derrs, _ = gen_docs.outputs(ip)
-    if derrs:
+    if derrs or not isinstance(data, dict):
         raise SystemExit("ERROR: data file invalid, run check_docs.py first")
     tests = plan_tests(ip)
     build = ip / "dv" / "build" / ("stub" if stub else "regress")
     (build / "logs").mkdir(parents=True, exist_ok=True)
-    res = {"mode": "stub" if stub else "rtl", "date": datetime.now().isoformat(timespec="seconds"),
-           "compile": {"ok": False, "messages": []}, "tests": [], "cover": {},
-           "uncovered": [], "problems": []}
-
+    cfg = None
     try:
+        if "evidence" in res:
+            evidence.save(ip, res["evidence"], "evidence.json", (ip / evidence.CONFIG).read_bytes())
+        cfg = evidence.load(ip, tests)
+        if cfg:
+            res["evidence"]["contract"] = cfg
+            res["evidence"]["expected_runs"] = [list(pair) for pair in evidence.matrix(cfg, only)]
         platform = uvm_support.load(ip) if uvm_support.enabled(ip) else None
         tbs = platform.sources if platform else tb_files(ip)
         res.update(digests(ip, data, include_rtl=not stub))
+        if cfg:
+            res["evidence"]["digests"] = digests(ip, data, include_rtl=not stub)
     except (ValueError, OSError) as exc:
         res["problems"].append(f"invalid verification platform: {exc}")
         return finish(ip, res, stub, partial=bool(only))
@@ -338,6 +377,8 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
                           + [str(s.resolve()) for s in srcs + tbs],
                           cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = comp.stdout + comp.stderr
+    if cfg:
+        evidence.save(ip, res["evidence"], "compile.log", out.encode("utf-8"))
     if comp.returncode != 0 and LICENSE_RE.search(out):
         raise SystemExit("ERROR: VCS license problem:\n" + "\n".join(out.splitlines()[-15:]))
     msgs = vcs_messages(out)
@@ -353,6 +394,8 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
         if only and t != only:
             continue
         runs += [(t, s) for s in range(1, seeds + 1)] if "random" in t else [(t, 1)]
+    if cfg:
+        runs = evidence.matrix(cfg, only)
     for test, seed in runs:
         log = build / "logs" / f"{test}_{seed}.log"
         wave = build / f"{test}_{seed}.fsdb"
@@ -374,8 +417,11 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
             exit_code = p.returncode
         except subprocess.TimeoutExpired as e:
             out = (e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+            out += (e.stderr or b"").decode(errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
             out += f"\n<run_regress: killed after {TEST_TIMEOUT_S} s>"
         log.write_text(out, encoding="utf-8")
+        if cfg:
+            evidence.save(ip, res["evidence"], "logs/" + log.name, out.encode("utf-8"))
         m = next((x for x in RESULT_RE.finditer(out) if x.group(1) == test), None)
         errs = [l.strip() for l in out.splitlines() if "ERROR" in l or "UVM_FATAL" in l]
         res["tests"].append({"test": test, "tp": tests[test], "seed": seed,
@@ -383,6 +429,10 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
                              "errors": int(m.group(4)) if m else None,
                              "first_errors": errs[:5], "log": log.relative_to(ip).as_posix()})
         res["tests"][-1]["exit_code"] = exit_code
+        if cfg:
+            counters, problems = evidence.parse(out, cfg["tests"][test], test, seed, stub=stub)
+            res["tests"][-1]["metrics"] = counters
+            res["problems"] += [f"{test} seed {seed}: {msg}" for msg in problems]
         if platform:
             parsed = uvm_support.parse_result(out, test, seed, platform.test_class(test), stub)
             res["tests"][-1].update({k: v for k, v in parsed.items() if k != "problems"})
@@ -407,6 +457,23 @@ def run(ip: Path, stub=False, only=None, seeds=3, fsdb=True):
 
 def finish(ip: Path, res, stub, partial=False):
     t = res["tests"]
+    record = res.get("evidence")
+    if record:
+        expected = record.get("expected_runs")
+        observed = [[x["test"], x["seed"]] for x in t]
+        if expected is not None and sorted(observed) != sorted(expected):
+            res["problems"].append("observed test/seed matrix differs from selected evidence plan")
+        if "digests" in record:
+            try:
+                data, errors, _ = gen_docs.outputs(ip)
+                if errors or not isinstance(data, dict):
+                    raise ValueError("data file became invalid")
+                current = digests(ip, data, include_rtl=not stub)
+                if current != record["digests"]:
+                    res["problems"].append("verification inputs changed during execution")
+            except (OSError, ValueError, SystemExit, yaml.YAMLError) as exc:
+                res["problems"].append("cannot verify final input digests: " + str(exc))
+        record["manifest"] = record["path"] + "/manifest.json"
     if stub:
         ok = not res["problems"] and bool(t) and all(x["status"] != "NO RESULT" for x in t)
     else:
@@ -419,6 +486,7 @@ def finish(ip: Path, res, stub, partial=False):
     if figures:
         res["summary"] += "; code coverage " + ", ".join(f"{k} {v:g}%" for k, v in figures.items())
     text = json.dumps(res, ensure_ascii=False, indent=2) + "\n"
+    evidence.archive_result(ip, res, text)
     if not partial:
         out = ip / (STUB_REPORT if stub else REPORT)
         out.parent.mkdir(parents=True, exist_ok=True)
