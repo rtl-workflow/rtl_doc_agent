@@ -1,0 +1,10 @@
+{
+  "name": "verification-platform-agent",
+  "version": "1.0.0-rc.1",
+  "channel": "release-candidate",
+  "entrypoint": "SKILL.md",
+  "python_requires": ">=3.10",
+  "license_status": "redistribution_rights_unresolved",
+  "public_release_ready": false,
+  "include_roots": ["AGENTS.md", "SKILL.md", "README.md", "RELEASE.md", "RIGHTS.md", "CHANGELOG.md", "release.json", ".gitignore", "agent", "bt_uvm", "assets", "references", "tests", "logic-verify-uvm-bfm-gen", "logic-verify-uvm-platform-gen", "logic-verify-uvm-tc-gen", "rtl-gen"]
+}

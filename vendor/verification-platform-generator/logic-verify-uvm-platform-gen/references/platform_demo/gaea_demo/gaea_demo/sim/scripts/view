@@ -1,0 +1,285 @@
+#!/bin/csh -f
+#/**********************************************************************************
+# Copyright(c) 2016 Huawei Technologies Co., Ltd, All rights reserved
+# Department   :   Network Product Line(NPL), R&D Logic IC Chip Department
+# Filename     :   view
+# Author       :   f00190375
+# ===============================================================================
+# Description  :   simulation result check
+# ===============================================================================
+# Modification History:
+# Date        By        Rev.    Prj.    Change Description
+# -------------------------------------------------------------------------------
+
+# 2016-03-11 f00190375    1.0            Create
+# 2017-10-11 GaeaPlatform 1.1  GaeaPlatform add -verdi,cleanxxx
+# 2019-04-26 GaeaPlatform 1.1  Fix -dir option issue.
+#**********************************************************************************/
+
+set tc_name       = ""
+set dir_suf       = ""
+set cmp_flag      = 0
+set sim_flag      = 0
+set verdi_flag    = 0
+set fsdb_flag     = 0
+set vpd_flag      = 0
+set tc_list_on    = 0
+set tc_flag       = 0
+set sim_rpt       = 0
+set clean_tests   = "off"      ;#clean all testcase results
+set clean_cov     = "off"      ;#clean coverage results
+set clean_all     = "off"      ;#clean all testcase and coverage results
+set clean_rpt     = "off"      ;#clean sim_result.log
+
+source sim.cfg
+
+if (($#argv == 2) && (("$argv[1]" == "-tc") || ("$argv[1]" == "+tc")) ) then
+    echo "ERROR! You must input the option."
+    view -help
+endif
+
+while($#argv != 0)
+    switch($1)
+        case [-+]cmp
+            set cmp_flag = 1
+            breaksw
+        case [-+]sim
+            set sim_flag = 1
+            breaksw
+        case [-+]verdi
+            set verdi_flag = 1
+            breaksw
+            break
+        case [-+]fsdb
+            set fsdb_flag = 1
+            breaksw
+        case [-+]vpd
+            set vpd_flag = 1
+            breaksw
+        case [-+]list
+            set tc_list_on = 1
+            breaksw
+        case [-+]rpt
+            set sim_rpt = 1
+            breaksw
+        case [-+]e :
+            set tc_flag = 1
+            breaksw
+        case [-+]dir :
+            shift
+            set dir_suf = $1
+            breaksw
+        case [-+]tc :
+            set tc_option = "on"
+            if ( $#argv == 1) then
+                echo "Please specify the testcase with name or line no. in the tc_list.f, or view -help!"
+                exit
+            endif
+            shift
+            set args_find = `echo $1 | grep -c "-"`
+            #echo "$args_find"
+            if ( $args_find != 0) then
+                echo "Error! Your input args is wrong"
+                echo "using -help for help"
+                exit
+            endif
+            set test = `echo $1 | egrep '^[0-9]+$'`
+            if ( "$test" == "" ) then
+                set tc_name = $1
+                #if (! -e ../$tc_name) then
+                #    echo "The testcase $tc_name result files does not exist"
+                #    exit
+                #endif
+            else
+                #echo "tc_name is number"
+                if(!(-e ./tc_list.f)) then 
+                    echo "Error! The tc_list.f file does not exist"
+                else
+                    set num=`cat ./tc_list.f  |wc -l`
+                    #echo "tc_list all num  is $num"
+                    if($1 <= $num) then 
+                        set tc_name=`cat ./tc_list.f |head -n $1|tail -n 1`
+                        echo "testcase $1 is $tc_name"
+                    else
+                        echo "Error! Input testcase id is wrong!"
+                    endif
+                endif
+            endif
+            breaksw
+        case [-+]{clean_tests,ct} :
+            set clean_tests = "on";
+            breaksw
+        case [-+]{clean_cov,cc} :
+            set clean_cov = "on";
+            breaksw
+        case [-+]{clean_all,ca} :
+            set clean_all = "on";
+            breaksw
+        case [-+]{clean_rpt,cr} :
+            set clean_rpt = "on";
+            breaksw
+        case [-+]help:
+        default:
+            echo "======================================================================================================="
+            echo "-tc testcase/ID    :Specify the tc name or the line number in tc_list.f file"
+            echo "-e                 :Open tc file of the specified testcase"
+            echo "-cmp               :Open the cmp.log of the specified testcase"
+            echo "-sim               :Open the sim.log of the specified testcase"
+            echo "-verdi             :Only open verdi using filelist without the specified testcase"
+            echo "-fsdb              :Open the fsdb in verdi of the specified testcase, if has no fsdb, only verdi"
+            echo "-vpd               :Open the vpd in dve of the specified testcase, if has no vpd, only dve"
+            echo "-list              :Open the tc_list.f file"
+            echo "-rpt               :Open the report file sim_result.log of the project"
+            echo "-clean_tests/ct    :Clean all testcase results"
+            echo "-clean_all/ca      :Clean all testcase results and coverage"
+            echo "-clean_rpt/cr      :Clean the report file sim_report.log"
+            echo "example            :view -sim -fsdb -tc tc1, will open the tc1 sim.log, verdi with fsdb"
+            echo "======================================================================================================="
+            breaksw
+            exit
+    endsw
+    shift
+end
+#====================================================================
+# clean test result
+#====================================================================
+if ($clean_tests == "on") then
+    echo "Clean all tests result directory"
+    cd ../
+    ls |grep -Ev "scripts|cov|trash|sim_result.log"|xargs rm -rf
+    exit
+endif
+
+if ($clean_cov == "on") then
+    echo "Clean the coverage result directory"
+    rm -rf ../cov
+    exit
+endif
+
+if ($clean_all == "on") then
+    echo "Clean all progress files"
+    cd ../
+    ls |grep -Ev "scripts|sim_result.log"|xargs rm -rf
+    exit
+endif
+
+if ($clean_rpt == "on") then
+    echo "Clean all progress files"
+    rm -rf ../sim_result.log
+    exit
+endif
+#====================================================================
+# open test file
+#====================================================================
+if ( $tc_list_on == 1) then
+    if (! -e tc_list.f) then
+        echo "ERROR! The tc_list.f file does not exist"
+    else
+        gvim ./tc_list.f
+    endif
+endif
+
+if( $sim_rpt == 1 ) then
+    if (! -e ../sim_result.log) then
+        echo "ERROR! The sim_result.log file does not exist"
+    else
+        gvim ../sim_result.log
+    endif
+endif
+
+if ($verdi_flag == 1) then
+    verdi \
+          -nologo                \
+          -sv -2001              \
+          -syntaxerrormax 20000  \
+          $filelist              \
+          $def_macro             \
+          -top $th_top           \
+          &
+endif
+
+#open tc file
+if( $tc_flag == 1 ) then
+    if( $tc_name == "") then
+        echo "ERROR! Cannot get the testcase name ,input -help for more information"
+        exit
+    endif
+    set test_file = `find $tests_dir -name $tc_name.sv -follow`
+    if( $test_file == "") then
+        echo "ERROR! Cannot get the testcase file. Please confirm the testcase name is correct."
+        exit
+    endif
+    gvim $test_file
+endif
+
+set dir_name = $tc_name
+if ("" != $dir_suf) then
+    set dir_name = "$tc_name.$dir_suf"
+endif
+
+if (($cmp_flag == 1) || ($sim_flag == 1) || ($fsdb_flag == 1) || ($vpd_flag == 1)) then
+    if( $dir_name == "") then
+        echo "ERROR! Cannot get the testcase name ,input -help for more information"
+        exit
+    endif
+    if (! -e ../$dir_name ) then
+        echo "ERROR! Cannot get the result of the sepcified testcase. Please confirm the testcase name is correct."
+        exit
+    endif
+endif
+
+cd ../$dir_name
+
+if( $cmp_flag == 1) then 
+    if (! -e cmp.log) then
+        echo "ERROR! The cmp.log file does not exist"
+    else
+        gvim cmp.log
+    endif
+endif
+
+if( $sim_flag == 1) then
+    if (! -e sim.log) then
+        echo "ERROR! The sim.log file does not exist"
+    else
+        gvim sim.log
+    endif
+endif
+
+if( $fsdb_flag == 1) then
+    if (! -e simv) then
+        verdi \
+              -nologo                \
+              -sv -2001              \
+              -syntaxerrormax 20000  \
+              $filelist              \
+              $def_macro             \
+              -top $th_top           \
+        &
+    else if (! -e $tc_name.vf) then
+        verdi \
+              -nologo                \
+              #-sv -2001              \
+              #-syntaxerrormax 20000  \
+              -simflow -simBin simv  \
+        &
+    else
+        verdi \
+              -nologo                \
+              #-sv -2001              \
+              #-syntaxerrormax 20000  \
+              -simflow -simBin simv  \
+              -ssf $tc_name.vf       \
+        &
+    endif
+endif
+
+if( $vpd_flag == 1) then
+    if (! -e $tc_name.vpd) then
+        dve -full64&
+    else
+        dve -full64 -vpd $tc_name.vpd&
+    endif
+endif
+
+

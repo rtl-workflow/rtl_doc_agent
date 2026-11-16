@@ -1,0 +1,30 @@
+{
+  "schema_version": "verification-agent-project/v1",
+  "template_only": true,
+  "project_id": null,
+  "project_root": null,
+  "request_mode": "generate",
+  "input_mode": "prepared",
+  "dut": {"top": null, "kind": "real", "source_manifest": null, "source_sha256": null},
+  "write_scope": [],
+  "read_only_scope": [],
+  "framework": {"profile": null, "uvm_standard_target": "IEEE 1800.2", "uvm_library_version": null, "uvm_library_sha256": null},
+  "execution": {"transport": "ssh", "profile_path": null, "simulator_id": null, "validated": false},
+  "contracts": {"requirements": null, "design": null, "ir": null, "components": null, "plan": null, "manifest": null},
+  "stages": [
+    {"id": "intake", "status": "not_started", "depends_on": [], "evidence": []},
+    {"id": "design", "status": "not_started", "depends_on": ["intake"], "evidence": []},
+    {"id": "components", "status": "not_started", "depends_on": ["design"], "evidence": []},
+    {"id": "integrate", "status": "not_started", "depends_on": ["components"], "evidence": []},
+    {"id": "tests", "status": "not_started", "depends_on": ["integrate"], "evidence": []},
+    {"id": "compile", "status": "not_started", "depends_on": ["tests"], "evidence": []},
+    {"id": "execute", "status": "not_started", "depends_on": ["compile"], "evidence": []},
+    {"id": "deliver", "status": "not_started", "depends_on": [], "evidence": []}
+  ],
+  "open_questions": [],
+  "excluded_requirements": [],
+  "artifacts": [],
+  "attempts": [],
+  "allowed_claim": "draft",
+  "notes": "Non-executable template. Final delivery may report blocked work; it does not require pretending every stage completed. Existing bt_uvm uses separate contracts, not this state file."
+}

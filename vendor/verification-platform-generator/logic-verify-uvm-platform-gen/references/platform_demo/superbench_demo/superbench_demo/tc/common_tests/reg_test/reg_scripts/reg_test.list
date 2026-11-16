@@ -1,0 +1,5 @@
+./randcrange.sv
+./reg_test_define.sv
+./reg_test_dec.sv
+./reg_test_task.sv
+./tc_reg_test.sv

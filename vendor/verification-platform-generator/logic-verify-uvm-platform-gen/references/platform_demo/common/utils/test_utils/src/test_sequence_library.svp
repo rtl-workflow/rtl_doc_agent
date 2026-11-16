@@ -1,0 +1,135 @@
+//******************************************************************************
+// Copyright(c) 2013, Hisilicon Technologies Co, Ltd.
+// All rights reserved.
+//
+// PROJECT NAME  : LVP_TEST
+// FILENAME      : test_sequence_library.svp
+// AUTHOR        : x00508178
+// EMAIL         : 
+// CREATION TIME : 2023-05-31
+// VERSION       : 5.0
+// ABSTRACT      : all utils sequence be kept here to manager
+//
+//******************************************************************************
+
+`ifndef TEST_SEQUENCE_LIBRARY__SV
+`define TEST_SEQUENCE_LIBRARY__SV
+
+/** \brief 
+    User decide sequence scenario base on project requirement
+    test_base_sequence is the base sequence for this interface agent
+    test_default_sequence is the default sequence to environment runing
+*/
+class test_base_sequence extends uvm_sequence #(test_xaction);
+
+    `uvm_object_utils(test_base_sequence)
+     
+    int seq_item_max_num;
+
+    //------------------------------------------------------------------------//
+    // Define the member variables base on project requirement                //
+    //------------------------------------------------------------------------//
+    //-----------------------------Coding begin-------------------------------//
+
+    //-----------------------------Coding end---------------------------------//
+
+    /** \brief Constructor
+    Calls super.new(name, parent)
+    */
+    extern function new(string name = "test_base_sequence");
+
+    /** \brief pre_body
+    This task is suggest to raise objection
+    */
+    extern virtual task pre_body();
+
+    /** \brief post_body
+    This task is suggest to drop objection
+    */
+    extern virtual task post_body();
+
+    //------------------------------------------------------------------------//
+    // Define the member task/function base on project requirement            //
+    //------------------------------------------------------------------------//
+    //-----------------------------Coding begin-------------------------------//
+
+    //-----------------------------Coding end---------------------------------//
+
+endclass
+
+function test_base_sequence::new(string name = "test_base_sequence");
+
+	super.new(name);
+    this.seq_item_max_num = 0;
+
+endfunction 
+
+task test_base_sequence::pre_body();
+        
+    if(starting_phase != null) begin
+    	starting_phase.raise_objection(this);
+    end
+
+endtask: pre_body
+
+task test_base_sequence::post_body();
+         
+    if(starting_phase != null) begin
+        starting_phase.drop_objection(this);
+    end
+
+endtask: post_body
+
+class test_default_sequence extends test_base_sequence;
+
+    `uvm_object_utils(test_default_sequence)
+
+    //------------------------------------------------------------------------//
+    // Define the member variables base on project requirement                //
+    //------------------------------------------------------------------------//
+    //-----------------------------Coding begin-------------------------------//
+
+    //-----------------------------Coding end---------------------------------//
+
+    /** \brief Constructor
+    Calls super.new(name, parent)
+    */
+    extern function new(string name = "test_default_sequence");
+
+    /** \brief body
+    This task is send item to sequencer
+    */
+    extern virtual task body();
+
+    //------------------------------------------------------------------------//
+    // Define the member task/function base on project requirement            //
+    //------------------------------------------------------------------------//
+    //-----------------------------Coding begin-------------------------------//
+
+    //-----------------------------Coding end---------------------------------//
+
+endclass
+
+function test_default_sequence::new(string name = "test_default_sequence");
+
+	super.new(name);
+
+endfunction 
+
+task test_default_sequence::body();
+        
+    //------------------------------------------------------------------------//
+    //  Extend body() base on project requirement                            //
+    //------------------------------------------------------------------------//    
+    //-----------------------------Coding begin-------------------------------//
+    void '(uvm_config_db #(int)::get(null, get_full_name(), "seq_item_max_num", this.seq_item_max_num));
+    `uvm_info(get_type_name(), $sformatf("body(): the send number value is %0d", this.seq_item_max_num), UVM_HIGH);
+    repeat(this.seq_item_max_num) begin
+        `uvm_do(req)
+	end
+    //-----------------------------Coding end---------------------------------//
+
+endtask: body
+
+`endif
+

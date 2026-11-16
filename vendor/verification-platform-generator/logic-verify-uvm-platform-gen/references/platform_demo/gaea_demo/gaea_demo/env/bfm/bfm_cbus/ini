@@ -1,0 +1,8 @@
+CATEGORY:cpu
+TOP:bfm_cbus.sv
+CFG:bfm_cbus_cfg
+INTERFACE:bfm_cbus_intf
+WORK_MODE:NULL
+PRIORITY:low
+VIP_VERSION:1.0
+FUNC_DEPICT:This VIP component implements the bus function of CBUS interface for Gaea verification platform

@@ -1,0 +1,13 @@
+CATEGORY:interface
+TOP:bfm_temp.sv
+CFG:bfm_temp_cfg.sv
+INTERFACE:bfm_temp_intf.sv
+DRIVER:bfm_temp_driver.sv
+MONITOR:bfm_temp_monitor.sv
+SEQ:null
+DATA_TYPE:null
+WORK_MODE:NORMAL,NORMAL_WITH_MONITOR,DRIVER,DRIVER_WITH_MONITOR,MONITOR
+PRIORITY:low
+OWNER_ID:l00123456
+RELEASE_DATE:2019/01/01
+FUNC_DEPICT:This VIP component implement the bus function of xx(GE) interface for Gaea verification platform;

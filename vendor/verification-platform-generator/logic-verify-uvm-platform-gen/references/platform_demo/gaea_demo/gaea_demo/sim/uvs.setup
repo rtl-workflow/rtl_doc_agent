@@ -1,0 +1,3 @@
+DEFAULT:./$(mode)/exec/work
+dut_lib:./$(mode)/exec/dut_lib
+env_lib:./$(mode)/exec/env_lib

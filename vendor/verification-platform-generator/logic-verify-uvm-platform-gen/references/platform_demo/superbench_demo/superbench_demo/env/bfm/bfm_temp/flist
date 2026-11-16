@@ -1,0 +1,6 @@
+bfm_temp_cfg.sv
+bfm_temp_intf.sv
+bfm_temp_receiver.sv
+bfm_temp_monitor.sv
+bfm_temp_driver.sv
+bfm_temp.sv

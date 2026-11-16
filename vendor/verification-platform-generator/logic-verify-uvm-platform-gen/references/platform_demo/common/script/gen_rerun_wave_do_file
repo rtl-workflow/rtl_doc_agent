@@ -1,0 +1,361 @@
+#! /usr/bin/perl -w
+
+## *****************************************************************************
+## Copyright(c) 2016, Hisilicon Technologies Co.,Ltd.
+## All rights reserved.
+##
+## PROJECT_GROUP    : SuperBench
+## FILENAME         : gen_rerun_wave_do
+## AUTHOR           : SuperBench Team
+## VERSION          : 5.0
+## ABSTRACT         : generate wave_fsdb/vpd.do for rerun
+##
+## *****************************************************************************
+
+use strict;
+
+use Getopt::Long;
+use Sys::Hostname;
+use IO::Handle; 
+use Cwd;
+use POSIX qw(strftime);
+
+
+################################################################################
+# user define variable
+################################################################################
+my $run_switch     = "off";
+
+my $time_unit      = "ps";
+my $error_key_word = "ERROR";
+my $pre_error_time = "2000";
+
+
+################################################################################
+# internal variable
+################################################################################
+my $log_info      = "";
+my $cur_dir       = getcwd;
+
+################################################################################
+# get input relative variable 
+################################################################################
+my $opt_get_help                = 0;
+my $opt_D                       = 0;
+my $opt_sim_dir                 = "$cur_dir";
+my $opt_cfg_file                = "../cfg/regress_and_report_cfg.pl";
+my $opt_log_name                = "";
+
+################################################################################
+# parameter for check
+################################################################################
+my @fail_keyword_list           = qw(FAILED failed corruption problem Error ERROR);
+my @ignore_keyword_list         = qw(DDRDLPI TVSENSE) ;
+
+################################################################################
+# regress_and_report_cfg.pl parameter default setting
+# these parameter will be changed after read regress_and_report_cfg.pl
+################################################################################
+our @FAIL_KEYWORD_LIST;
+our @IGNORE_KEYWORD_LIST;
+
+################################################################################
+# main proc start
+################################################################################
+&my_main();
+exit(0);
+
+################################################################################
+# get_input
+################################################################################
+sub get_input {
+
+    my $expect_argv_num = $#ARGV;
+    my $opt_ok = GetOptions (
+        'h|help'                => \$opt_get_help,
+        'Debug'                 => \$opt_D,
+        'sim_dir=s'             => \$opt_sim_dir,
+        'cfg_file=s'            => \$opt_cfg_file,
+        'log_name=s'            => \$opt_log_name,
+    );
+
+    if (!$opt_ok) {
+        $log_info = "$0 input arguments error, please see detail usage.";
+        &print_info($log_info, "STB::Error");
+        my_help();
+        exit(1);
+    }
+
+    if ($opt_get_help) {
+        my_help();
+        exit(0);
+    }
+
+    ############################################################################
+    # If $run_switch=off, exit.
+    ############################################################################
+    exit(0) if ($run_switch eq "off");
+
+}
+
+################################################################################
+# read regress_and_report_cfg.pl and get relative parameter
+################################################################################
+sub read_regress_cfg_file {
+
+    my $cfg_file = "$opt_sim_dir/$opt_cfg_file";
+
+    if (-r $cfg_file) {
+        require $cfg_file;
+    } else {
+        $log_info = "Failed to find cfg file $cfg_file.";
+        &print_info($log_info, "STB::Warning");
+    } 
+
+    #========================================================================
+    # Get keywords from the configure file 
+    #------------------------------------------------------------------------
+    @fail_keyword_list = @FAIL_KEYWORD_LIST if (scalar(@FAIL_KEYWORD_LIST) );
+    @ignore_keyword_list = @IGNORE_KEYWORD_LIST if (scalar(@IGNORE_KEYWORD_LIST) );
+
+}
+
+##############################################################################
+# analyze_log
+#     analyze the log the get the test's error type 
+##############################################################################
+sub analyze_log {
+
+    my $log_file = "$opt_log_name";
+    my $fail_flag     = 0;
+    my $mode;
+    my $run_time       = 0;
+
+    if(-r $log_file){
+        $log_info = "Can't open the file $log_file for reading.";
+        open (IN_FILE," < $log_file")
+             or die &print_info($log_info, "STB::Error");
+            
+        # Get the "log name", test name and seed
+        if ( $log_file =~ m/([-\w]+)\/log\/(\w+)_(\d+).log$/) {
+            $mode      = $1;
+        } 
+
+        while (<IN_FILE>){
+            my $line        = $_;
+            my $ignore_flag = 0;
+                        
+            #match the failed keyword
+            if($fail_flag == 0) {
+                foreach my $keyword (@ignore_keyword_list) {
+                   if($line =~ m/\b$keyword\b/){
+                       $ignore_flag = 1;
+                       last;
+                   }
+                }
+
+                if ($ignore_flag == 0){
+                    foreach my $keyword ( @fail_keyword_list) {
+                       if($line =~ m/\b$keyword\b/){
+                           $fail_flag = 1;
+                           last;
+                       }
+                    }
+                }
+            }
+
+            # Get tc fail time and time_precision fix 'ns', format is >> HIT-ERROR at 110506 ns
+            if (!$run_time && $fail_flag && $line =~ m"$error_key_word.*at\s+(\d+)") {
+                print "$line";
+                $run_time  = $1-$pre_error_time if ( $1 > $pre_error_time);
+                $run_time .= "$time_unit";
+                &gen_tc_seed_do_file($run_time,$mode);
+                last;
+            }
+        }
+        close IN_FILE;
+
+    } else {
+        $log_info = "Failed to find log file $log_file, this may be cause by tool error.";
+        &print_info($log_info, "STB::Error");
+    }
+
+}
+
+################################################################################
+# get do_filepath
+################################################################################
+sub do_filepath {
+    my $tc_name = shift;
+    my $do_filepath = `find ../tc -name "$tc_name" -type d`;
+    chomp($do_filepath);
+    return($do_filepath);
+}
+
+################################################################################
+# gen_tc_seed_do_file base on failed tc log
+################################################################################
+sub gen_tc_seed_do_file {
+    my $run_time = shift;
+    my $mode = shift;
+    print "run_time :$run_time mode :$mode\n";
+    if ( $opt_log_name =~ m/((\w+)_(\d+)).log/ ) {
+        my $tc_seed = $1;
+        my $tc_name = $2;
+        my $seed    = $3;
+        my $new_file_content = "";
+        my $add_run_time = 0;
+        my $do_filepath = &do_filepath($tc_name);
+
+        my $tc_fsdb_file = "$opt_sim_dir/$mode/exec/$tc_seed\_fsdb.do";
+        my $wave_fsdb_file = "$opt_sim_dir/../tc/wave_fsdb.do";
+        $wave_fsdb_file = "$opt_sim_dir/../tc/$tc_name\_fsdb.do" if (-r "$opt_sim_dir/../tc/$tc_name\_fsdb.do");
+        $wave_fsdb_file = "$opt_sim_dir/../tc/$tc_name/$tc_name\_fsdb.do" if (-r "$opt_sim_dir/../tc/$tc_name/$tc_name\_fsdb.do");
+        $wave_fsdb_file = "$opt_sim_dir/$do_filepath/$tc_name\_fsdb.do" if (-r "$opt_sim_dir/$do_filepath/$tc_name\_fsdb.do" );
+        if(-r $wave_fsdb_file) {
+            $log_info = "Can't open the file $wave_fsdb_file for reading.";
+            open (IN_DO_FILE," < $wave_fsdb_file")
+                or die &print_info($log_info, "STB::Error");
+
+            while (<IN_DO_FILE>){
+                my $line        = $_;
+                if(!$add_run_time && $line =~ m/^\s*run\s+\d+/){
+                    $line = "";
+                }
+                if(!$add_run_time && $line =~ m/^\s*if\s*{/){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                if(!$add_run_time && $line =~ m/^\s*call /){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                $new_file_content .= $line;
+            }
+            close IN_DO_FILE; 
+            open( REPORT, ">$tc_fsdb_file")
+                or die "[Error] Can't open file $tc_fsdb_file to write.\n";
+            printf REPORT "%s",$new_file_content;
+            close REPORT;
+        }
+
+        my $tc_vpd_file = "$opt_sim_dir/$mode/exec/$tc_seed\_vpd.do";
+        my $wave_vpd_file = "$opt_sim_dir/../tc/wave_vpd.do";
+        $wave_vpd_file = "$opt_sim_dir/../tc/$tc_name\_vpd.do" if (-r "$opt_sim_dir/../tc/$tc_name\_vpd.do");
+        $wave_vpd_file = "$opt_sim_dir/../tc/$tc_name/$tc_name\_vpd.do" if (-r "$opt_sim_dir/../tc/$tc_name/$tc_name\_vpd.do");
+        $wave_vpd_file = "$opt_sim_dir/$do_filepath/$tc_name\_vpd.do" if (-r "$opt_sim_dir/$do_filepath/$tc_name\_vpd.do" );
+        if (-r $wave_vpd_file) {
+            $new_file_content = "";
+            $add_run_time = 0;
+            $log_info = "Can't open the file $wave_vpd_file for reading.";
+            open (IN_DO_FILE," < $wave_vpd_file")
+             or die &print_info($log_info, "STB::Error");
+
+            while (<IN_DO_FILE>){
+                my $line        = $_;
+                if(!$add_run_time && $line =~ m/^\s*run\s+\d+/){
+                    $line = "";
+                }
+                if(!$add_run_time && $line =~ m/^\s*if\s*{/){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                if(!$add_run_time && $line =~ m/^\s*dump /){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                $new_file_content .= $line;
+            }
+            close IN_DO_FILE; 
+            open( REPORT, ">$tc_vpd_file")
+                or die "[Error] Can't open file $tc_vpd_file to write.\n";
+            printf REPORT "%s",$new_file_content;
+            close REPORT;
+        }
+
+        my $tc_shm_file = "$opt_sim_dir/$mode/exec/$tc_seed\_shm.do";
+        my $wave_shm_file = "$opt_sim_dir/../tc/wave_shm.do";
+        $wave_shm_file = "$opt_sim_dir/../tc/$tc_name\_shm.do" if (-r "$opt_sim_dir/../tc/$tc_name\_shm.do");
+        $wave_shm_file = "$opt_sim_dir/../tc/$tc_name/$tc_name\_shm.do" if (-r "$opt_sim_dir/../tc/$tc_name/$tc_name\_shm.do");
+        $wave_shm_file = "$opt_sim_dir/$do_filepath/$tc_name\_shm.do" if (-r "$opt_sim_dir/$do_filepath/$tc_name\_shm.do" );
+        if (-r $wave_shm_file) {
+            $new_file_content = "";
+            $add_run_time = 0;
+            $log_info = "Can't open the file $wave_shm_file for reading.";
+            open (IN_DO_FILE," < $wave_shm_file")
+             or die &print_info($log_info, "STB::Error");
+
+            while (<IN_DO_FILE>){
+                my $line        = $_;
+                if(!$add_run_time && $line =~ m/^\s*run\s+\d+/){
+                    $line = "";
+                }
+                if(!$add_run_time && $line =~ m/^\s*if\s*{/){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                if(!$add_run_time && $line =~ m/^\s*probe /){
+                    $add_run_time = 1;
+                    $line = "run $run_time\n" . $line;
+                }
+                $new_file_content .= $line;
+            }
+            close IN_DO_FILE; 
+            open( REPORT, ">$tc_shm_file")
+                or die "[Error] Can't open file $tc_shm_file to write.\n";
+            printf REPORT "%s",$new_file_content;
+            close REPORT;
+        }
+
+    }
+}
+
+################################################################################
+# print_info
+################################################################################
+sub print_info {  
+
+    my $debug_info  = shift;
+
+    # if the number parameter is larger than one, the print information will take time
+    if (@_ == 1) {
+        my $curr_time = `date "+%m/%d-%H:%M:%S"`;
+        chomp($curr_time);
+        my $info_level = shift;
+        $debug_info = "[$info_level $curr_time check_log_ep_run] ".$debug_info;
+    }
+
+    print "$debug_info\n";
+
+}
+
+############################################################################
+# my_main
+############################################################################
+sub my_main {
+    # 1. get command parameter
+    &get_input();
+
+    # 2. read regress cfg file
+    &read_regress_cfg_file();
+
+    # 3. analyze log and gen rerun wave do file
+    &analyze_log();
+}
+
+############################################################################
+# my_help
+#     print help information.
+############################################################################
+sub my_help {
+    print STDOUT <<ENDHELP
+    Usage1: gen_rerun_wave_do <-h | -H | -help>
+    Usage2: gen_rerun_wave_do <-log_name log_name> [-sim_dir sim_dir] [-cfg_file cfg_file]
+           
+    e.g. Command :
+         gen_rerun_wave_do -log_name log_name -sim_dir /data/.../sim -cfg_file ../cfg/regress_and_report_cfg.pl
+
+ENDHELP
+    ;
+}
+

@@ -48,6 +48,18 @@ P4生成测试点、测试用例与testbench激励并完成桩自检后，流程
 
 生成规则见 [平台参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-platform-generation.md)、[BFM参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-bfm-generation.md)、[用例参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-testcase-generation.md)。本地 Python 测试可用 `python -m unittest discover -s plugins/rtl-flow/skills/rtl-design-flow/scripts/tests`；这些测试不替代已配置 VCS 环境上的编译 / 仿真。
 
+### 可选验证证据增强
+
+在 IP 的 `dv/evidence.json` 声明完整仿真用例的种子和活动要求后，runner 会检查每次运行的真实观测、有效检查、错误与未完成事务计数，以及项目声明的计数相等关系。启用模式保留现有 TEST/UVM/COVER 检查，并将每次尝试的日志和摘要保存到独立的 `reports/evidence/<run_id>/`；失败与重跑不会共用同一个档案。
+
+合同随验证内容进入 G3 审核；修改或删除会使缓存失效。桩自检只检查结构和终止，不以真实 DUT 活动阈值判通过。没有合同的旧项目保持兼容。指标必须来自实际 monitor/checker，不代表覆盖闭合或可信硬件认证。详见 [验证证据协议](plugins/rtl-flow/skills/rtl-design-flow/references/verification-evidence.md)。
+
+### 验证平台生成资产包
+
+仓库同时收录用户提供的同事资产包：总 skill、BFM/平台/TC/RTL 子技能、Python 工具与测试、Gaea/Superbench 源模板和原始规则，位于 `vendor/verification-platform-generator/`。来源、逐文件摘要、保留的版权及权利声明见 [导入与接入说明](vendor/VERIFICATION_PLATFORM_IMPORT.md)。原包的许可状态未被改写；这些资产并非新增的通用开源许可证授权。
+
+完整 checkout 可按需使用这些可选资产；只安装插件缓存时不要求它们存在。rtl-flow 仍以自身状态机、SSOT、G3 审核和黑盒边界为准，legacy 平台需要实际工具/库适配，复制模板不代表已经编译或验证通过。
+
 ### 原始名称保留
 
 需求、规格、接口表及已有设计中的名称原样贯穿文档、SSOT、RTL、验证与软件接口；不为统一风格增删前后缀、改变大小写、缩写或替换同义名。IP名、模块与文件名、端口、时钟复位、参数、寄存器及字段等均适用。未命名对象按项目已有风格命名；冲突或非法标识符先向用户澄清并记录确认后的映射。

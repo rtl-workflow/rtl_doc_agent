@@ -1,0 +1,36 @@
+skill_id: "logic-verify-uvm-bfm-gen"
+name: "UVM BFM 生成子技能"
+version: "3.0.0"
+description: "总agent按批准接口合同编写BFM；无独立生成器、schema执行器或内置SSH编译器。"
+execution:
+  mode: "agent_assisted_subskill"
+  orchestrator: "../SKILL.md"
+  ssh_contract: "../references/ssh-backend-contract.md"
+  ssh_implemented: false
+  simulator_default: null
+  telemetry_enabled: false
+security:
+  network_access: "parent_managed_ssh_only"
+  direct_network_access: false
+  preserve_logs: true
+  source_change_invalidates_compile: true
+  note: "声明性合同；本manifest不实现SSH或操作系统权限隔离。"
+runtime:
+  os: ["linux", "windows"]
+  tools: []
+  note: "Excel依赖由宿主提供；执行工具需总agent显式配置。"
+depends_on:
+  - "logic-verify-uvm-platform-gen"
+interface:
+  contract_version: "3.0.0"
+  schema_dialect: "draft-07"
+  input_schema: "schemas/input_schema.json"
+  output_schema: "schemas/output_schema.json"
+  status_scope: "generation_only"
+  legacy_success_means: "generated_not_verification_pass"
+trigger_words:
+  - "生成UVM BFM"
+  - "生成BFM组件"
+  - "生成interface"
+  - "生成driver"
+  - "生成receiver"

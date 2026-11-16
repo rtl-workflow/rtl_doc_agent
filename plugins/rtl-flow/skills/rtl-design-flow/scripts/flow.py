@@ -177,6 +177,19 @@ def open_questions(ip: Path):
     return qs
 
 
+def evidence_current(ip, res, report, cur):
+    """A strict cached result must retain a complete, matching evidence archive."""
+    if cur.get("evidence_sha256", "absent") == "absent" and not res.get("evidence"):
+        return True
+    if not res.get("evidence"):
+        return False
+    try:
+        run_regress.evidence.verify_archive(ip, res, None, report)
+    except (ValueError, OSError, KeyError, TypeError):
+        return False
+    return True
+
+
 def regress_current(ip: Path):
     """Current rtl-mode regression result, or None if missing/stale."""
     p = ip / run_regress.REPORT
@@ -190,7 +203,10 @@ def regress_current(ip: Path):
         cur = run_regress.digests(ip, data)
     except (ValueError, OSError):
         return None
-    return res if all(res.get(k) == v for k, v in cur.items()) else None
+    if not evidence_current(ip, res, p, cur):
+        return None
+    return res if all(res.get(k, "absent" if k == "evidence_sha256" else None) == v
+                      for k, v in cur.items()) else None
 
 
 def stub_current(ip: Path):
@@ -206,7 +222,11 @@ def stub_current(ip: Path):
         cur = run_regress.digests(ip, data, include_rtl=False)
     except (ValueError, OSError):
         return None
-    return res if all(res.get(k) == cur[k] for k in ("tb_sha256", "tests_sha256")) else None
+    if not evidence_current(ip, res, p, cur):
+        return None
+    keys = tuple(k for k in cur if k != "rtl_sha256")
+    return res if all(res.get(k, "absent" if k == "evidence_sha256" else None)
+                      == cur[k] for k in keys) else None
 
 
 # --------------------------------------------------------------------------- deferred tools (platform)

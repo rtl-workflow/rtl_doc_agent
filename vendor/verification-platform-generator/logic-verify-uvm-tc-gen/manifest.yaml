@@ -1,0 +1,64 @@
+skill_id: "logic-verify-uvm-tc-gen"
+name: "UVM 测试用例生成子技能"
+version: "3.0.0"
+category: "verify"
+description: "总agent按批准测试点和真实平台API编写用例；无独立生成器或内置SSH编译器。"
+execution:
+  mode: "agent_assisted_subskill"
+  orchestrator: "../SKILL.md"
+  ssh_contract: "../references/ssh-backend-contract.md"
+  ssh_implemented: false
+  simulator_default: null
+  telemetry_enabled: false
+security:
+  network_access: "parent_managed_ssh_only"
+  direct_network_access: false
+  preserve_logs: true
+  source_change_invalidates_compile: true
+  note: "声明性合同；本manifest不实现SSH或操作系统权限隔离。"
+runtime:
+  os: ["linux", "windows"]
+  tools: []
+  note: "Excel依赖由宿主提供；执行工具需总agent显式配置。"
+depends_on: []
+requires_artifacts:
+  - "approved_test_plan"
+  - "integrated_uvm_platform"
+interface:
+  contract_version: "3.0.0"
+  schema_dialect: "draft-07"
+  input_schema: "schemas/input_schema.json"
+  output_schema: "schemas/output_schema.json"
+  status_scope: "generation_only"
+  legacy_success_means: "generated_not_verification_pass"
+trigger_words:
+  - "生成UVM测试用例"
+  - "生成测试用例"
+  - "生成testcase"
+  - "设计测试步骤"
+input_sources:
+  required_selector: "source_mode"
+  supported: ["prepared", "excel"]
+  prepared: "parent-normalized prepared_testpoints or prepared_input_ref, retaining stable IDs and source_ref"
+  excel: "excel_file and explicit sheet_name"
+  converter_implemented: false
+platform_type:
+  description: "必填、无默认；1=Superbench，2=Gaea"
+  required: true
+  values:
+    1:
+      name: "Superbench"
+      tc_dir: "tc"
+      tc_list: "tc/tc.list"
+      compile_flist: "cfg/env.f"
+    2:
+      name: "Gaea"
+      tc_dir: "tests"
+      tc_list: "tests/tc.list"
+      compile_flist: "sim/scripts/tb_list.f"
+      preserved_base_flist: "sim/scripts/tc_list.f"
+      preserve_base_chain: true
+      insert_before: "tc_undef.sv"
+      legacy_launch_cwd: "sim/scripts"
+      legacy_compile_cwd: "sim/<case_id>[.<suffix>]"
+      build_validation: "not_run; nested -f/-F paths and duplicate sources require tool-profile review"
