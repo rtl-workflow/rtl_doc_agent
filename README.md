@@ -4,7 +4,7 @@
 
 ## 安装入口（用户与安装 agent 必读）
 
-在 Claude Code 或 OpenCode 中，都只需要发送同一句话：
+在 Claude Code、OpenCode 或 DeepSeek Harness（DSH）中，都可以发送同一句话：
 
 ```text
 请按照 https://github.com/rtl-workflow/rtl_doc_agent 的 README 中的提示，为我安装这个插件。
@@ -12,9 +12,9 @@
 
 **以下步骤由安装 agent 执行，用户无需选择安装指南或补充安装命令：**
 
-1. 识别承载当前对话的工具是 Claude Code 还是 OpenCode。以当前会话环境为准，不根据机器上是否装有某个 CLI 来猜测；确实无法识别时才询问用户。
+1. 识别承载当前对话的工具是 Claude Code、OpenCode 还是 DeepSeek Harness（DSH）。以当前会话环境为准，不根据机器上是否装有某个 CLI 来猜测；确实无法识别时才询问用户。
 2. 根据下表读取对应的完整安装指南，再实际执行安装。通过网页读取 README 时，可直接读取表内的原始文档链接；从本地仓库读取时使用相对路径。不要只复述步骤或停在“建议安装”。
-3. 检查现有安装，按对应指南复用或更新；首次安装默认面向当前用户，不改项目共享配置。不要因两个工具都已安装就同时给两个工具安装。
+3. 检查现有安装，按对应指南复用或更新；Claude Code / OpenCode 首次安装默认面向当前用户，不改项目共享配置；DSH 按指南接入当前工作区并保留已有规则。不要同时给其他工具安装。
 4. 按指南核验安装记录和加载结果。只能完成重启前检查时，报告已完成部分和用户需要执行的重启 / 重载操作，不提前宣称全部可用。遇到错误先处理或报告，不自行换成另一种安装方式。
 5. 插件安装完成后再说明 EDA 配置入口；不要在安装阶段索取服务器密码或启动交互式配置向导。
 
@@ -22,10 +22,11 @@
 |---|---|---|
 | Claude Code | [市场安装指南](.claude-plugin/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.claude-plugin/INSTALL.md) | 添加 `rtl-flow` 市场，安装并启用 `rtl-flow@rtl-flow`，核验已安装列表与加载结果 |
 | OpenCode | [安装指南](.opencode/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.opencode/INSTALL.md) | 克隆完整仓库，运行 `install-opencode` 注册加载器，重启后核验命令、agent 和 skill |
+| DeepSeek Harness（DSH） | [工作区接入指南](.dsh/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.dsh/INSTALL.md) | 保留完整仓库与 Python 环境，在工作区规则中引用 skill，核验脚本及新会话规则加载；没有原生插件注册或 hook 权限隔离 |
 
 **Claude Code 默认走插件市场。** AI 在 shell 中执行 `claude plugin marketplace add ...` 和 `claude plugin install ...`；用户在聊天输入框使用 `/plugin ...`。仅执行 `git clone`、复制 skill 或使用 `--plugin-dir` 不算完成市场安装。只有用户明确要求源码开发、离线复制或临时调试时，才采用相应方式。不要把 OpenCode 的克隆安装步骤用于 Claude Code。
 
-从 0.4.0 起采用**多 agent 工作流**：主会话担任编排者，由 `flow.py` 状态机决定每一步；5 个角色 agent 分工完成；检查脚本判定能否进入下一阶段；hook 强制执行角色权限。验证 agent 看不到 RTL，与设计相互独立。
+从 0.4.0 起采用**多 agent 工作流**：主会话担任编排者，由 `flow.py` 状态机决定每一步；5 个角色 agent 分工完成；检查脚本判定能否进入下一阶段。在 Claude Code / OpenCode 中，hook 强制执行角色权限，使验证 agent 看不到 RTL。DSH 工作区接入仅复用规则与脚本，尚无该强制隔离。
 
 ## 包含内容
 
@@ -208,6 +209,12 @@ claude plugin list --json
 安装后重启 OpenCode，确认能看到 `/rtl-flow:ip-new`、`/rtl-flow:ip-run` 和 `rtl-design-flow` skill。更新时在安装目录执行 `git pull --ff-only`，重新运行 `install-opencode`，再重启 OpenCode。
 
 `plugins/rtl-flow/opencode/rtl-flow.js` 负责翻译工具调用：agent、命令和 skill 都从同一批 Markdown 动态注册，权限判断调用同一个 `hooks/flow_hook.py`，修改规则时只改一处。
+
+### 方式 5：DeepSeek Harness（DSH）工作区接入
+
+在 DSH 中使用本文开头的统一安装提示词，agent 应读取 [DSH 工作区接入指南](.dsh/INSTALL.md)，准备完整仓库与独立 Python 环境，在当前工作区的 `AGENTS.md` 中合并规则入口，并验证脚本与新会话规则加载。Windows 无 Git 时可使用完整源码 ZIP，更新方式与 Git 克隆分别说明。
+
+这是规则和脚本接入，**不是 DSH 原生插件包**；不会注册 `/rtl-flow:*`、命名角色或原生 skill，也没有 hook 强制权限隔离。安装后用自然语言提出 RTL 任务，由主会话读取 skill、按状态机派发角色。EDA 配置仍由用户在自己的终端单独执行。
 
 ### 其他工具
 
