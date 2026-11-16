@@ -3,6 +3,20 @@
 #   first time:  bash ~/setup_watcher.sh
 #   restart:     bash ~/jobs/setup_watcher.sh
 set -e
+# Agent bootstrap must never kill a session that became live after its FTP check.
+# tmux new-session below atomically refuses a duplicate name in a concurrent start.
+connect_only=0
+case "${1:-}" in
+    --if-stopped)
+        connect_only=1
+        if tmux has-session -t '=rexec' 2>/dev/null; then
+            echo "INFO: rexec session already exists; leaving it unchanged"
+            exit 0
+        fi
+        ;;
+    "") ;;
+    *) echo "ERROR: unknown option: $1"; exit 2 ;;
+esac
 J="$HOME/jobs"
 mkdir -p "$J"/inbox "$J"/outbox "$J"/work "$J"/archive
 chmod 700 "$J"
@@ -21,8 +35,10 @@ chmod 600 "$J/rexec.key"
 command -v python3.11 >/dev/null || { echo "ERROR: python3.11 not found"; exit 1; }
 command -v tmux >/dev/null || { echo "ERROR: tmux not found"; exit 1; }
 
-tmux kill-session -t rexec 2>/dev/null || true
-sleep 1
+if [ "$connect_only" -eq 0 ]; then
+    tmux kill-session -t rexec 2>/dev/null || true
+    sleep 1
+fi
 tmux new-session -d -s rexec \
     "while true; do python3.11 '$J/watcher.py'; rc=\$?; [ \$rc -eq 3 ] && break; echo \"watcher exited (\$rc), restarting in 5s\"; sleep 5; done; exec bash"
 sleep 3
