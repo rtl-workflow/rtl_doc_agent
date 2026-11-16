@@ -1,0 +1,99 @@
+skill_id: logic-verify-uvm-platform-gen
+name: UVM平台集成子技能
+version: "2.1.0"
+workflow: logic-verify
+parent_agent: verification-platform-generator
+description: >-
+  由总agent调度，基于已批准组件和连接合同集成legacy Superbench/Gaea模板。
+  创建脚本只复制骨架，不运行EDA，不证明UVM兼容性或真实DUT验证通过。
+security:
+  network_access: disabled
+  telemetry_enabled: false
+  remote_execution_owner: parent_agent
+  overwrite_existing_output: false
+  source_components_read_only: true
+profiles:
+  1: legacy_superbench
+  2: legacy_gaea
+compatibility:
+  template_default_uvm: "1.1"
+  ieee_1800_2_validated: false
+  simulator: parent_profile_required
+  external_libraries: unresolved_until_project_preflight
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [components_root, output_root, platform_name, platform_type]
+  properties:
+    components_root:
+      type: string
+      minLength: 1
+    output_root:
+      type: string
+      minLength: 1
+    platform_name:
+      type: string
+      pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
+      description: 创建器额外拒绝Windows保留名；不接受路径。
+    platform_type:
+      type: integer
+      enum: [1, 2]
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [schema_version, status, platform_path, framework_profile, uvm_compatibility, compile_status, simulation_status, artifacts, errors]
+  properties:
+    schema_version:
+      const: bt-platform-result/v1
+    status:
+      enum: [scaffold_created, integrated, blocked, failed]
+    platform_path:
+      type: [string, 'null']
+      minLength: 1
+    framework_profile:
+      enum: [legacy_superbench, legacy_gaea]
+    uvm_compatibility:
+      const: unverified_legacy
+    compile_status:
+      const: not_run
+    simulation_status:
+      const: not_run
+    artifacts:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [path, sha256]
+        properties:
+          path:
+            type: string
+            minLength: 1
+            description: 相对于platform_path的文件路径；消费方须拒绝越界。
+          sha256:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+    errors:
+      type: array
+      items:
+        type: string
+        minLength: 1
+  allOf:
+    - if:
+        properties:
+          status:
+            enum: [scaffold_created, integrated]
+      then:
+        properties:
+          platform_path:
+            type: string
+          artifacts:
+            minItems: 1
+          errors:
+            maxItems: 0
+      else:
+        properties:
+          errors:
+            minItems: 1
+# compile/simulation证据由总agent单独存放；本合同的任何状态都不是DUT pass。
+# 创建器仅实现scaffold_created/failed。integrated由总agent完成集成和静态审查后生成，
+# 必须重算最终文件摘要，不能直接沿用创建器快照。

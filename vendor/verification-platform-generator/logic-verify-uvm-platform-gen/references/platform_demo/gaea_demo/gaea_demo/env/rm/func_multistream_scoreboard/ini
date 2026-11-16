@@ -1,0 +1,5 @@
+CATEGORY:function
+TOP:multi_stream_scoreboard.sv
+CFG:multi_stream_scoreboard_cfg.sv
+INTERFACE:null
+WORK_MODE:null

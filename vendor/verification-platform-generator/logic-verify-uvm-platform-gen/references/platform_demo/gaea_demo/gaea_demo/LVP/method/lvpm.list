@@ -1,0 +1,16 @@
+//************************lvpm_incdir***************************
++incdir+../../LVP/method
++incdir+../../LVP/method/clk_module
++incdir+../../LVP/method/common
++incdir+../../LVP/method/encdec
+
+//************************lvpm**********************************
+../../LVP/method/lvpm_dec.sv
+//******func_task******
+//../../LVP/method/lvpm_package.sv
+//******micromodule******
+../../LVP/method/clk_module/god_clk.sv
+../../LVP/method/clk_module/tb_clk_gen.sv
+//******define_func******
+../../LVP/method/common/public_define_func.sv
+../../LVP/lvp_dut_cfg_base.sv

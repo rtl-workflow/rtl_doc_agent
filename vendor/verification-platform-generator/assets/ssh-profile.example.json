@@ -1,0 +1,40 @@
+{
+  "schema_version": "bt-uvm-ssh-profile-draft/v1",
+  "enabled": false,
+  "validated": false,
+  "input_mode": "prepared",
+  "transport": {
+    "type": "ssh",
+    "host_alias": null,
+    "port": 22,
+    "known_hosts_file": null,
+    "host_key_policy": "reject_unknown",
+    "auth_ref": null,
+    "remote_root": null,
+    "worker_entrypoint": null,
+    "connect_timeout_seconds": 30,
+    "job_timeout_seconds": 1200,
+    "max_parallel_jobs": 1
+  },
+  "simulator": {
+    "id": null,
+    "version": null,
+    "uvm_version": null,
+    "version_argv": null,
+    "compile_argv": null,
+    "elaborate_argv": null,
+    "run_argv": null,
+    "build_artifacts": [],
+    "required_capabilities": ["systemverilog_classes", "uvm", "constrained_random"],
+    "environment_allowlist": []
+  },
+  "policy": {
+    "read_only_inputs": [],
+    "writable_outputs": [],
+    "require_protected_worker_receipts": true,
+    "require_plan_and_source_hashes": true,
+    "on_disconnect": "query_same_run_id",
+    "allow_automatic_resubmit": false
+  },
+  "status": "blocked_simulator_and_host_unconfigured"
+}

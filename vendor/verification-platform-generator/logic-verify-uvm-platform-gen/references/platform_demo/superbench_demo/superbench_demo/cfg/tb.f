@@ -1,0 +1,2 @@
+-F ../cfg/env.f
+-F ../cfg/dut.f

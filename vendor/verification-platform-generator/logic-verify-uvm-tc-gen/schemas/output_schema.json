@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UVM TC Subskill Output 3.0.0",
+  "description": "Generation contract only, never a verification verdict. Parent must check actual artifacts, approved full testpoint set and original evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "validation_scope", "compile_status", "artifacts_out", "logs", "issues", "testpoint_disposition"],
+  "properties": {
+    "schema_version": {"const": "3.0.0"},
+    "status": {"type": "string", "enum": ["generated", "blocked", "failed", "success"], "description": "success is a deprecated generated alias, not compile success, coverage closure or DUT PASS."},
+    "validation_scope": {"const": "generation_only"},
+    "compile_status": {"type": "string", "enum": ["not_run", "blocked", "passed", "failed"]},
+    "artifacts_out": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "type", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Actual artifact path; parent checks write scope, existence and hash."},
+          "type": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+          "class_name": {"type": "string", "minLength": 1},
+          "testpoints_covered": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Declared mapping only, not measured functional coverage."},
+          "metadata": {"type": "object"}
+        }
+      }
+    },
+    "logs": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Generation summary/reference; preserve original compiler logs separately."},
+    "issues": {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "\\S"}},
+    "testpoint_disposition": {
+      "type": "array",
+      "description": "Every input point must be present, including blocked/excluded points; parent checks completeness and approval authenticity.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "source_ref", "disposition", "reason"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "source_ref": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "disposition": {"type": "string", "enum": ["included", "blocked", "excluded"]},
+          "reason": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "approval_ref": {"type": "string", "minLength": 1, "pattern": "\\S"}
+        },
+        "allOf": [{"if": {"properties": {"disposition": {"const": "excluded"}}}, "then": {"required": ["approval_ref"]}}]
+      }
+    },
+    "compile_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["log_path", "tool_version", "command", "source_manifest_sha256"],
+        "properties": {
+          "log_path": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "tool_version": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "command": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "source_manifest_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+        }
+      }
+    },
+    "platform_doc": {"type": "string", "minLength": 1},
+    "platform_doc_confirmed": {"type": "boolean", "description": "Must reflect an actual parent approval; never inferred from timeout."},
+    "test_steps_doc": {"type": "string", "minLength": 1},
+    "test_steps_confirmed": {"type": "boolean"},
+    "input_mode": {"type": "string", "enum": ["testcase", "testpoint"]},
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "description": "Bookkeeping only, not execution or coverage proof.",
+      "properties": {
+        "files_generated": {"type": "integer", "minimum": 0},
+        "classes_generated": {"type": "integer", "minimum": 0},
+        "testpoints_count": {"type": "integer", "minimum": 0},
+        "testpoints_covered": {"type": "integer", "minimum": 0},
+        "testcases_designed": {"type": "integer", "minimum": 0},
+        "tokens_used": {"type": "integer", "minimum": 0},
+        "execution_time_seconds": {"type": "integer", "minimum": 0}
+      }
+    },
+    "llm_response": {"type": "object", "description": "Optional local metadata, not sent to telemetry or interpreted as evidence."},
+    "compile_result": {"type": "object", "description": "Legacy supplementary metadata only. Cannot replace required compile_status/compile_evidence or establish a verdict."}
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"enum": ["generated", "success"]}}}, "then": {"properties": {"artifacts_out": {"minItems": 1}, "testpoint_disposition": {"minItems": 1}}}},
+    {"if": {"properties": {"status": {"enum": ["blocked", "failed"]}}}, "then": {"properties": {"issues": {"minItems": 1}}}},
+    {"if": {"properties": {"compile_status": {"enum": ["passed", "failed"]}}}, "then": {"required": ["compile_evidence"], "properties": {"compile_evidence": {"minItems": 1}}}},
+    {"if": {"properties": {"compile_status": {"const": "blocked"}}}, "then": {"properties": {"issues": {"minItems": 1}}}}
+  ]
+}

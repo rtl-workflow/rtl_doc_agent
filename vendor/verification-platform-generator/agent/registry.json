@@ -1,0 +1,20 @@
+{
+  "schema_version": "verification-agent-registry/v1",
+  "agent_id": "verification-platform-generator",
+  "entrypoint": "SKILL.md",
+  "execution_model": "host_agent_assisted",
+  "default_input_mode": "prepared",
+  "transport": {"selected": "ssh", "implementation": "contract_only", "simulator": null},
+  "capabilities": [
+    {"id": "intake_design", "kind": "agent_procedure", "entrypoint": "references/agent-runbook.md", "status": "documented", "depends_on": [], "scope": "requirements_architecture_trace"},
+    {"id": "bfm", "kind": "subskill", "entrypoint": "logic-verify-uvm-bfm-gen/SKILL.md", "status": "agent_assisted", "depends_on": ["intake_design"], "scope": "interface_driver_monitor"},
+    {"id": "components", "kind": "agent_procedure", "entrypoint": "references/component-authoring.md", "status": "documented", "depends_on": ["intake_design"], "scope": "gen_reference_model_checker_sva_coverage"},
+    {"id": "platform", "kind": "subskill", "entrypoint": "logic-verify-uvm-platform-gen/SKILL.md", "status": "templates_and_helpers", "depends_on": ["bfm", "components"], "scope": "integration"},
+    {"id": "tc", "kind": "subskill", "entrypoint": "logic-verify-uvm-tc-gen/SKILL.md", "status": "agent_assisted", "depends_on": ["platform"], "scope": "sequences_tests_manifest"},
+    {"id": "rtl", "kind": "subskill", "entrypoint": "rtl-gen/SKILL.md", "status": "opt_in_agent_assisted", "depends_on": [], "scope": "separately_authorized_dut_design"},
+    {"id": "evidence", "kind": "python_cli", "entrypoint": "bt_uvm/__main__.py", "status": "implemented_local", "depends_on": [], "scope": "local_contract_evaluation"},
+    {"id": "ssh_execution", "kind": "contract", "entrypoint": "references/ssh-backend-contract.md", "status": "not_implemented", "depends_on": ["tc"], "scope": "remote_execution_design"}
+  ],
+  "required_documents": ["AGENTS.md", "README.md", "references/uvm-generation-contract.md", "assets/project-state.example.json", "assets/ssh-profile.example.json"],
+  "notes": "Dependencies describe the normal new-platform route; existing reviewed components may satisfy them. This catalog does not execute tasks or prove compile/simulation readiness."
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UVM BFM Subskill Input 3.0.0",
+  "description": "Agent input contract 3.0.0; this schema does not implement parsing, generation or SSH. Added required protocol and UVM identities must be supplied explicitly when migrating old calls.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["interface_name", "output_dir", "uvm_version", "library_identity", "protocol_contract"],
+  "oneOf": [
+    {"required": ["excel_file", "sheet_name"], "not": {"anyOf": [{"required": ["signals"]}, {"required": ["interface_markdown"]}]}},
+    {"required": ["signals"], "not": {"anyOf": [{"required": ["excel_file"]}, {"required": ["sheet_name"]}, {"required": ["interface_markdown"]}]}},
+    {"required": ["interface_markdown"], "not": {"anyOf": [{"required": ["excel_file"]}, {"required": ["sheet_name"]}, {"required": ["signals"]}]}}
+  ],
+  "properties": {
+    "excel_file": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Explicit source path; existence and read permissions checked by parent."},
+    "sheet_name": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Explicit existing sheet; no default, timeout fallback or automatic first sheet."},
+    "interface_name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "output_dir": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Parent-approved output root; schema does not enforce filesystem containment."},
+    "uvm_version": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "library_identity": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Explicit library/profile identity; no inferred simulator or UVM default."},
+    "protocol_contract": {
+      "type": "object",
+      "required": ["direction_view", "clocking", "reset", "acceptance", "source_ref"],
+      "additionalProperties": false,
+      "properties": {
+        "direction_view": {"type": "string", "enum": ["dut", "bfm"]},
+        "clocking": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "reset": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "acceptance": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "source_ref": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "byte_order": {"type": "string", "minLength": 1, "pattern": "\\S"},
+        "notes": {"type": "string"}
+      }
+    },
+    "signals": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "direction", "width", "description"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+          "direction": {"type": "string", "enum": ["I", "O", "IO"]},
+          "width": {"type": "integer", "minimum": 1},
+          "description": {"type": "string", "minLength": 1, "pattern": "\\S"}
+        }
+      }
+    },
+    "interface_markdown": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "wavedrom": {"type": "string", "description": "Optional timing evidence; conflicts with approved contract must be resolved."},
+    "self_test": {"enum": [true, false, "Y", "N", "1", "0"], "description": "Omission means disabled. Legacy string flags retained; no self-test result is implied."},
+    "with_stimulus": {"enum": [true, false, "Y", "N", "1", "0"], "description": "Omission means disabled; enabled use requires approved transaction semantics."},
+    "transaction_contract": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Approved class/fields/serialization and, for self-test, vectors plus independent expected results."}
+  },
+  "allOf": [
+    {
+      "if": {"anyOf": [
+        {"required": ["self_test"], "properties": {"self_test": {"enum": [true, "Y", "1"]}}},
+        {"required": ["with_stimulus"], "properties": {"with_stimulus": {"enum": [true, "Y", "1"]}}}
+      ]},
+      "then": {"required": ["transaction_contract"]}
+    }
+  ]
+}

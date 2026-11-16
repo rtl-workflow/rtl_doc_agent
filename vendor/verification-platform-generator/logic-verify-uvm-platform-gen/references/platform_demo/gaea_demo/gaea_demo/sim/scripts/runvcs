@@ -1,0 +1,1137 @@
+#!/bin/csh -f
+#/**********************************************************************************
+# Copyright(c) 2014 Huawei Technologies Co., Ltd, All rights reserved
+# Department   :   Network Product Line(NPL), R&D Logic IC Chip Department
+# Filename     :   runvcs
+# Author       :   shenyue/00159590
+# ===============================================================================
+# Description  :   vcs simulation script
+# ===============================================================================
+# Modification History:
+# Date        By        Rev.    Prj.    Change Description
+# -------------------------------------------------------------------------------
+# 2014-03-12  shenyue   1.0     PL381   Create
+# 2014-06-27  shenyue   1.1     TD280   1. Add testcase search to support testcase in subdir of tests dir.
+#                                       2. Support add define in commond line.
+# 2014-09-02  shenyue   1.2     TD280   1. Add auto regress funciton.
+# 2014-09-09  shenyue   1.2.1   TD280   1. Use find -follow instead of -L to support RH 4.8
+# 2014-09-12  shenyue   1.3     TD280   1. Add -dir function.
+# 2014-09-24  shenyue   1.4     TD280   1. Support config in file with -F option.
+# 2014-10-10  shenyue   1.4.1   TD280   1. Add +vmm_channel_shared_log option to simv.
+# 2015-01-14  shenyue   1.5     PL398   1. Add file lock to sim_result.log to avoid write conflict.
+# 2015-06-27  shenyue   1.6     PL501   1. Get submit hosts from dgsge config automaticaly.
+#                                       2. Delete qsub log in trash directory automaticaly.
+#                                       3. Add verdi as code coverage gui browser.
+# 2016-03-31  shenyue   1.7     XXXXX   1. Change qsub command for langfang lsf.
+# 2017-05-16  shenyue   1.8     XXXXX   1. Support UVM.
+#                                       2. Add verbosity option.
+#                                       3. Add simulation speed (cpu_time/ run_time) calculation.
+# 2017-09-15  GaeaPlatform 1.9  ALL     1.change for unified platform
+# 2017-12-29  GaeaPlatform 1.10 ALL     1.Add extracting define from testcase file
+# 2018-01-04  GaeaPlatform 1.11 ALL     1.Add verdi debug function.
+#                                       2.Correct extracting define error
+#                                       3.Extract information for tools independent
+# 2018-06-09  shenyue   1.12     ALL    1. Fix some issue.
+# 2019-04-08  shenyue   1.13     ALL    1. Change sim_spped calc precision scale to 3.
+# 2019-04-26  shenyue   1.14     ALL    1. Delete boundscheck.
+#                                       2. Add fixed seed logging.
+#                                       3. Fix using '-dir' option logging issue.
+# 2019-05-30  l00431352 1.15     ALL    1. add valid testcases analysis func.
+# 2019-06-27  shenyue   1.16     ALL    1. Add udr/udc option.
+#                                       2. Fix spped calc divided by 0 issue.
+# 2019-07-20  shenyue   1.17     ALL    1. Add VHDL support
+#**********************************************************************************/
+
+set RUNVCS_VERSION = 1.17
+
+# load config from sim.cfg
+if (! -e sim.cfg) then
+    echo "Warning: The sim.cfg does not exist, will exit the script execution."
+    exit
+endif
+
+source sim.cfg
+if ($status != 0) then
+    echo "ERROR: source sim.cfg error, please check it"
+    exit
+endif
+
+setenv th_top $th_top
+set sim_result = "../trash"       ;#regress log path
+set cov_result = "../cov"         ;#coverage path
+if (! -e $sim_result) "Has no $sim_result"
+if (! -e $sim_result) mkdir -p $sim_result
+if (! -e $cov_result) mkdir -p $cov_result
+
+set sub_runvcs   = 0
+set tc_option    = "off"
+set sub_option   = ""
+
+#set vcs_sim_options = "+ntb_stop_on_constraint_solver_error=1 -boundscheck"
+#set vcs_cmp_options = "-boundscheck" 
+
+set vcs_sim_options = "+ntb_stop_on_constraint_solver_error=1"
+set vcs_cmp_options = "" 
+
+set vcs_cmp_options = "$vcs_cmp_options $include_dir"
+set vcs_cmp_options = "$vcs_cmp_options $def_macro"
+
+set error_regress = ""
+set dir_suf       = ""
+set clean         = "off"      ;#clean testcase result
+set clean_tests   = "off"      ;#clean all testcase results
+set clean_cov     = "off"      ;#clean coverage results
+set clean_all     = "off"      ;#clean all testcase and coverage results
+
+setenv fsdbontime     ""      ;#whether set fsdb on time
+setenv fsdbruntime    ""      ;#whether set fsdb off time
+setenv fsdberrtime    ""      ;#whether set fsdb on time before error
+
+if ( `hostname` =~ lfg* ) then
+# langfang
+    set qsub_cmd = "dsub -o $sim_result -e $sim_result -J"
+else
+# Non-langfang
+    set qsub_cmd = "qsub -N"
+endif
+
+while ($# > 0)
+    #echo "==========parameter : $1 =============="
+    switch($1)
+        case -SUB_RUNVCS :
+            set sub_runvcs = 1
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]esa :
+            set esa_en = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]{vg,verdi_gui} :
+            set sub_option = "$sub_option $1"
+            set verdi_gui_en = "on"
+            breaksw
+        case [-+]g{,ui} :
+            set sub_option = "$sub_option $1"
+            set gui_en = "on"
+            breaksw
+        case [-+]display :
+            shift
+            setenv DISPLAY $1
+            breaksw
+        case [-+]c{,ov} :
+            set sub_option = "$sub_option $1"
+            set cov_en = "on"
+            breaksw
+        case [-+]m{,erge} :
+            set sub_option = "$sub_option $1"
+            set merge_en = "on"
+            breaksw
+        case [-+]nowave :
+            set fsdb_dump = "off"
+            set vpd_dump  = "off"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]fsdb :
+            set fsdb_dump = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]vpd :
+            set vpd_dump = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]fsdbontime :
+            set sub_option = "$sub_option $1"
+            shift
+            set sub_option = "$sub_option $1"
+            setenv fsdbontime $1
+            breaksw
+        case [-+]fsdbruntime :
+            set sub_option = "$sub_option $1"
+            shift
+            set sub_option = "$sub_option $1"
+            setenv fsdbruntime $1
+            breaksw
+        case [-+]fsdberrtime :
+            set sub_option = "$sub_option $1"
+            shift
+            set sub_option = "$sub_option $1"
+            set fsdberrtime = $1
+            breaksw
+        case -debug{,_pp,_all} :
+            set debug_option = $1
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]seed :
+            set sub_option = "$sub_option $1"
+            shift
+            set rand_seed = $1
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]uvm :
+            set sub_option = "$sub_option $1"
+            set uvm_vmm = "uvm"
+            breaksw
+        case [-+]vmm :
+            set sub_option = "$sub_option $1"
+            set uvm_vmm = "vmm"
+            breaksw
+        case [-+]{grp,group} :
+            set group_en = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]scr{ipt,} :
+            set load_script = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]simprofile :
+            set simprofile_en = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]auto_regress :
+            set auto_regress = "on"
+            set sub_option = "$sub_option $1 -nowave"
+            breaksw
+        case [-+]error_regress :
+            set error_regress = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]regress_fail :
+            set check_fail = "on"
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]regress :
+            set case_list = `find $tests_dir -name "*.sv" | sort | xargs -n1 -I {} basename {} .sv`
+            set sub_option = "$sub_option $1"
+            breaksw
+        case [-+]plan :
+            echo "begin hvp annotate"
+            hvp annotate -plan=$planner_file --covdb "../cov/merged.vdb"
+            exit
+        case [-+]tc_valid_ana :
+            echo "valid testcases for coverage analysing!"
+            find ../cov -name "*.vdb" > ../cov/cov_filelist  
+            urg -f ../cov/cov_filelist -grade greedy -report ../cov/tc_valid_ana_rpt 
+            firefox ../cov/tc_valid_ana_rpt/dashboard.html & 
+            exit
+        case [-+]tc :
+            set tc_option = "on"
+            set case_list = ""
+            breaksw
+        case [-+]verbosity :
+            shift
+            set verbosity = $1
+            set sub_option = "$sub_option -verbosity $1"
+            echo verbosity=$verbosity
+            breaksw
+        case [-+]f :
+            shift
+            set case_list = ""
+            set argv = ($argv `cat $1 | grep -Ev '#|^\s*$'`)
+            breaksw
+        case [-+]dir :
+            shift
+            set dir_suf = $1
+            set sub_option = "$sub_option -dir $1"
+            breaksw
+        case [-+]stat :
+            tail -n1 ../*/*sim.log -q |grep TESTCASE  | sed 's/end.*$//' | sort -k 4
+            exit
+        case [-+]list_path :
+            #  display testcase full path
+            find $tests_dir -name "*.sv" | sort 
+            exit
+        case [-+]list :
+            #  display testcase name
+            if (! -e tc_list.f)  then
+                echo "tc_list.f not exit, would you like to create a list now?(Y/n)"
+                set ack = $<
+                if ($ack == Y || $ack == y) then
+                    runvcs -list_all > tc_list.f
+                endif
+                exit
+            else
+                 cat tc_list.f | grep -Ev '#|^\s*$' | awk '{print NR, $0}'
+            endif
+            exit
+        case [-+]list_all :
+            #  display testcase name
+            find $tests_dir -name "*.sv" | sort | xargs -n1 -I {} basename  {} .sv
+            exit
+        case [-+]define :
+            shift
+            set sub_option = "$sub_option +define $1"
+            set vcs_cmp_options = "$vcs_cmp_options +define+$1"
+            breaksw
+        case [-+]udr :
+            shift
+            set sub_option = "$sub_option -udr $1"
+            set vcs_sim_options = "$vcs_sim_options $1"
+            breaksw
+        case [-+]udc :
+            shift
+            set sub_option = "$sub_option -udc $1"
+            set vcs_cmp_options = "$vcs_cmp_options $1"
+            breaksw
+        case [-+]{clean,cln} :
+            set clean = "on";
+            breaksw
+        case [-+]{clean_tests,ct} :
+            set clean_tests = "on";
+            breaksw
+            break
+        case [-+]{clean_cov,cc} :
+            set clean_cov = "on";
+            breaksw
+            break
+        case [-+]{clean_all,ca} :
+            set clean_all = "on";
+            breaksw
+            break
+        case [-+]v :
+            echo "${RUNVCS_VERSION}"
+            exit
+        #case [-+]update :
+        #    set LATEST_VERSION = `${RUNVCS_LIB_PATH}/runvcs -v`
+        #    if ($LATEST_VERSION != $RUNVCS_VERSION) then
+        #        echo -n "Latest runvcs version is $LATEST_VERSION, do you want to update you runvcs from $RUNVCS_VERSION to the latest?(Y/N)"
+        #        set ack = $<
+        #        if ($ack == Y || $ack == y) then
+        #            cp ${RUNVCS_LIB_PATH}/runvcs ./
+        #            echo "Update finished!"
+        #        endif
+        #    else
+        #        echo "You are using the latest version!"
+        #    endif
+        #    exit
+        case [-+]* :
+            if (("-h" != "$1") && ("--help" != "$1"))  then
+                echo "Invalid parameter $1"
+            endif
+            echo "Usage: runvcs [option] [testcase_id]"
+            echo "Options:"
+            echo "    -tc   testcase1 testcase2 ...   : Run testcase1 testcase2 ..."; 
+            echo "    -c[ov]                          : Run testcase and collect coverage";
+            echo "    -m[erge]                        : Merge coverage and open report";
+            echo "    -plan                           : Annotate functional coverage to ur verification_planner after merged func-coverage";
+            echo "    -tc_valid_ana                   : Analysing valid testcases for coverage";
+            echo "    -debug_pp/debug/debug_all       : Set debug option for compile";
+            echo "    -f    FILENAME                  : Read testcase list and config from a file"; 
+            echo "    +define XXX/XXX=XXX             : Add macro define";
+            echo "    -uvm                            : Use UVM, without this option use VMM for default.";
+            echo "    -verbosity UVM_MEDIUM/UVM_ERROR : Config UVM verbosity.";
+            echo "    -udc +xx=yy                     : User define compile option";
+            echo "    -udr +xx=yy                     : User define runtime option";
+            echo "    -group/grp                      : Force submit testcase to grid group/lsf.";
+            echo "    -g[ui]                          : Run testcase with gui";
+            echo "    -verdi_gui/vg                   : Run testcase with verdi gui";
+            echo "    -nowave                         : Regress without dumping wave file";
+            echo "    -fsdb                           : Run with dumping fsdb wave file";
+            echo "    -vpd                            : Run with dumping vpd wave file";
+            echo "    -fsdbontime 0ns                 : Start dumping fsdb wave time";
+            echo "    -fsdbruntime 1us                : Dumping fsdb wave time";
+            echo "    -fsdberrtime 200ns              : Start dumping fsdb wave time before first error or fatal";
+            echo "    -auto_regress                   : Run testcase without wave dumping the first time, then regress the failed testcase with wave dumping.";
+            echo "    -regress                        : Regress all testcases";
+            echo "    -regress_fail                   : Regress failed testcases";
+            echo "    -script                         : Load runtime script";
+            echo "    -seed XXX                       : Set seed for simulation or use random seed";
+            echo "    -dir  XXX/auto                  : Set dir suffix for testcase sim dir";
+            echo "    -simprofile                     : Enable simprofile for performence tunning";
+            echo "    -esa                            : Set esa en to speed up simulation";
+            echo "    -stat                           : Display sim result of testcases in sim dir";
+            echo "    -list                           : List all the testcases in test directory." ;
+            echo "    -clean                          : delete the testcase result directory."
+            echo "    -clean_tests                    : delete all the testcase results directory."
+            echo "    -clean_cov                      : delete the coverage result directory."
+            echo "    -clean_all                      : delete all the results directory."
+            #echo "    -update                         : Update runvcs to latest version."
+            echo "    -h/--help                       : Display this help infomation."
+            exit
+        default :
+            if ("off" == "$tc_option") then
+                set case_list = ""
+                set tc_option = "on"
+            endif
+            if ($tc_option == "on") then
+                set tc_name = $1
+                set ret = `echo $tc_name | egrep -c '^[0-9]+$'`
+                if ($ret > 0) then
+                    # id 
+                    if ($tc_name > $case_num) then
+                        echo "case id error "
+                        exit
+                    endif
+                    set case_list = ($case_list `cat tc_list.f | grep -Ev '#|^\s*$' | sed -n "${tc_name}p"`)
+                else
+                    # tc_name
+                    set case_list = "$case_list $1"
+                endif
+                echo $case_list
+            endif
+        breaksw
+    endsw
+    if ($# > 0) shift
+end
+
+echo "sub_option: $sub_option"
+#==========================================================
+#   for tool extracting key
+#==========================================================
+#            echo "    -cov                            : Run testcase and collect coverage"; #GaeaPlatform:Testcase:Checkbox;#GaeaPlatform:Regress:Checkbox;
+#            echo "    -merge                          : Merge coverage and open report"; #GaeaPlatform:Global:Button:coverge merge;
+#            echo "    -debug_pp,-debug,-debug_all     : Set debug option for compile"; #GaeaPlatform:Testcase:Single:null,-debug_pp,-debug,-debug_all;#GaeaPlatform:Regress:Single:null,-debug_pp,-debug,-debug_all;
+#            echo "    +define XXX/XXX=XXX             : Add macro define"; #GaeaPlatform:Testcase:Fill:Add:Fill:+define;#GaeaPlatform:Regress:Fill:Add:Fill:+define;
+#            echo "    -verbosity                      : Config UVM verbosity."; #GaeaPlatform:Testcase:Single:UVM_NONE,UVM_HIGH,UVM_MEDIUM,UVM_LOW,UVM_FULL;#GaeaPlatform:Regress:Single:UVM_NONE,UVM_HIGH,UVM_MEDIUM,UVM_LOW,UVM_FULL;
+#            echo "    -group                          : Force submit testcase to grid group/lsf."; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -gui                            : Run testcase with gui"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -verdi_gui                      : Run testcase with verdi gui"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -nowave, -fsdb, -vpd            : Run with or without dumping wave file"; #GaeaPlatform:Testcase:Single:-nofsdb,-fsdb,-vpd;#GaeaPlatform:Regress:Single:-nofsdb,-fsdb,-vpd;
+#            echo "    -fsdbontime 0ns                     : Start dumping fsdb wave time"; #GaeaPlatform:Testcase:if -fsdb then Fill;
+#            echo "    -fsdbruntime 1us                   : Dumping fsdb wave time"; #GaeaPlatform:Testcase:if -fsdb then Fill;
+#            echo "    -fsdberrtime 200ns              : Start dumping fsdb wave time before first error or fatal"; #GaeaPlatform:Testcase:if -fsdb then Fill;
+#            echo "    -auto_regress                   : Run testcase without wave dumping the first time, then regress the failed testcase with wave dumping."; #GaeaPlatform:Regress:Checkbox:if select then (if -nofsdb select then -fsdb)
+#            echo "    -regress                        : Regress all testcases";
+#            echo "    -regress_fail                   : Regress failed testcases";
+#            echo "    -script                         : Load runtime script"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -seed                           : Set seed for simulation or use random seed"; #GaeaPlatform:Regress:Checkbox:Fill;
+#            echo "    -dir                            : Set dir suffix for testcase sim dir"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -simprofile                     : Enable simprofile for performence tunning"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -esa                            : Set esa en to speed up simulation"; #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -clean                          : delete the testcase result directory." #GaeaPlatform:Testcase:Checkbox;
+#            echo "    -clean_tests                    : delete all the testcase results directory." #GaeaPlatform:Global:Button:Clean Tests;
+#            echo "    -clean_cov                      : delete the coverage result directory." #GaeaPlatform:Global:Button:Clean Cov;
+
+#====================================================================
+# clean test result
+#====================================================================
+if ($clean == "on") then
+    foreach case_id ($case_list)
+        set dir_name = $case_id
+        if ("" != $dir_suf) then
+            set dir_name = "$case_id.$dir_suf"
+        endif
+        echo "Clean $dir_name result directory"
+        rm -rf ../$dir_name
+    end
+    exit
+endif
+
+if ($clean_tests == "on") then
+    echo "Clean all tests result directory"
+    cd ../
+    ls |grep -Ev "scripts|cov|trash|sim_result.log"|xargs rm -rf
+    exit
+    cd -
+endif
+
+if ($clean_cov == "on") then
+    echo "Clean the coverage result directory"
+    rm -rf ../cov
+    exit
+    mkdir -p ../cov
+endif
+
+if ($clean_all == "on") then
+    echo "Clean all progress files"
+    cd ../
+    ls |grep -Ev "scripts|sim_result.log"|xargs rm -rf
+    exit
+    cd -
+    mkdir -p ../cov
+    mkdir -p ../trash
+endif
+#====================================================================
+# in regress mode, gen fail testcase list
+#====================================================================
+if ($sub_runvcs == 0) then
+    if ($check_fail == "on") then
+        set fail_list = ""
+        foreach case_id ($case_list)
+            if (! -e $case_id/testcase_ok) then
+                set fail_list = "$fail_list $case_id"
+            endif
+        end
+        set case_list = "$fail_list"
+        if (${#case_list} != 0) then
+            echo $case_list
+            echo "Are you sure to regress all of above testcases? (Press Ctrl+c to break!)"
+            echo "3" ; sleep 1
+            echo "2" ; sleep 1
+            echo "1" ; sleep 1
+            #echo -n "Are you sure to regress all of above testcases? (Y/n)"
+            #if ($< == n) then
+            #    exit
+            #endif
+        else
+            echo "No failed testcase found!"
+            exit
+        endif
+    endif
+
+    #====================================================================
+    # CLEAN QSUB LOG IN TRASH DIRECTORY
+    #====================================================================
+    cd $sim_result 
+
+    echo "Clean $sim_result log file"
+    if ( `hostname` =~ lfg* ) then
+        set  job_list = `djob | sed -n '2,$p' | awk '{print $1}'`
+        set  log_list = `ls -1 | grep '\.out$' `
+    else
+        #set  first_job_id = `qstat | sed -n '3p' | awk '{print $1}'`
+        set  job_list = `qstat | sed -n '3,$p' | awk '{print $1}'`
+        set  log_list = `ls -1 | grep '\.[eo][0-9]\+$' `
+    endif
+
+    foreach file ($log_list)
+        set log_job_id = `echo $file| sed 's/\.out//'`
+        set grep_result = `echo $job_list | grep -c "$log_job_id"`
+        if ($grep_result == 0) then
+            echo "rm $file"
+            rm $file
+        endif
+    end
+    cd $script_path
+
+endif
+
+#====================================================================
+# CHECK HOST WORKSTATION
+#====================================================================
+set host_name = `hostname`
+if ($host_name =~ dg*) then
+    set submit_hosts  = `ls -1 $SGE_ROOT/default/spool/qmaster/submit_hosts/`
+    if ($group_en == "off") then
+        foreach submit_host_id ($submit_hosts)
+            if ($host_name == $submit_host_id) then
+                set group_en = "on"
+            endif
+        end
+    endif
+    echo "submit_hosts:$submit_hosts"
+    echo "group_en:$group_en"
+endif
+
+if ($sub_runvcs == 0) then
+    set sub_option   = "$sub_option -display `echo $DISPLAY`"
+    if($merge_en == "on") then
+        echo "Start merge coverage, please wait..."
+        if ($group_en == "off") then
+            runvcs -SUB_RUNVCS $sub_option
+        else
+            $qsub_cmd "${project_id}_merge" runvcs  -SUB_RUNVCS $sub_option
+        endif
+        exit
+    endif
+    foreach case_id ($case_list)
+        # delete trailing "/"
+        set case_id = `basename $case_id`
+
+        set pwd_path =  `pwd`
+        set test_dir = `find $tests_dir -name $case_id.sv -follow`
+        if (${#test_dir} > 1) then
+            echo "Found repeat testcase, please check testcase dir."
+            echo $test_dir
+            continue
+        else if ($test_dir == "") then
+            #echo "TESTCASE $case_id not exist "
+            lockfile -1 -l 10  ../sim_resultlog.filelock
+            echo "1111111"
+            echo "TESTCASE `basename $dir_name` compile ERROR at $HOSTNAME `date +'%x %T'`, tc not exist, please check it!" | tee -a ../sim_result.log
+            echo "2222222"
+            rm -rf ../sim_resultlog.filelock
+            echo "3333333"
+            continue
+        endif
+
+        if ($check_fail == "on") then
+            set cnt  = `grep -c "random seed used" ${case_id}/sim.log`
+            echo $cnt
+            echo "${case_id}/sim.log"
+
+            if ($cnt >= 1) then
+                set seed = `grep "random seed" $case_id/sim.log | sed "s/^.*used:\s*//g"`
+            else
+                #set seed = `grep "Initial random seed" $case_id/sim.log | sed "s/^..*is\s*//g"`
+                set seed = `grep "ntb_random_seed" $case_id/sim.log | sed 's/^.*ntb_random_seed=\([0-9]\+\)\s\+.*$/\1/g'`
+            endif
+
+            set sub_option = "$sub_option -seed $seed -fsdb"
+        endif
+
+        if ($group_en == "on") then
+            echo "Submitting $project_id Testcase: $case_id to Group Wrokstation"
+            $qsub_cmd $case_id runvcs -SUB_RUNVCS  $sub_option -tc $case_id
+        else
+            echo "Run $project_id Testcase: $case_id on WORKSTATION $host_name"
+            runvcs -SUB_RUNVCS $sub_option -tc $case_id
+        endif
+    end
+    exit
+endif
+
+# merege coverage
+if($merge_en == "on") then
+    echo "*****************************************************"
+    echo " MERGE COVERAGE ..."
+    echo "*****************************************************"
+    cd $cov_result
+    urg -full64 -dir ./*.vdb -dbname merged -lca -report rpt_html -log cov.log
+    echo "Merge coverage finished! You can check it in rpt_html directory!"
+    if ($cov_fmt == "html") then
+        firefox rpt_html/dash* &
+    else if ($cov_fmt == "verdi") then
+        verdi -cov -covdir merged.vdb &
+    else
+        dve -cov -dir merged.vdb &
+    endif
+    exit
+endif
+
+set case_id = $case_list
+setenv case_id $case_id
+
+echo "*****************************************************"
+echo " CLEAN WORK DIRECTORY ..."
+echo "*****************************************************"
+
+set dir_name = "../$case_id"
+if ("" != $dir_suf) then
+    if ("auto" == $dir_suf) then
+        set dir_suf = `date +%Y-%m-%d-%H-%M-%S`
+    endif
+    set dir_name = "../$case_id.$dir_suf"
+endif
+
+#display tc name to window title
+echo -n "]0;`basename ${dir_name}`"
+
+if (! -e $dir_name) then
+    mkdir $dir_name
+endif
+cd $dir_name
+
+if ($clean_dir_en == "on") rm -rf csrc log simv* ucli.key vc_hdrs.h
+if (! -e log) mkdir log
+if (! -e result) mkdir result
+if (! -e mif) mkdir mif
+if (-e testcase_ok) rm -rf testcase_ok
+echo "*****************************************************"
+echo " COMPILE START ..."
+echo "*****************************************************"
+set test_dir = `find  $tests_dir -name $case_id.sv -follow`
+set test_tcl = `find  $tests_dir -name $case_id.tcl -follow`
+set case_id_ori = $case_id
+ln -s $test_dir  ./
+ln -s $test_tcl  ./
+ln -s `find $src_path -name "*.mif"` ./
+
+#*****************************************************"
+# extract testcase define
+#*****************************************************"
+set def = `grep -o '^[^//]*' ${case_id}.sv |grep define|grep -i -v $case_id |awk '{gsub(".define","define");print}'`
+set def_tc = ""
+set macro_name = ""
+set macro_value = ""
+foreach def_var ($def)
+    if ("$def_var" == "define") then
+        if (("$macro_value" != "")&&("$macro_name" != "")) then
+            set def_tc = "$def_tc +define+$macro_name=$macro_value"
+        else if ("$macro_name" != "") then
+            set def_tc = "$def_tc +define+$macro_name"
+        endif
+        set macro_name = ""
+        set macro_value = ""
+    else if ("$macro_name" == "") then
+        set macro_name = $def_var
+    else if ("$macro_value" == "") then
+        set macro_value = $def_var
+    endif
+end
+if (("$macro_value" != "")&&("$macro_name" != "")) then
+    set def_tc = "$def_tc +define+$macro_name=$macro_value"
+else if ("$macro_name" != "") then
+    set def_tc = "$def_tc +define+$macro_name"
+endif
+
+if ("$def_tc" != "") then
+    echo "def_tc=$def_tc"
+    set vcs_cmp_options = "$vcs_cmp_options $def_tc"
+endif
+#*****************************************************"
+# extract testcase define end
+#*****************************************************"
+
+#set case_id = $dir_name
+
+if ($esa_en == "on") then
+    set esa_option  = '+fsdb+esdb="esadb"'
+    echo "gen verdi eadb file... "
+    $NOVAS_HOME/bin/vericom -l verdi.log -sverilog  -f $filelist -top $th_top
+    if ($status != 0) then
+        echo "*****************************************************"
+        echo "Generate esadb file error!"
+        echo "*****************************************************"
+
+        lockfile -1 -l 5  ../sim_resultlog.filelock
+        echo "TESTCASE `basename $dir_name` verdi compile ERROR $HOSTNAME @ `date +'%x %T'` " | tee  -a ../sim_result.log
+        rm -rf ../sim_resultlog.filelock
+        exit
+    endif
+
+    if (-e "esadb.esdb++") rm -rf "esadb.esdb++"
+    if ($company == "altera") then
+        esa -db esadb -top $th_top -bas $th_top -exclude altsyncram
+    else if ($company == "xilinx") then
+        esa -db esadb -top $th_top -bas $th_top -exclude XILINX_DCBDP_RAM_v XILINX_DCSDP_RAM_v XILINX_SDP_RAM_v
+    else
+        esa -db esadb -top $th_top -bas $th_top
+    endif
+    if (! -e "esadb.esdb++") then
+        lockfile -1 -l 5  ../sim_resultlog.filelock
+        echo "TESTCASE `basename $dir_name` esa compile ERROR $HOSTNAME @ `date +'%x %T'` " | tee  -a ../sim_result.log
+        rm -rf ../sim_resultlog.filelock
+        exit
+    endif
+else
+    set esa_option  = ""
+endif
+
+setenv gui_en "off"
+if ($gui_en == "on") then
+    setenv gui_en "on"
+    echo $debug_option
+    if ("$debug_option" == "") set debug_option = "-debug_pp"
+    set vcs_sim_options = "$vcs_sim_options -gui "
+else if ($verdi_gui_en == "on") then
+    setenv gui_en "on"
+    echo $debug_option
+    if ("$debug_option" == "") set debug_option = "-debug_pp"
+    set vcs_sim_options = "$vcs_sim_options -gui=verdi "    
+endif
+
+if ($load_script == "on") then
+    setenv load_script "on"
+    #set vcs_sim_options = "$vcs_sim_options -ucli -i $runtime_tcl_file"
+    if ( $fsdb_dump == "on" && ("$debug_option" == "" || "$debug_option" == "-debug_pp"))  then
+        set debug_option = "-debug"
+    else if ( $fsdb_dump == "off" && ("$debug_option" == ""))  then
+        set debug_option = "-debug_pp"
+    endif
+    #set debug_option = "-debug_all"
+else
+    setenv load_script "off"
+endif
+
+if ($fsdb_dump == "on") then
+    setenv fsdb_dump "on"
+    #set vcs_cmp_options = "$vcs_cmp_options -P ${NOVAS_HOME}/share/PLI/VCS/LINUX64/novas.tab ${NOVAS_HOME}/share/PLI/VCS/LINUX64/pli.a -LDFLAGS -rdynamic "
+    set vcs_cmp_options = "$vcs_cmp_options -fsdb"
+    set vcs_sim_options = "$vcs_sim_options +fsdb+force "
+    if ( "$debug_option" == "")  then
+        set debug_option = "-debug_pp"
+    endif
+else
+    setenv fsdb_dump "off"
+endif
+
+if ($vpd_dump == "on") then
+    setenv vpd_dump "on"
+    #set vcs_cmp_options = "$vcs_cmp_options +define+VPD_DUMP_EN"
+    if ( "$debug_option" == "")  then
+        set debug_option = "-debug_pp"
+    endif
+else
+    setenv vpd_dump "off"
+endif
+
+if ($cov_en == "on") then
+    echo $cov_cfg >  vcm.cfg
+    set vcs_cmp_options = "$vcs_cmp_options -cm line+cond+branch+fsm -cm_line contassign -lca -cm_hier ./vcm.cfg -cm_dir $cov_result/${case_id}.vdb"
+    set vcs_sim_options = "$vcs_sim_options -cm line+cond+branch+fsm -cm_name $case_id -cm_log ${case_id}.cm.log"
+endif
+
+if ($rand_seed == "" || $rand_seed == "random") then
+    set vcs_sim_options = "$vcs_sim_options +ntb_random_seed_automatic"
+else
+    set vcs_sim_options = "$vcs_sim_options +ntb_random_seed=$rand_seed"
+endif
+
+if ($simprofile_en == "on")then
+    rm -rf profileReport* simprofile_dir*
+    set vcs_cmp_options = "$vcs_cmp_options -simprofile"
+    set vcs_sim_options = "$vcs_sim_options -simprofile time+mem"
+endif
+
+if ($uvm_vmm == "vmm") then
+    set vcs_sim_options = "$vcs_sim_options +vmm_channel_shared_log +vmm_log_nofatal_at_1000 +vmm_log_default=NORMAL +vmm_log_nowarn_at_200 "
+else
+    set vcs_cmp_options = "$vcs_cmp_options +define+UVM_NO_DEPRECATED+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR"
+    #set vcs_cmp_options = "$vcs_cmp_options +incdir+$VCS_HOME/etc/$uvm_vmm/src $VCS_HOME/etc/${uvm_vmm}/src/uvm_pkg.sv $VCS_HOME/etc/${uvm_vmm}/src/uvm.sv"
+    #set vcs_cmp_options = "$vcs_cmp_options +incdir+$VCS_HOME/etc/$uvm_vmm/src $VCS_HOME/etc/${uvm_vmm}/src/uvm.sv"
+    #set vcs_cmp_options = "$vcs_cmp_options $VCS_HOME/etc/$uvm_vmm/src/dpi/uvm_dpi.cc -CFLAGS -DVCS"
+    set vcs_sim_options = "$vcs_sim_options +UVM_TESTNAME=$case_id +UVM_VERBOSITY=$verbosity"
+    if ($uvm_vmm == "uvm-1.2") then
+        set vcs_cmp_options = "$vcs_cmp_options +define+UVM_1P2"
+    endif
+endif
+
+set vcs_cmp_options = "$vcs_cmp_options $debug_option"
+
+if ($company == "xilinx") then
+    set th_top = "$th_top -top glbl"
+endif
+
+if ($vhdl_en == "on") then
+    #  gen synopsys_sim.setup file
+    rm -rf synopsys_sim.setup
+    touch synopsys_sim.setup
+    while ($#synopsys_sim_setup)
+        echo $synopsys_sim_setup[1] >> synopsys_sim.setup
+        shift  synopsys_sim_setup
+    end
+
+    # compile vhdl lib 
+    while ($#vhdl_liblist)
+        set vhdl_lib_flist = $vhdl_liblist[1]
+        shift  vhdl_liblist
+        set vhdl_lib_name  = $vhdl_liblist[1]
+        shift  vhdl_liblist
+
+        echo "Compile VHDL lib $vhdl_lib_name..."
+
+        mkdir $vhdl_lib_name
+
+        vhdlan  \
+            #-nc                  \
+            -kdb                 \
+            -full64               \
+            $vhdl_lib_flist       \
+            -work $vhdl_lib_name  \
+            -l       vhdlan.log                     
+
+        if ($status != 0) then
+            echo "*****************************************************"
+            echo "<<<<<<<<<<<<    VCS VHDL COMPILE $vhdl_lib_name ERROR     >>>>>>>>>>>>>>>"
+            echo "*****************************************************"
+            lockfile -1 -l 5  ../sim_resultlog.filelock
+            echo "TESTCASE `basename $dir_name` vcs vhdl compile ERROR $HOSTNAME @ `date +'%x %T'` $case_id/cmp.log" | tee  -a ../sim_result.log
+            rm -rf ../sim_resultlog.filelock
+            if ($open_gvim == "on") gvim vhdlan.log
+            exit
+        endif
+    end
+
+    # compile vhdl user file
+    mkdir work
+    vhdlan  \
+        #-nc                                            \
+        -kdb                                            \
+        -full64                                         \
+        $vhdl_filelist                                  \
+        -l       vhdlan.log                     
+
+    if ($status != 0) then
+        echo "*****************************************************"
+        echo "<<<<<<<<<<<<    VCS VHDL COMPILE ERROR     >>>>>>>>>>>>>>>"
+        echo "*****************************************************"
+        lockfile -1 -l 5  ../sim_resultlog.filelock
+        echo "TESTCASE `basename $dir_name` vcs vhdl compile ERROR $HOSTNAME @ `date +'%x %T'` $case_id/cmp.log" | tee  -a ../sim_result.log
+        rm -rf ../sim_resultlog.filelock
+        if ($open_gvim == "on") gvim vhdlan.log
+        exit
+    endif
+
+	vlogan -full64 -kdb -sverilog -ntb_opts $uvm_vmm
+
+    vlogan                                              \
+        #-nc                                            \
+        -kdb                                            \
+        -lca                                            \
+        -full64                                         \
+        +vcs+lic+wait                                   \
+        -sverilog                                       \
+        +v2k                                            \
+        +verilog2001ext+.vp                             \
+        #+define+BALANCED -parallel+autopart=3+all       \
+        -timescale=1ns/100ps                              \
+        -unit_timescale=1ns/100ps                         \
+        -ntb_opts tb_timescale=1ns/100ps                  \
+        +vcs+flush+all                                  \
+        +vcs+loopreport                                 \
+        +vcs+loopdetect                                 \
+        #+vcs+initreg+0|1|x|z                            \
+        #+vcs+initreg+random                             \
+        -ntb_opts $uvm_vmm                              \
+        $vcs_cmp_options                                \
+        +libext+.sv                                     \
+        +libext+.v                                      \
+        #-debug_access+all                               \
+        +incdir+${VCS_HOME}/packages/sva                \
+        $filelist                                       \
+        -l       vlogan.log                     \
+        $test_dir
+
+    if ($status != 0) then
+        echo "*****************************************************"
+        echo "<<<<<<<<<<<<    VCS VERILOG COMPILE ERROR     >>>>>>>>>>>>>>>"
+        echo "*****************************************************"
+        lockfile -1 -l 5  ../sim_resultlog.filelock
+        echo "TESTCASE `basename $dir_name` vcs verilog compile ERROR $HOSTNAME @ `date +'%x %T'` $case_id/cmp.log" | tee  -a ../sim_result.log
+        rm -rf ../sim_resultlog.filelock
+
+        #echo -n "Do you want to open log file ?(Y/n)"
+        #set ack = $<
+        #if ($ack == Y || $ack == y) then
+        if ($open_gvim == "on") gvim vlogan.log
+        #endif
+        exit
+    endif
+
+    vcs                                                 \
+        #-nc                                             \
+        -kdb                                            \
+        -lca                                            \
+        -full64                                         \
+        +vcs+lic+wait                                   \
+        -Mupdate                                        \
+        -fsdb \
+        +vpi                                            \
+        +rad                                            \
+        -ntb_opts $uvm_vmm                              \
+        -debug_access+all \
+        #$debug_option \
+        -top     $th_top                                \
+        -l       cmp.log                     \
+        -o       simv                                   
+
+    if ($status != 0) then
+        echo "*****************************************************"
+        echo "<<<<<<<<<<<<    VCS COMPILE ERROR     >>>>>>>>>>>>>>>"
+        echo "*****************************************************"
+        lockfile -1 -l 5  ../sim_resultlog.filelock
+        echo "TESTCASE `basename $dir_name` vcs compile ERROR $HOSTNAME @ `date +'%x %T'` $case_id/cmp.log" | tee  -a ../sim_result.log
+        rm -rf ../sim_resultlog.filelock
+        if ($open_gvim == "on") gvim cmp.log
+        exit
+    endif
+
+else
+
+vcs                                                 \
+    #-nc                                             \
+    -kdb                                            \
+    -lca                                            \
+    -full64                                         \
+    +vcs+lic+wait                                   \
+    -sverilog                                       \
+    -Mupdate                                        \
+    +vpi                                            \
+    +v2k                                            \
+    +verilog2001ext+.vp                             \
+    +rad                                            \
+    #+define+BALANCED -parallel+autopart=3+all       \
+    -timescale=1ns/100ps                              \
+    -unit_timescale=1ns/100ps                         \
+    -ntb_opts tb_timescale=1ns/100ps                  \
+    +vcs+flush+all                                  \
+    +vcs+loopreport                                 \
+    +vcs+loopdetect                                 \
+    #+vcs+initreg+0|1|x|z                            \
+    #+vcs+initreg+random                             \
+    -ntb_opts $uvm_vmm                              \
+    $vcs_cmp_options                                \
+    +libext+.sv                                     \
+    +libext+.v                                      \
+    #-debug_access+all                               \
+    +incdir+${VCS_HOME}/packages/sva                \
+    $filelist                                       \
+    -top     $th_top                                \
+    -l       cmp.log                     \
+    -o       simv                                   \
+    $test_dir
+
+if ($status != 0) then
+    echo "*****************************************************"
+    echo "<<<<<<<<<<<<    VCS COMPILE ERROR     >>>>>>>>>>>>>>>"
+    echo "*****************************************************"
+    lockfile -1 -l 5  ../sim_resultlog.filelock
+    echo "TESTCASE `basename $dir_name` vcs compile ERROR $HOSTNAME @ `date +'%x %T'` $case_id/cmp.log" | tee  -a ../sim_result.log
+    rm -rf ../sim_resultlog.filelock
+
+    #echo -n "Do you want to open log file ?(Y/n)"
+    #set ack = $<
+    #if ($ack == Y || $ack == y) then
+    if ($open_gvim == "on") gvim cmp.log
+    #endif
+    exit
+endif
+
+endif
+
+echo "*****************************************************"
+echo " SIMULATION START ..."
+echo "*****************************************************"
+
+set run_start_time = `date +"%x %T"`
+set run_start_time_s = `date +"%s"`
+
+simv                                    \
+    +vcs+lic+wait                       \
+    $vcs_sim_options                    \
+    #+vcs+initreg+0                     \
+    #+vcs+initreg+random                \
+    $esa_option                         \
+    -ucli -do $script_path/run.tcl      \
+    -l        sim.log
+
+
+if ($status != 0) then
+    lockfile -1 -l 5  ../sim_resultlog.filelock
+    echo "TESTCASE `basename $dir_name` simulate ERROR $HOSTNAME @ `date +'%x %T'`"  | tee  -a ../sim_result.log
+    rm -rf ../sim_resultlog.filelock
+    exit
+endif
+
+set run_end_time   = `date +"%x %T"`
+set run_end_time_s = `date +"%s"`
+
+echo "*****************************************************"
+echo " CHECK SIMULATION RESULT..."
+echo "*****************************************************"
+set autocheck = "PASS"
+if (! -e testcase_ok) set autocheck = "ERROR"
+
+echo " SIM ERROR KEYWORD CHECK RESULT" | tee -a sim.log
+echo "--------------------------------------------------------------" | tee -a sim.log
+printf "%-20s %-20s %s\n" "KEYWORD"  "CNT" "RESULT"  | tee -a sim.log
+echo "--------------------------------------------------------------" | tee -a sim.log
+while (${#sim_err_keyword} > 0)
+    set keyword = "${sim_err_keyword[1]}"
+    shift sim_err_keyword
+    set cnt = `grep -ic "$keyword"  sim.log`
+    if ($cnt > 0) then
+        set autocheck = "ERROR"
+        printf "%-20s %-20d ERROR\n" "$keyword"  $cnt  | tee -a sim.log
+    else
+        printf "%-20s %-20d OK\n" "$keyword"  $cnt  | tee -a sim.log
+    endif
+end
+echo "--------------------------------------------------------------" | tee -a sim.log
+
+set seed = ""
+if ($rand_seed == "" || $rand_seed == "random") then
+    set seed = `grep "random seed" sim.log | sed "s/^.*used:\s*//g"`
+    set seed2 = "random seed: $seed/`printf 0x%x $seed`"
+else
+    #set seed = `grep "Initial random seed" sim.log | sed "s/^..*is\s*//g"`
+    set seed = `grep "ntb_random_seed" sim.log | sed 's/^.*ntb_random_seed=\([0-9]\+\)\s\+.*$/\1/g'`
+    set seed2 = "fix seed: $seed/`printf 0x%x $seed`"
+endif
+
+# speed
+set run_time     = `grep "^Time:.*" sim.log | tail -n 1| sed "s/^Time:\s*//g" `
+set run_time_unit =  `echo $run_time | sed "s/[0-9]*\s*//g"`
+set run_time     = `echo $run_time| sed "s/\s*[fp]s//g"`
+set run_time_ms = "0"
+if ($run_time_unit == "fs") then
+    set run_time_ms = `echo "scale=3; $run_time/1000000000000" | bc`
+else if ($run_time_unit == "ps") then
+    set run_time_ms  = `echo "scale=3; $run_time/1000000000" | bc`
+endif
+set cpu_time_min = `echo "scale=3; (${run_end_time_s} - ${run_start_time_s})/60" | bc` # change unit to ms
+
+set speed = "0"
+if ($run_time_ms != 0) then
+    set speed        = `echo "scale=3; ${cpu_time_min}/${run_time_ms}"|bc`
+endif
+set speed_str    = "${speed}min/ms (${cpu_time_min}min/${run_time_ms}ms)"
+
+# info stat
+grep -A 10 "Report counts by severity" sim.log > stat
+set f_cnt = `cat stat | grep UVM_FATAL | sed "s/UVM_FATAL\s*:\s*//"`
+set e_cnt = `cat stat | grep UVM_ERROR | sed "s/UVM_ERROR\s*:\s*//"`
+set w_cnt = `cat stat | grep UVM_WARNING | sed "s/UVM_WARNING\s*:\s*//"`
+set i_cnt = `cat stat | grep UVM_INFO | sed "s/UVM_INFO\s*:\s*//"`
+set stat_msg = "F($f_cnt)/E($e_cnt)/W($w_cnt)/I($i_cnt)"
+
+lockfile -1 -l 5  ../sim_resultlog.filelock
+printf "TESTCASE %-35s simulation $autocheck $stat_msg @${HOSTNAME} ($run_start_time ~ $run_end_time) speed $speed_str $seed2 $dir_name/sim.log $dir_name/$case_id.sv\n" `basename $dir_name` | tee -a sim.log ../sim_result.log
+rm -rf ../sim_resultlog.filelock
+
+if ($auto_regress == "on" && $autocheck == "ERROR") then
+    set sub_option = `echo $sub_option | sed "s/-auto_regress//g"`
+    set sub_option = `echo $sub_option | sed "s/-nowave//g"`
+    
+    #get first UVM_ERROR or UVM_FATAL time
+    if ($fsdbontime != "") then
+        #get the first error or fatal time
+        if ($e_cnt > 0 ) then
+            set first_errtime = `grep -m 1 "UVM_ERROR" sim.log | awk '{print $4}'`
+        else if ($f_cnt > 0) then
+            set first_errtime = `grep -m 1 "UVM_FATAL" sim.log | awk '{print $4}'`
+        endif
+        #get time number and time unit
+        if ($first_errtime != "") then
+            set errtime_num1  = `echo $first_errtime | grep -o "[0-9]\+"`
+            set errtime_unit1 = `echo $first_errtime | grep -o "[m,u,n,p,f]\?s"`
+            if ( ($errtime_num1 == "") || ($errtime_unit1 == "")) then
+                set errtime_num1  = 0 ;
+                set errtime_unit1 = ns ;
+            endif
+        endif
+        if ($fsdberrtime != "") then
+            set errtime_num2  = `echo $fsdberrtime | grep -o "[0-9]\+"`
+            set errtime_unit2 = `echo $fsdberrtime | grep -o "[m,u,n,p,f]\?s"`
+            if ( ($errtime_num2 == "") || ($errtime_unit2 == "")) then
+                set errtime_num1  = 0 ;
+                set errtime_unit1 = ns ;
+            endif
+        endif
+
+        #transfer time to ns
+        foreach cnt (1 2)
+            switch (`eval echo \$errtime_unit${cnt}`)
+                #echo " errtime_unit${cnt} = \$errtime_unit${cnt}"
+                case "s":
+                    @ errtime_num${cnt} *= 1000000000 ;
+                    breaksw;
+                case "ms":
+                    @ errtime_num${cnt} *= 1000000    ;
+                    breaksw;
+                case "us":
+                    @ errtime_num${cnt} *= 1000       ;
+                    breaksw;
+                case "ns":
+                    @ errtime_num${cnt} *= 1          ;
+                    breaksw;
+                case "ps":
+                    @ errtime_num${cnt} /= 1000       ;
+                    breaksw;
+                case "fs":
+                    @ errtime_num${cnt} /= 1000000    ;
+                    breaksw;
+                default :
+                    @ errtime_num${cnt} = 0           ;
+                    echo "simtime unit \$errtime_unit${cnt} is error"
+                    breaksw
+            endsw
+        end
+        #judge the start time
+        if ($errtime_num1 < $errtime_num2) then
+            echo "NOTE:first error occur time ($errtime_num1 ns) < fsdb before time($errtime_num2 ns)"
+            setenv fsdbontime 0ns
+        else
+            @ fsdbontime_num = $errtime_num1 - $errtime_num2
+            setenv fsdbontime ${fsdbontime_num}ns
+            echo "fsdbontime:$fsdbontime"
+        endif
+        set sub_option = "$sub_option -fsdbontime $fsdbontime "
+    endif
+    cd ../scripts
+    echo "Are you sure to regress testcases $case_id? (Press Ctrl+c to break!)"
+    echo "3" ; sleep 1
+    echo "2" ; sleep 1
+    echo "1" ; sleep 1
+    runvcs -error_regress -tc $case_id_ori -seed $seed -fsdb $sub_option
+endif

@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UVM BFM Subskill Output 3.0.0",
+  "description": "Generation result only, never a DUT verdict. Schema checks shape, not file existence, path containment, hash authenticity or real compilation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "validation_scope", "compile_status", "artifacts_out", "logs", "issues"],
+  "properties": {
+    "schema_version": {"const": "3.0.0"},
+    "status": {"type": "string", "enum": ["generated", "blocked", "failed", "success"], "description": "success is a deprecated alias of generated; neither means compiled, self-tested or DUT passed."},
+    "validation_scope": {"const": "generation_only"},
+    "compile_status": {"type": "string", "enum": ["not_run", "blocked", "passed", "failed"]},
+    "artifacts_out": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "type", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Actual artifact path; parent independently checks containment and existence."},
+          "type": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+          "metadata": {"type": "object"}
+        }
+      }
+    },
+    "logs": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Generation log summary/reference; never substitutes for original compiler logs."},
+    "issues": {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "\\S"}},
+    "compile_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["log_path", "tool_version", "command", "source_manifest_sha256"],
+        "properties": {
+          "log_path": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "tool_version": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "command": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "source_manifest_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$", "description": "Hash of final source/dependency manifest; source changes invalidate this evidence."}
+        }
+      }
+    },
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "description": "Generation bookkeeping, not coverage or verification evidence.",
+      "properties": {
+        "files_generated": {"type": "integer", "minimum": 0},
+        "interface_generated": {"type": "boolean"},
+        "driver_generated": {"type": "boolean"},
+        "receiver_generated": {"type": "boolean"},
+        "transaction_generated": {"type": "boolean"},
+        "yaml_generated": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"enum": ["generated", "success"]}}}, "then": {"properties": {"artifacts_out": {"minItems": 1}}}},
+    {"if": {"properties": {"status": {"enum": ["blocked", "failed"]}}}, "then": {"properties": {"issues": {"minItems": 1}}}},
+    {"if": {"properties": {"compile_status": {"enum": ["passed", "failed"]}}}, "then": {"required": ["compile_evidence"], "properties": {"compile_evidence": {"minItems": 1}}}},
+    {"if": {"properties": {"compile_status": {"const": "blocked"}}}, "then": {"properties": {"issues": {"minItems": 1}}}}
+  ]
+}

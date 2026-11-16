@@ -1,0 +1,11 @@
+CATEGORY:generator
+TOP:gen_temp.sv
+CFG:gen_temp_cfg.sv
+SEQ:gen_temp_sequence.sv
+DATA_TYPE:null
+INTERFACE:null
+WORK_MODE:null
+PRIORITY:low
+OWNER_ID:l00123456
+RELEASE_DATE:2019/01/01
+FUNC_DEPICT:This VIP component implement the stimulus generation for xx service;

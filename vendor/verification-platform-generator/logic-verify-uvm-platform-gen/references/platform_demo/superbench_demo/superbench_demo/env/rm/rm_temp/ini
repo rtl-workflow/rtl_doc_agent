@@ -1,0 +1,11 @@
+CATEGORY:function
+TOP:rm_temp.sv
+CFG:rm_temp_cfg.sv
+SEQ:null
+DATA_TYPE:null
+INTERFACE:null
+WORK_MODE:null
+PRIORITY:low
+OWNER_ID:l00123456
+RELEASE_DATE:2019/01/01
+FUNC_DEPICT:This VIP component implement the rm function for packet processing;

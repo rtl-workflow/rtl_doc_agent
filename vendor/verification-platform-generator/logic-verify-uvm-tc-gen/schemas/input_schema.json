@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UVM TC Subskill Input 3.0.0",
+  "description": "Agent input contract 3.0.0. Explicit source/profile/plan and UVM identities required. Prepared sources are normalized by the parent, not converted by this subskill. No platform or sheet default.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_mode", "platform_dir", "platform_type", "input_mode", "approved_plan_ref", "uvm_version", "library_identity"],
+  "oneOf": [
+    {
+      "required": ["excel_file", "sheet_name"],
+      "properties": {"source_mode": {"const": "excel"}},
+      "not": {"anyOf": [{"required": ["prepared_testpoints"]}, {"required": ["prepared_input_ref"]}]}
+    },
+    {
+      "required": ["prepared_testpoints"],
+      "properties": {"source_mode": {"const": "prepared"}},
+      "not": {"anyOf": [{"required": ["excel_file"]}, {"required": ["sheet_name"]}, {"required": ["prepared_input_ref"]}]}
+    },
+    {
+      "required": ["prepared_input_ref"],
+      "properties": {"source_mode": {"const": "prepared"}},
+      "not": {"anyOf": [{"required": ["excel_file"]}, {"required": ["sheet_name"]}, {"required": ["prepared_testpoints"]}]}
+    }
+  ],
+  "properties": {
+    "source_mode": {"type": "string", "enum": ["excel", "prepared"], "description": "Explicit selection; prepared is the recommended parent workflow, not an implicit default."},
+    "excel_file": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "sheet_name": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Required for excel: explicit existing sheet; no first-sheet fallback."},
+    "prepared_testpoints": {
+      "type": "array", "minItems": 1,
+      "description": "Parent-normalized points/cases with stable IDs and original source references. Parent checks ID uniqueness and full input accounting.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "source_ref", "description"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "source_ref": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "description": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "metadata": {"type": "object"}
+        }
+      }
+    },
+    "prepared_input_ref": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Reference to parent-normalized MD/JSON/CSV input retaining stable point IDs/source_ref; parent checks existence, content and source hashes. No converter is implemented here."},
+    "platform_dir": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Existing integrated platform; parent verifies allowed write scope."},
+    "platform_type": {"type": "integer", "enum": [1, 2], "description": "Required: 1=Superbench, 2=Gaea; no default. Mapping is defined in manifest.yaml."},
+    "input_mode": {"type": "string", "enum": ["testpoint", "testcase"]},
+    "approved_plan_ref": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Reference to approved plan/version; parent verifies approval and all input dispositions."},
+    "uvm_version": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "library_identity": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "user_prompt": {"type": "string", "description": "Supplemental request; cannot override approved plan or read-only boundaries."}
+  }
+}
