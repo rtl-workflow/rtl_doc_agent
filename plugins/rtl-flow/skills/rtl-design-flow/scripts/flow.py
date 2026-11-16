@@ -249,10 +249,11 @@ def setup_action():
     """The one-time setup is still to do: nothing configured, nothing forced, no local simulator."""
     if deferred() or os.environ.get("RTLFLOW_EXEC") or remote_exec.configured() or shutil.which("vcs"):
         return None
-    return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" setup',
-            "instructions": "这台机器还没有配置远程 EDA 环境。把 command 原样告诉用户，请用户在自己的终端运行一次"
-                            "（需要能访问服务器，向导会让用户自己输入服务器地址、账号和密码，所以必须另开一个终端，不能在对话中运行）。不要向用户索要这些信息，也不要替用户运行。"
-                            "用户完成后再运行 flow.py next。"}
+    return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" connect',
+            "instructions": "运行 command，按返回 JSON 的 action 完成连接；只询问缺失的服务器地址、账号和端口，"
+                            "不要在对话中索要密码。凭据缺失时可在 Windows 本机使用 --credential-dialog；"
+                            "首次启动 watcher 且有 SSH 时，按连接指南使用 --start-watcher ssh，主机指纹必须经用户确认。"
+                            "只有返回 ready 才继续 flow.py next。仅 FTP/VNC 或本机没有凭据弹窗时，提供最少的手动步骤。"}
 
 
 def remote_jobs():

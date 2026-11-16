@@ -88,19 +88,18 @@ plugins/rtl-flow/
 
 依赖：Python 3.8+，且 `python` 命令可用（hook 和流程命令依赖它）；PyYAML 由配置向导自动安装。lint（SpyGlass）和回归（VCS）在远程 EDA 服务器上运行，本机不需要安装 EDA 工具。
 
-服务器需要满足：可以用 FTP 登录（账号的 FTP 根目录为家目录）；账号有 VNC 或其他可以打开终端的方式；已安装 `python3.11` 和 `tmux`；账号登录后的默认环境能直接使用 `vcs` 和 `sg_shell`，并持有相应的 license。
+服务器需要满足：可以用 FTP 登录（账号的 FTP 根目录为家目录）；已安装 `python3.11` 和 `tmux`；账号登录后的默认环境能直接使用 `vcs`、`urg` 和 `sg_shell`，并持有相应的 license。有同一主机/账号的 SSH 时可以自动启动 watcher；否则需通过 VNC 或其他终端启动一次。
 
 ## 首次配置（每台机器一次）
 
-Claude Code 和 OpenCode 共用同一份配置，配好后两者都可以直接使用。
+Claude Code、OpenCode 和 DSH 工作区接入共用同一份配置。可以直接告诉 agent：「帮我连接远程 EDA，服务器是……，账号是……」，**不要在聊天中发送密码**。
 
-1. 确认本机能访问服务器（需要 VPN 时先连接）。
-2. 在**自己的终端**运行（不要在 AI 对话中输入密码）：
-   ```
-   python plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.py setup
-   ```
-   只需要输入**服务器地址、自己的账号和密码**。通过插件市场安装时不用找路径：第一次使用工作流时，AI 会给出完整命令，也可以运行 `/rtl-flow:setup`。
-3. 按提示打开服务器的 VNC 桌面，粘贴一条命令启动 watcher，向导检测到上线后自动完成验证。
+1. 先连接 VPN（如果需要）。agent 用 `rtlflow.py connect` 自动检查已有配置；地址、账号、端口有缺失时合并为一次提问。VPN 公网入口与内部 EDA 服务器地址应区分。
+2. 已有凭据自动复用。Windows 首次配置时，agent 可用 `--credential-dialog` 打开本机系统凭据窗口，你在弹窗输入密码即可，无需自行打开 PowerShell；密码保存到系统凭据库，不返回给模型。
+3. watcher 已在线就直接验证，不重启。服务器提供同一账号的 SSH 时，可通过 `--start-watcher ssh` 自动上传并启动；首次连接需核对 SSH 主机指纹。仅提供 FTP/VNC 的环境仍需在服务器终端执行一次返回的启动命令，因为 FTP 本身不能执行 shell 命令。
+4. agent 只有收到 `ready` 才报告完成；连接、签名任务和工具检查必须通过。实际 license 和完整编译/仿真仍由后续 EDA 任务验证。
+
+协议、返回动作和选项见 [EDA 自动连接指南](plugins/rtl-flow/skills/rtl-design-flow/references/eda-connect.md)。没有本机凭据弹窗能力时，兼容入口 `python plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.py setup` 仍可由用户在自己的终端运行。
 
 配置保存在 `~/.rtl-flow/`（插件升级和重装都不受影响），密码保存在系统凭据库。之后 lint 和仿真自动在服务器上运行，长任务不占用对话；网络中断或关闭会话后，再次运行流程会接回同一个任务。
 

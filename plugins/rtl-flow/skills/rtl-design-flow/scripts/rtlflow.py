@@ -284,13 +284,17 @@ def cmd_doctor(_):
 def main():
     for s in (sys.stdout, sys.stderr):
         s.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    from eda_connect import ArgumentParser, add_parser, command
+    ap = ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("setup", "doctor", "install-opencode"):
         sub.add_parser(name)
+    add_parser(sub)
     a = ap.parse_args()
+    if a.cmd == "connect":
+        return command(a, sys.modules[__name__])
     {"setup": cmd_setup, "doctor": cmd_doctor, "install-opencode": lambda _: install_opencode()}[a.cmd](a)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
