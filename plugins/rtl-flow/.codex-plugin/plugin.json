@@ -1,0 +1,17 @@
+{
+  "name": "rtl-flow",
+  "version": "0.10.1",
+  "description": "RTL 设计与文档工作流：共享 skill、Python 状态机和五个角色定义；Codex 接入不含强制角色权限隔离。",
+  "author": {
+    "name": "rtl-workflow"
+  },
+  "repository": "https://github.com/rtl-workflow/rtl_doc_agent",
+  "homepage": "https://github.com/rtl-workflow/rtl_doc_agent",
+  "skills": "./skills/",
+  "hooks": "./codex/hooks.json",
+  "interface": {
+    "displayName": "RTL Flow",
+    "shortDescription": "从需求生成 RTL、验证与标准化文档",
+    "category": "Productivity"
+  }
+}
