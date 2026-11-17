@@ -1,0 +1,20 @@
+{
+  "name": "rtl-flow",
+  "interface": {
+    "displayName": "RTL Flow"
+  },
+  "plugins": [
+    {
+      "name": "rtl-flow",
+      "source": {
+        "source": "local",
+        "path": "./plugins/rtl-flow"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

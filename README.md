@@ -1,10 +1,10 @@
 # rtl-flow：RTL 设计与文档规范插件
 
-把「不规范的需求/规格」变成「RTL + 一整套标准化文档」的 Claude Code 插件。文档体系参考 OpenTitan。
+把「不规范的需求/规格」变成「RTL + 一整套标准化文档」的插件，支持 Claude Code、OpenCode、Codex，并提供 DSH 工作区接入。文档体系参考 OpenTitan。
 
 ## 安装入口（用户与安装 agent 必读）
 
-在 Claude Code、OpenCode 或 DeepSeek Harness（DSH）中，都可以发送同一句话：
+在 Claude Code、OpenCode、Codex 或 DeepSeek Harness（DSH）中，都可以发送同一句话：
 
 ```text
 请按照 https://github.com/rtl-workflow/rtl_doc_agent 的 README 中的提示，为我安装这个插件。
@@ -12,9 +12,9 @@
 
 **以下步骤由安装 agent 执行，用户无需选择安装指南或补充安装命令：**
 
-1. 识别承载当前对话的工具是 Claude Code、OpenCode 还是 DeepSeek Harness（DSH）。以当前会话环境为准，不根据机器上是否装有某个 CLI 来猜测；确实无法识别时才询问用户。
+1. 识别承载当前对话的工具是 Claude Code、OpenCode、Codex 还是 DeepSeek Harness（DSH）。以当前会话环境为准，不根据机器上是否装有某个 CLI 来猜测；确实无法识别时才询问用户。
 2. 根据下表读取对应的完整安装指南，再实际执行安装。通过网页读取 README 时，可直接读取表内的原始文档链接；从本地仓库读取时使用相对路径。不要只复述步骤或停在“建议安装”。
-3. 检查现有安装，按对应指南复用或更新；Claude Code / OpenCode 首次安装默认面向当前用户，不改项目共享配置；DSH 按指南接入当前工作区并保留已有规则。不要同时给其他工具安装。
+3. 检查现有安装，按对应指南复用或更新；Claude Code / OpenCode / Codex 首次安装默认面向当前用户，不改项目共享配置；DSH 按指南接入当前工作区并保留已有规则。不要同时给其他工具安装。
 4. 按指南核验安装记录和加载结果。只能完成重启前检查时，报告已完成部分和用户需要执行的重启 / 重载操作，不提前宣称全部可用。遇到错误先处理或报告，不自行换成另一种安装方式。
 5. 插件安装完成后再说明 EDA 配置入口；不要在安装阶段索取服务器密码或启动交互式配置向导。
 
@@ -22,11 +22,12 @@
 |---|---|---|
 | Claude Code | [市场安装指南](.claude-plugin/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.claude-plugin/INSTALL.md) | 添加 `rtl-flow` 市场，安装并启用 `rtl-flow@rtl-flow`，核验已安装列表与加载结果 |
 | OpenCode | [安装指南](.opencode/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.opencode/INSTALL.md) | 克隆完整仓库，运行 `install-opencode` 注册加载器，重启后核验命令、agent 和 skill |
+| Codex | [安装指南](.codex/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.codex/INSTALL.md) | 添加 `rtl-flow` 市场，安装并启用 `rtl-flow@rtl-flow`，核验安装记录、Python 和新会话 skill 加载；当前无强制角色权限隔离 |
 | DeepSeek Harness（DSH） | [工作区接入指南](.dsh/INSTALL.md) · [原始文档](https://raw.githubusercontent.com/rtl-workflow/rtl_doc_agent/refs/heads/main/.dsh/INSTALL.md) | 保留完整仓库与 Python 环境，在工作区规则中引用 skill，核验脚本及新会话规则加载；没有原生插件注册或 hook 权限隔离 |
 
 **Claude Code 默认走插件市场。** AI 在 shell 中执行 `claude plugin marketplace add ...` 和 `claude plugin install ...`；用户在聊天输入框使用 `/plugin ...`。仅执行 `git clone`、复制 skill 或使用 `--plugin-dir` 不算完成市场安装。只有用户明确要求源码开发、离线复制或临时调试时，才采用相应方式。不要把 OpenCode 的克隆安装步骤用于 Claude Code。
 
-从 0.4.0 起采用**多 agent 工作流**：主会话担任编排者，由 `flow.py` 状态机决定每一步；5 个角色 agent 分工完成；检查脚本判定能否进入下一阶段。在 Claude Code / OpenCode 中，hook 强制执行角色权限，使验证 agent 看不到 RTL。DSH 工作区接入仅复用规则与脚本，尚无该强制隔离。
+从 0.4.0 起采用**多 agent 工作流**：主会话担任编排者，由 `flow.py` 状态机决定每一步；5 个角色 agent 分工完成；检查脚本判定能否进入下一阶段。在 Claude Code / OpenCode 中，hook 强制执行角色权限，使验证 agent 看不到 RTL。Codex 原生插件复用 skill、角色定义与脚本，DSH 通过工作区规则接入；这两种接入尚无该强制隔离。
 
 ## 包含内容
 
@@ -92,7 +93,7 @@ plugins/rtl-flow/
 
 ## 首次配置（每台机器一次）
 
-Claude Code、OpenCode 和 DSH 工作区接入共用同一份配置。可以直接告诉 agent：「帮我连接远程 EDA，服务器是……，账号是……」，**不要在聊天中发送密码**。
+Claude Code、OpenCode、Codex 和 DSH 工作区接入共用同一份配置。可以直接告诉 agent：「帮我连接远程 EDA，服务器是……，账号是……」，**不要在聊天中发送密码**。
 
 1. 先连接 VPN（如果需要）。agent 用 `rtlflow.py connect` 自动检查已有配置；地址、账号、端口有缺失时合并为一次提问。VPN 公网入口与内部 EDA 服务器地址应区分。
 2. 已有凭据自动复用。Windows 首次配置时，agent 可用 `--credential-dialog` 打开本机系统凭据窗口，你在弹窗输入密码即可，无需自行打开 PowerShell；密码保存到系统凭据库，不返回给模型。
@@ -126,6 +127,8 @@ P3‖P4  rtl-engineer（RTL、05、lint） ‖ tb-engineer（07、黑盒 TB，�
 流程在 G0（需求）、G1（规格）、G2（架构）、G3（测试点、测试用例及激励）停下来等待审核，通过后才继续。审核结果由编排者在用户明确通过后用 `flow.py review` 写入 00 / 01 / 02 / 07 的 front matter（`reviewer`、`approved: <version>@<日期>`；G3另有`approved_dv_digest`），agent 无法修改审核字段。已审核文档提升版本或G3验证内容改变后自动重开审核。签核时四处都必须是人工通过。详见 `SKILL.md` §5。
 
 ## 权限隔离（hook）
+
+本节的 hook 强制执行适用于 Claude Code / OpenCode；Codex 与 DSH 仍遵守角色约束，但没有对应的强制权限隔离。
 
 | 角色 | 可写 | 不可读 |
 |---|---|---|
@@ -215,6 +218,20 @@ claude plugin list --json
 
 这是规则和脚本接入，**不是 DSH 原生插件包**；不会注册 `/rtl-flow:*`、命名角色或原生 skill，也没有 hook 强制权限隔离。安装后用自然语言提出 RTL 任务，由主会话读取 skill、按状态机派发角色。EDA 配置仍由用户在自己的终端单独执行。
 
+### 方式 6：Codex
+
+在 Codex 中使用本文开头的统一安装提示词，agent 应自动读取 [Codex 安装指南](.codex/INSTALL.md)，检查当前环境和已有安装后执行原生插件市场安装：
+
+```sh
+codex plugin marketplace add https://github.com/rtl-workflow/rtl_doc_agent.git
+codex plugin add rtl-flow@rtl-flow --json
+codex plugin list --marketplace rtl-flow --json
+```
+
+以上为支持 `codex plugin` 的版本所用命令；每步成功后再继续，已有市场和插件按完整指南复用或更新。指南包含 Windows PowerShell、macOS/Linux 的 Python 检查、重复安装、新会话验收、升级与卸载；不需要把个人路径写入项目 `AGENTS.md`。
+
+仓库提供 `.agents/plugins/marketplace.json` 和 `plugins/rtl-flow/.codex-plugin/plugin.json`。安装后在新会话加载 `rtl-design-flow`，用自然语言提出任务，例如“按 RTL Flow 根据这份需求生成 RTL 和文档”。角色由 Codex 可用的子 agent 工具派发，不要求注册 `/rtl-flow:*` 或 Claude 的命名 agent。**当前 Codex 接入没有 hook 强制权限隔离**，详见 [Codex 运行适配](plugins/rtl-flow/skills/rtl-design-flow/references/codex.md)。
+
 ### 其他工具
 
 规则全部是 Markdown + Python 脚本。其他 AI 编码工具可在其规则文件（如 `AGENTS.md`）中引用 `SKILL.md` 与 `references/`，但没有权限隔离；脚本可直接接入 CI。
@@ -230,7 +247,7 @@ claude plugin list --json
 /rtl-flow:ip-check uart_lite rtl
 ```
 
-也可以不用命令，直接说「根据这份需求生成 RTL 和文档」，skill 会自动加载并按编排者协议运行。
+以上斜杠命令适用于 Claude Code / OpenCode。Codex 使用自然语言或在 skill 列表中选择 `rtl-design-flow`；DSH 按工作区规则读取 skill。也可以直接说「根据这份需求生成 RTL 和文档」，由对应接入按编排者协议运行。
 
 ## 接入 CI
 
@@ -260,7 +277,7 @@ claude plugin list --json
 | RTL 实现参考 | `references/rtl-implementation-guide.md`（`DG-xx` 设计质量条目，不被脚本检查）；由 `agents/architect.md`、`agents/rtl-engineer.md` 与 `scripts/flow.py` 的 `TASKS` 提示引用 |
 | 标杆示例 | `examples/` |
 
-规则本身的修改也应走评审（MR/PR），并在 `plugin.json` 中提升版本号。
+规则本身的修改也应走评审（MR/PR），并同步提升 `plugins/rtl-flow/.claude-plugin/plugin.json` 与 `plugins/rtl-flow/.codex-plugin/plugin.json` 中的版本号。
 
 ## VCS FSDB 与远端 Verdi（0.7.4）
 
