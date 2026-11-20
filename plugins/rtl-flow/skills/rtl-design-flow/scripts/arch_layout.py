@@ -7,10 +7,12 @@ silently drawn through a card. Input order breaks ties and preserves manual laye
 """
 import heapq
 import unicodedata
+from bisect import bisect_left, bisect_right
 
 CARD_WIDTH = 280
 PITCH = 30
 TRACK = 12
+MIN_TRACK_SPACING = 4  # 2px SVG stroke plus 2px of visible space.
 
 
 def wrap_text(text, columns=30):
@@ -151,8 +153,22 @@ def layout(nodes, edges):
     def reserve(points):
         for a, b in zip(points, points[1:]):
             va, vb = sorted((vertex(a), vertex(b)))
-            stride = 1 if a[1] == b[1] else nx
+            horizontal = a[1] == b[1]
+            stride = 1 if horizontal else nx
             used.update((v, v + stride) for v in range(va, vb, stride))
+            # Grid coordinates are uneven. Block nearby parallel links for the
+            # same span, leaving perpendicular links available for crossings.
+            if horizontal:
+                coords, position, index, step = yy, a[1], yi[a[1]], nx
+            else:
+                coords, position, index, step = xx, a[0], xi[a[0]], 1
+            first = bisect_right(coords, position - MIN_TRACK_SPACING)
+            stop = bisect_left(coords, position + MIN_TRACK_SPACING)
+            for neighbor in range(first, stop):
+                if neighbor != index:
+                    offset = (neighbor - index) * step
+                    blocked_links.update((v + offset, v + offset + stride)
+                                         for v in range(va, vb, stride))
 
     # All endpoint stubs are reserved before routing any edge, so later ports
     # cannot accidentally be consumed by an earlier connection.
