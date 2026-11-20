@@ -27,12 +27,16 @@ def intersects_interior(a, b, rect):
     return y < a[1] < y + h and max(min(a[0], b[0]), x) < min(max(a[0], b[0]), x + w)
 
 
-def overlap(a, b, c, d):
-    if a[0] == b[0] == c[0] == d[0]:
-        return max(min(a[1], b[1]), min(c[1], d[1])) < min(max(a[1], b[1]), max(c[1], d[1]))
-    if a[1] == b[1] == c[1] == d[1]:
-        return max(min(a[0], b[0]), min(c[0], d[0])) < min(max(a[0], b[0]), max(c[0], d[0]))
-    return False
+def assert_parallel_clearance(test, a, b, c, d):
+    for axis in (0, 1):
+        if a[axis] != b[axis] or c[axis] != d[axis]:
+            continue
+        along = 1 - axis
+        lo, hi = sorted((a[along], b[along]))
+        other_lo, other_hi = sorted((c[along], d[along]))
+        if max(lo, other_lo) < min(hi, other_hi):
+            test.assertGreaterEqual(abs(a[axis] - c[axis]), 4,
+                                    f'parallel segments {a, b} and {c, d} need 2px of visible space')
 
 
 class ArchitectureLayoutTests(unittest.TestCase):
@@ -91,7 +95,7 @@ class ArchitectureLayoutTests(unittest.TestCase):
         for index, (i, a, b) in enumerate(all_segments):
             for j, c, d in all_segments[index + 1:]:
                 if i != j:
-                    self.assertFalse(overlap(a, b, c, d), 'edges share a collinear track')
+                    assert_parallel_clearance(self, a, b, c, d)
         return result
 
     def test_adjacent_forward_is_compact_and_deterministic(self):
@@ -110,6 +114,12 @@ class ArchitectureLayoutTests(unittest.TestCase):
         result = self.assert_geometry(nodes, edges)
         self.assertGreater(result['nodes']['a']['height'], 300)
         self.assertEqual(len({tuple(r['points']) for r in result['edges']}), 12)
+
+    def test_parallel_strokes_near_feedback_and_self_loops(self):
+        nodes = [node('A'), node('B'), node('C', 1)]
+        edges = [edge(source, target) for source, target in
+                 ('CC', 'BA', 'CB', 'CA', 'BA', 'CC', 'CB', 'AA')]
+        self.assert_geometry(nodes, edges)
 
     def test_same_layer_feedback_and_multiple_selfloops(self):
         nodes = [node('a'), node('b'), node('c', 1), node('d', 1)]
