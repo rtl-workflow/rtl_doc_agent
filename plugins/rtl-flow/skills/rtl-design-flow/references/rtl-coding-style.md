@@ -211,6 +211,19 @@ end
 
 按任务阅读：[BFM 生成](uvm-bfm-generation.md)（接口契约、打包 / 采样）、[平台集成](uvm-platform-generation.md)（连接、参数、依赖）、[用例生成](uvm-testcase-generation.md)（输入、因子到步骤 / 代码）。测试点 / 用例格式与因子表统一见 [测试计划模板](test-plan-template.md)。
 
+### 10.2 UVM 代码风格审查
+
+适用于本次新增或修改的 SystemVerilog/UVM 验证代码。以下清单供 P4 自审和 G3 人工评审使用，不是 `check_style.py` 的自动检查项，不改变既有审批条件。继承工程沿用已确认的命名、排版和公共 API，不要求批量改名或格式化；原生 Verilog TB 继续按 §10 和 §10.1 执行。
+
+| 审查项 | 从代码核对什么 |
+|---|---|
+| 命名、排版与注释 | 新建类、变量、task 名能体现职责；同一文件缩进一致，按声明、配置、行为分组。注释解释约束、协议时序和非显然取舍，不复述语句。既有对象名保留。 |
+| BFM | driver 只驱动契约允许的信号；monitor 从实际握手重组事务，发布后不再修改同一对象。标注 clocking block / skew 的协议依据；检查背压、复位中断和尾拍（如适用）。详见 [BFM 生成](uvm-bfm-generation.md)。 |
+| 环境 | 按 `top/`、`env/`、`tests/` 的职责组织；核对参数化 vif 的类型与配置路径、TLM 两端真实事务类型，以及 interface、package、top 的编译顺序。已有环境可采用确认过的等价结构。详见 [平台集成](uvm-platform-generation.md)。 |
+| 用例 | 用例聚焦场景，公共配置、激励和检查逻辑由基类或公共 sequence 复用；步骤能追溯到 07，寄存器从公开接口访问，objection 和未完成事务有明确收尾。详见 [用例生成](uvm-testcase-generation.md)。 |
+
+交接在现有 summary 中列出本次涉及的检查项与代表性代码路径，说明不适用或尚未验证之处。G3 用这些路径查阅代码；编译或桩自检通过不等于风格与行为已经审查。
+
 ## 11. Lint
 
 - `run_lint.py` 先做本规范的风格检查（标「自动」的规则），再按 `rtl_files` 的顺序（`define.v` 在最前）运行 SpyGlass `lint/lint_rtl`（rtl_handoff 方法学，Fatal / Error 计为 error，Warning 计为 warning），或用 `--tool vcs` 运行 `vcs +lint=all`。两者都按 Verilog-2005 读入（为了 `$clog2`），其余 Verilog-2005 新增语法由风格检查拦截（RTL-01）。工具的完整输出在 `dv/build/lint/`。

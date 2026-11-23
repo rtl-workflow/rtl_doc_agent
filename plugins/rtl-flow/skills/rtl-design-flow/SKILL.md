@@ -151,7 +151,7 @@ G3    人工审核07测试点/用例及dv/激励、参考模型、自检查 ─�
 | G2 | `02_architecture` | `doc/02_architecture.html`离线架构图、本阶段新增的 DEC |
 | G3 | `07_dv_plan` | 测试点、测试用例、需求追溯及 `dv/` 下激励、参考模型、自检查（不含 build 产物）；自动模式不可跳过 |
 
-G3汇报须包含测试点覆盖、用例步骤与预期结果、激励文件路径及关键时序/随机约束。`flow.py review --pass`同时记录验证内容摘要`approved_dv_digest`；07或dv源文件变化（包括未提升版本的激励修改）会重新打开G3。审核意见交给tb-engineer修改并重新桩自检，再次人工确认。已有项目从REGRESS/DONE恢复时也需补齐G3。
+G3汇报须包含测试点覆盖、用例步骤与预期结果、激励文件路径及关键时序/随机约束。涉及 UVM 新增或修改时，按 [编码规范 §10.2](references/rtl-coding-style.md#102-uvm-代码风格审查) 从交接中的代码路径检查本次 BFM、环境与用例改动，指出未验证项；不把桩编译结果当作风格审查。`flow.py review --pass`同时记录验证内容摘要`approved_dv_digest`；07或dv源文件变化（包括未提升版本的激励修改）会重新打开G3。审核意见交给tb-engineer修改并重新桩自检，再次人工确认。已有项目从REGRESS/DONE恢复时也需补齐G3。
 
 每次生成或修改微架构文档必须同步生成HTML图，展示原始模块名、职责/层次/时钟域、主要数据与控制连接、接口方向。G2提供HTML路径及阅读顺序，用户可离线浏览；`check_docs --stage arch`会拦截缺失/过期图。详见`references/architecture-html.md`。
 
