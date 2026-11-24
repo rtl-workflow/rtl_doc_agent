@@ -44,12 +44,12 @@
 
 ## 2. 命名规则
 
-输入和输出端口必须遵守 `RTL-12`。已符合对应前缀的名称直接沿用。其余已命名对象保留原名，未命名对象按项目已有风格取名。规格记录原名、实际 RTL 名和来源，例如 APB 的 `PADDR` 对应 RTL 端口 `i_PADDR`。SSOT、接口文档、RTL、例化和验证沿用实际端口名。名称冲突或非法标识符先澄清。既有接口的改名按需求变更流程处理，并回归受影响的调用方。
+输入和输出端口必须遵守 `RTL-12`，模块内部非寄存器驱动信号和流水级信号必须遵守 `RTL-23`、`RTL-24`。已符合对应规则的名称直接沿用，其他已命名对象保留原名，未命名对象按项目已有风格取名。规格记录原名、实际 RTL 名和来源，例如 APB 的 `PADDR` 对应 RTL 端口 `i_PADDR`。SSOT、接口文档、RTL、例化和验证沿用实际端口名。名称冲突或非法标识符先澄清。既有接口或内部信号改名按需求变更流程处理，并回归受影响的调用方。
 
 | 编号 | 对象 | 规则 | 示例 |
 |---|---|---|---|
 | RTL-10 | 模块、文件 | **输入命名优先**：已给出的模块名、文件名原样复用，不添加IP前缀、不改大小写、不替换同义词。仅未命名的新模块默认用 `lower_snake_case`，IP前缀可选 | 输入 `spi_intf_adapt` → 保留 `spi_intf_adapt` |
-| RTL-11 | `reg` / `wire` | 内部信号保留原名，声明为端口时遵循 RTL-12 | `DataValid` |
+| RTL-11 | `reg` / `wire` | 不属于 RTL-23、RTL-24 的内部信号保留原名；声明为端口时遵循 RTL-12 | `DataValid` |
 | RTL-12 | 输入 / 输出 / 双向端口 | 输入必须以小写 `i_` 开头，输出必须以小写 `o_` 开头，前缀后须有信号名。时钟、复位和标准接口端口同样按方向命名。双向端口沿用项目接口命名 | `i_PADDR`、`o_PRDATA` |
 | RTL-13 | `parameter` / `localparam` / `` `define `` | 保留原名，不限制大小写或 20 字符长度 | `DataWidth` |
 | RTL-14 | 时钟 / 复位 | 输入端口遵循 RTL-12。极性由 `active` 表达，接口类别由 `std_if` 表达 | `i_PCLK`、`i_PRESETn` |
@@ -126,7 +126,7 @@
 
 ## 7. FSM
 
-- 采用**三段式**：① 时序块更新 `cur_state`；② 组合块根据 `cur_state` 与输入计算 `nxt_state`；③ 时序块产生寄存器输出。
+- 采用**三段式**：① 时序块更新 `cur_state`；② 组合块根据 `cur_state` 与输入计算 `w_nxt_state`；③ 时序块产生寄存器输出。
 - `case` 必须有 `default`，次态回到安全状态（通常为 `ST_IDLE`）。
 - 状态名、转移条件与 `02_architecture.md` 的状态转移表一一对应。
 - 以下片段展示状态转换和寄存器更新。次态信号命名及赋值排版分别遵循 RTL-23、RTL-58，形式见 §8.1。
@@ -140,16 +140,23 @@ always @(posedge i_clk or `RST_EDGE i_rst) begin
         cur_state <= #`U_DLY ST_IDLE;
     end
     else begin
-        cur_state <= #`U_DLY nxt_state;
+        cur_state <= #`U_DLY w_nxt_state;
     end
 end
 
 always @(*) begin
-    nxt_state = cur_state;
+    w_nxt_state = cur_state;
     case (cur_state)
-        ST_IDLE : if (i_start == 1'b1) nxt_state = ST_BUSY;
-        ST_BUSY : if (i_done == 1'b1)  nxt_state = ST_IDLE;
-        default : nxt_state = ST_IDLE;
+        ST_IDLE :
+            if (i_start == 1'b1) begin
+                w_nxt_state = ST_BUSY;
+            end
+        ST_BUSY :
+            if (i_done == 1'b1) begin
+                w_nxt_state = ST_IDLE;
+            end
+        default :
+            w_nxt_state = ST_IDLE;
     endcase
 end
 
@@ -158,7 +165,7 @@ always @(posedge i_clk or `RST_EDGE i_rst) begin
         o_busy <= #`U_DLY 1'b0;
     end
     else begin
-        o_busy <= #`U_DLY (nxt_state == ST_BUSY);
+        o_busy <= #`U_DLY (w_nxt_state == ST_BUSY);
     end
 end
 ```

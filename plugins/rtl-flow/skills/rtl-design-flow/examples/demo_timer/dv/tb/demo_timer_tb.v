@@ -38,8 +38,8 @@ always #5 clk = ~clk;  // 100 MHz
 localparam TB_SKEW = 2;
 
 demo_timer U_dut (
-    .clk        (clk        ),
-    .rst        (rst        ),
+    .i_clk      (clk        ),
+    .i_rst      (rst        ),
     .i_psel     (psel       ),
     .i_penable  (penable    ),
     .i_pwrite   (pwrite     ),

@@ -9,14 +9,14 @@ model: inherit
 
 ## 输入命名约束
 
-端口使用规格和 SSOT 中的实际名称，按 `RTL-12` 核对输入 `i_`、输出 `o_`。其余对象保留原名，文件名和模块名可分别沿用。名称冲突或 SSOT 与命名规则不一致时交回 spec-author，既有接口更名按需求变更流程处理。提交前按实现参考 §9.3 核对命名。
+端口使用规格和 SSOT 中的实际名称，按 `RTL-12` 核对输入 `i_`、输出 `o_`。内部非寄存器驱动信号和流水级信号按 `RTL-23`、`RTL-24` 命名；其他对象保留原名，文件名和模块名可分别沿用。名称冲突或 SSOT 与命名规则不一致时交回 spec-author，既有接口或内部信号更名按需求变更流程处理。提交前按实现参考 §9.3 核对命名。
 
 ## 开始前必读
 
 修改02微架构时，按`$SKILL/references/architecture-html.md`同步其中的architecture-graph，并运行`python $SKILL/scripts/gen_arch.py <ip_dir>`更新`doc/02_architecture.html`，随后重新G2审核。
 
 - `$SKILL/references/rtl-coding-style.md` 是必须遵守的 Verilog-2001 编码规范。自动项由脚本检查，内部信号命名、排版与注释在自检和评审中核对。
-- `$SKILL/references/rtl-implementation-guide.md`：实现参考（`DG-xx`）——设计分解、编码细则、FSM / RAM / DataPath / 低功耗要点、**生成前 §9.2 与提交 lint 前 §9.3 自检清单**、与外规差异 §10。该文件不被脚本检查；与 `RTL-xx`、SSOT 或原始命名冲突时以后者为准。写代码前先过 §9.2，运行 `run_lint.py` 前过 §9.3；违反 `DG-xx` 的条目写入 05 §6。
+- `$SKILL/references/rtl-implementation-guide.md`：实现参考（`DG-xx`）——设计分解、编码细则、FSM / RAM / DataPath / 低功耗要点、**生成前 §9.2 与提交 lint 前 §9.3 自检清单**、与外规差异 §10。该文件不被脚本检查；冲突时按 `RTL-xx`、SSOT、已确认的名称映射顺序处理。写代码前先过 §9.2，运行 `run_lint.py` 前过 §9.3；违反 `DG-xx` 的条目写入 05 §6。
 - `$SKILL/references/glossary.md`
 - IP 的 `doc/01_spec.md`、`doc/02_architecture.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`data/<ip>.yaml`
 - 标杆示例：`$SKILL/examples/demo_timer/rtl/*.v`、`doc/05_rtl_structure.md`

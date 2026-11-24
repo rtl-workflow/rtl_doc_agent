@@ -1,9 +1,9 @@
 ---
 doc: 10_checklist
 ip: demo_timer
-version: 1.4
+version: 1.5
 status: Released
-updated: 2026-10-25
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -13,10 +13,10 @@ owner: rtl-flow-example
 
 ## D0 需求与规格
 
-- [x] 00_requirements 已经用户确认，无 Open 的 Q（`approved: 1.2@2026-10-24`，ITR-008 重审通过；Q-001 ~ Q-003 Closed，ASM-001 ~ ASM-004 已确认）
+- [x] 00_requirements 已经用户确认，无 Open 的 Q（`approved: 1.4@2026-11-24`，ITR-011 重审通过；Q-001 ~ Q-003 Closed，ASM-001 ~ ASM-004 已确认）
 - [x] data/<ip>.yaml 完成，gen_docs.py 生成成功（`gen_docs.py --check` 全部 up-to-date）
-- [x] 01_spec 覆盖全部 REQ，已经用户审核（`check_docs.py --stage spec` 覆盖检查通过；`approved: 1.2@2026-10-24`）
-- [x] 02_architecture 框图与子模块划分完成，已经用户审核（子模块表检查通过；`approved: 1.2@2026-10-24`）
+- [x] 01_spec 覆盖全部 REQ，已经用户审核（`check_docs.py --stage spec` 覆盖检查通过；`approved: 1.4@2026-11-24`）
+- [x] 02_architecture 框图与子模块划分完成，已经用户审核（子模块表检查通过；`approved: 1.4@2026-11-24`）
 
 ## D1 RTL 功能完整
 
@@ -36,7 +36,7 @@ owner: rtl-flow-example
 
 - [x] 所有文档 status 为 Released
 - [x] check_docs --stage signoff 通过（0 error）
-- [x] CHANGELOG 已更新版本号（2.0.0）
+- [x] CHANGELOG 已更新版本号（4.0.0）
 
 ## V0 验证计划
 
@@ -55,4 +55,4 @@ owner: rtl-flow-example
 
 - [x] ~~代码覆盖率达到 07 中的目标，未覆盖项已分析~~ 不适用：同 V2，替代指标已达成
 - [x] 无 Open 状态的 BUG（BUG-001 ~ BUG-003 均 Closed）
-- [x] 08_iteration_log 记录完整（ITR-001 ~ ITR-008）
+- [x] 08_iteration_log 记录完整（ITR-001 ~ ITR-011）

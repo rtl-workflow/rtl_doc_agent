@@ -1,9 +1,9 @@
 ---
 doc: 09_decisions
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -21,6 +21,7 @@ owner: rtl-flow-example
 | DEC-006 | 2026-10-23 | RTL 编码规范改为项目 Verilog 编码规范，端口改名 | 已采纳 |
 | DEC-007 | 2026-10-23 | 顶层 APB 输出与中断不经寄存器输出（偏离 RTL-33） | 已采纳 |
 | DEC-008 | 2026-10-26 | 复位端口改名为 `rst`，复位极性与仿真延时改用 `define.v` 宏 | 已采纳 |
+| DEC-009 | 2026-11-24 | 端口与内部组合信号采用当前前缀和布局规则 | 已采纳 |
 
 > 状态：提议 / 已采纳 / 已废弃（被 DEC-xxx 取代）。
 
@@ -99,3 +100,12 @@ owner: rtl-flow-example
   2. 按新规范修改：端口 `rst_n` → `rst`，对集成方不兼容；复位极性（低有效）、寄存器、行为与时序不变。
 - **结论**：选 2。IP 版本 2.0.0 → 3.0.0（端口改名为不兼容变化）。`rtl/define.v`：`RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`、`U_DLY` = 1。
 - **影响**：data/demo_timer.yaml（`rtl_files`、`resets`、`ports`）；00、01、02（信号名与复位写法，升至 1.3，需重新审核 G0 / G1 / G2）；03（重新生成）；05；07；RTL 全部文件与新增 `rtl/define.v`；testbench；`dv/run_mutation.py`、`syn/synth.ys`；CHANGELOG 3.0.0。
+
+### DEC-009 端口与内部组合信号采用当前前缀和布局规则
+
+- **背景**：当前编码规范要求输入/输出端口使用 `i_` / `o_` 前缀（RTL-12），内部非寄存器驱动信号使用 `w_` 前缀（RTL-23），流水信号使用 `_<N>stg` 后缀（RTL-24），赋值和例化端口分别按 RTL-58、RTL-30 布局。标杆示例仍使用裸 `clk` / `rst` 和无 `w_` 前缀的组合信号。
+- **选项**：
+  1. 保留旧名称以避免接口变化：标杆示例将继续与规范冲突，并向新设计提供错误示范。
+  2. 以当前规则为准迁移示例：时钟与复位端口改名造成一次不兼容变化，功能与时序不变。
+- **结论**：选 2。IP 版本 3.0.0 → 4.0.0；端口 `clk` → `i_clk`、`rst` → `i_rst`；内部组合信号统一使用 `w_` 前缀，并统一赋值和例化端口布局。本设计无流水信号，RTL-24 不产生具体改名。
+- **影响**：data/demo_timer.yaml；00、01、02、03、05、07；RTL 与 testbench；`dv/run_mutation.py`；README；CHANGELOG 4.0.0。

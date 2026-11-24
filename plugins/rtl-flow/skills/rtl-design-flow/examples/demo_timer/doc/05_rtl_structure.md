@@ -1,9 +1,9 @@
 ---
 doc: 05_rtl_structure
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -30,20 +30,20 @@ demo_timer
 
 ### 3.1 demo_timer
 
-- 职责：纯连接；`o_irq = intr_state & intr_enable`（REQ-FUNC-005）。
+- 职责：纯连接；`o_irq = w_intr_state & w_intr_enable`（REQ-FUNC-005）。
 - 对应架构：02_architecture §1、§2。
-- 关键信号：`ctrl_en`（使能）、`ctrl_clr`（清零脉冲）、`cmp_val`（比较值）、`count_val`（计数值）、`expire`（到时脉冲）。
+- 关键信号：`w_ctrl_en`（使能）、`w_ctrl_clr`（清零脉冲）、`w_cmp_val`（比较值）、`w_count_val`（计数值）、`w_expire`（到时脉冲）。
 
 ### 3.2 demo_timer_reg
 
-- 职责：APB 访问判定（`access = psel & penable`）、地址译码、5 个寄存器的存储与次态、读数据选择、`pslverr` 生成。
+- 职责：APB 访问判定（`w_access = i_psel & i_penable`）、地址译码、5 个寄存器的存储与次态、读数据选择、`o_pslverr` 生成。
 - 对应架构：02_architecture §2、§4（次态优先级表）。
 - 关键信号：
 
 | 信号 | 含义 |
 |---|---|
-| `hit_*` | 地址命中对应寄存器偏移（全 12 bit 比较，非对齐地址自然不命中） |
-| `wr_en` | 有效写：`access & pwrite & addr_hit` |
+| `w_hit_*` | 地址命中对应寄存器偏移（全 12 bit 比较，非对齐地址自然不命中） |
+| `w_wr_en` | 有效写：`w_access & i_pwrite & w_addr_hit` |
 | `ctrl_en_r` / `ctrl_mode_r` | `CTRL.EN` / `CTRL.MODE` |
 | `o_ctrl_clr` | `CTRL.CLR` 写 1 产生的单周期清零脉冲（组合输出，不存储） |
 | `cmp_r` | `CMP.VAL` |
@@ -79,7 +79,7 @@ rtl/demo_timer_core.v
 
 ## 6. 编码约定与偏离 (Conventions & Deviations)
 
-遵循 `rtl-coding-style.md`（项目 Verilog 编码规范，Verilog-2001）。带复位的时序块统一写作 ``always @(posedge clk or `RST_EDGE rst)`` / ``if (rst == `RST_ACT)``，非阻塞赋值统一带 ``#`U_DLY``。`run_lint.py` 风格检查 0 违规。偏离项：
+遵循 `rtl-coding-style.md`（项目 Verilog 编码规范，Verilog-2001）。端口使用 `i_` / `o_` 前缀，内部非寄存器驱动信号使用 `w_` 前缀；带复位的时序块统一写作 ``always @(posedge i_clk or `RST_EDGE i_rst)`` / ``if (i_rst == `RST_ACT)``，非阻塞赋值统一带 ``#`U_DLY``。`run_lint.py` 风格检查 0 违规。偏离项：
 
 | 位置 | 规则 | 偏离内容 | 原因 | DEC |
 |---|---|---|---|---|

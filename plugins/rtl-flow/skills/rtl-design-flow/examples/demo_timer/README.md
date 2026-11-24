@@ -1,9 +1,9 @@
 ---
 doc: README
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-24
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -11,7 +11,7 @@ owner: rtl-flow-example
 
 > 这是 rtl-flow 插件的**标杆示例**：从一句话的不规范需求（`raw/timer需求.txt`）出发，完整走完 P0–P6，包含一次需求变更迭代。仓库保留示例开发时的仿真、lint、综合结果供参考。
 >
-> 0.7.5 统一了编码规则编号，RTL / TB 仅修改相关注释，功能逻辑未改。历史报告未重新运行，其源码摘要仍对应原文件，不能作为当前版本的验证证据。使用前需重新运行 lint、桩自检、回归，并按当前流程完成审核与签核。
+> 4.0.0 已按当前编码规范统一端口、内部组合信号、赋值和例化布局。仓库中的历史报告仍对应产生报告时的版本；当前版本的验证结论以 ITR-011 和本地重新运行结果为准。
 
 ## 概述 (Overview)
 
@@ -38,10 +38,10 @@ owner: rtl-flow-example
 | [RTL 代码架构](doc/05_rtl_structure.md) | 3 个模块的职责与信号 |
 | [编程指南](doc/06_programmers_guide.md) | C 示例代码 |
 | [验证计划](doc/07_dv_plan.md) | 11 个测试点、8 个断言、13 个覆盖点、追溯矩阵 |
-| [迭代记录](doc/08_iteration_log.md) | ITR-001 ~ ITR-008 |
-| [设计决策](doc/09_decisions.md) | DEC-001 ~ DEC-007 |
+| [迭代记录](doc/08_iteration_log.md) | ITR-001 ~ ITR-011 |
+| [设计决策](doc/09_decisions.md) | DEC-001 ~ DEC-009 |
 | [签核清单](doc/10_checklist.md) | D0–D3 / V0–V3 |
-| [变更记录](CHANGELOG.md) | 1.0.0、1.1.0、2.0.0 |
+| [变更记录](CHANGELOG.md) | 1.0.0、1.1.0、2.0.0、3.0.0、4.0.0 |
 
 ## 当前状态 (Status)
 
@@ -49,8 +49,8 @@ owner: rtl-flow-example
 |---|---|
 | 设计阶段 | D3 |
 | 验证阶段 | V3 |
-| 最近一次迭代 | ITR-008 编码规范改为项目 Verilog 规范 |
-| 人工审核 | 00 / 01 / 02 已审核（v1.2，2026-10-24） |
+| 最近一次迭代 | ITR-011 以 RTL-12/23/24/30/58 为准统一标杆示例 |
+| 人工审核 | 00 / 01 / 02 已审核（v1.4，2026-11-24） |
 
 ## 目录与命令
 
