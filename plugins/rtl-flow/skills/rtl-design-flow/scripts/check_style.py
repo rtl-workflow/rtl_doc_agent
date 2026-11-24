@@ -147,8 +147,6 @@ PATTERNS = [
     ("RTL-05", r"`include\b", "`include not allowed"),
     ("RTL-34", r"\d*'[sS]?[bBoOhH][0-9a-fA-F_]*[zZ][0-9a-fA-F_zZ]*", "tri-state value '{0}' not allowed inside IP"),
     ("RTL-07", r"`(?:define|undef)\b", "'{0}' only allowed in define.v"),
-    ("RTL-42", r"\bif\s*\(\s*[!~]?\s*rst\w*\s*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
-    ("RTL-42", r"\bif\s*\(\s*rst\w*\s*!=[^)]*\)", "reset condition '{0}': compare with ==, e.g. if (rst == `RST_ACT)"),
     ("RTL-46", r"\breg\b[^;=()]*=(?!=)", "initial value in reg declaration: initialize by reset"),
     ("RTL-51", r"\balways\s*@\s*\((?![^)]*\b(?:posedge|negedge)\b)(?![^)]*`RST_EDGE\b)(?!\s*\*\s*\))[^)]*\)",
      "combinational sensitivity list '{0}': use always @(*)"),
@@ -279,10 +277,19 @@ def check_resets(code, std, reset_names=None):
     """Yield (pos, rule, msg) for reset edges (RTL-41) and reset conditions (RTL-42).
 
     std maps standard-interface reset names to their active level. Explicit SSOT names
-    take precedence over the legacy rst* fallback for standalone file checks.
+    take precedence over the rst*/i_rst* fallback for standalone file checks.
     """
     names = set(reset_names or []) | set(std)
-    pattern = "(?:" + "|".join(re.escape(n) for n in sorted(names)) + ")" if names else r"rst\w*"
+    pattern = "(?:" + "|".join(re.escape(n) for n in sorted(names)) + ")" if names else r"(?:i_)?rst\w*"
+    invalid_conditions = (
+        r"\bif\s*\(\s*[!~]?\s*(" + pattern + r")\s*\)",
+        r"\bif\s*\(\s*(" + pattern + r")\s*!=[^)]*\)",
+    )
+    for condition in invalid_conditions:
+        for m in re.finditer(condition, code):
+            n = m.group(1)
+            want = POLARITY[std[n]][1] if n in std else "`RST_ACT"
+            yield m.start(), "RTL-42", f"reset condition '{m.group(0)}': write if ({n} == {want})"
     for m in re.finditer(r"(\bposedge|\bnegedge|`RST_EDGE)\s+(" + pattern + r")\b", code):
         edge, n = m.group(1), m.group(2)
         if n in std:
