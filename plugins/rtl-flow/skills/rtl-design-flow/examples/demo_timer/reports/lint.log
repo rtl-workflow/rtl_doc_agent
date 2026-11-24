@@ -1,7 +1,7 @@
 # rtl-flow lint report
-# command: sg_shell lint/lint_rtl -top demo_timer rtl/define.v rtl/demo_timer.v rtl/demo_timer_reg.v rtl/demo_timer_core.v
-# date: 2026-10-30
-# rtl-sha256: bb6e97777aa72804949d561a6e38c46bb9082b6b10615060f919d605009f81a3
+# command: verilator --lint-only -Wall --default-language 1364-2005 --top-module demo_timer rtl/define.v rtl/demo_timer.v rtl/demo_timer_reg.v rtl/demo_timer_core.v
+# date: 2026-11-24
+# rtl-sha256: d73937ab5df91fde59eae6e11a73a50375ee202a5736cd881764c5df2abd7e63
 # result: PASS
 # errors: 0
 # warnings: 0

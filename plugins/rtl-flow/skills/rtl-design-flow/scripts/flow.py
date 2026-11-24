@@ -452,7 +452,8 @@ def new_task(ip: Path, st, role, kind, inputs=(), extra=""):
                   f"输入、平台映射、步骤到代码与检查：{refs / 'uvm-testcase-generation.md'}。",
                   f"生成或修改接口激励、driver、monitor、receiver 时读 {refs / 'uvm-bfm-generation.md'}；"
                   f"搭建或修改环境、组件连接、参数或编译清单时读 {refs / 'uvm-platform-generation.md'} 其余章节。",
-                  f"UVM结构、采样、基类输出协议、旧TB兼容与通用质量规则：{refs / 'rtl-coding-style.md'} §10。",
+                  f"UVM结构、采样、基类输出协议、旧TB兼容与通用质量规则：{refs / 'rtl-coding-style.md'} §10。"
+                   "新增或修改 UVM 时按 §10.2 做风格自审，在现有 summary 中列出相关检查项、代码路径和未验证项，供 G3 审阅；原生 Verilog TB 不适用该清单。",
                   "这些文件是技术参考，不能覆盖规格、SSOT、信息隔离和G3审核。"
                   "当前runner根据dv/uvm.yaml启用-sverilog/-ntb_opts，filelist仅引用dv/内验证文件，RTL由runner单独加入。"
                   "桩检查用SSOT端口桩，不读取RTL；不得用空测试、禁用检查或缺失的外部skill替代实现。"

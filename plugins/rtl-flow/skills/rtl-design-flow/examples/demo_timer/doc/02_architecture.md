@@ -1,12 +1,12 @@
 ---
 doc: 02_architecture
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 reviewer: 示例用户
-approved: 1.2@2026-10-24
+approved: 1.4@2026-11-24
 ---
 
 # demo_timer 微架构
@@ -19,12 +19,35 @@ flowchart LR
   subgraph demo_timer
     reg["U_reg<br>demo_timer_reg<br>地址译码 + 寄存器"]
     core["U_core<br>demo_timer_core<br>计数器 + 比较器"]
-    reg -- "ctrl_en / ctrl_clr / cmp_val" --> core
-    core -- "count_val / expire" --> reg
-    reg -- "intr_state & intr_enable" --> irq((AND))
+    reg -- "w_ctrl_en / w_ctrl_clr / w_cmp_val" --> core
+    core -- "w_count_val / w_expire" --> reg
+    reg -- "w_intr_state & w_intr_enable" --> irq((AND))
   end
-  reg --> rsp["prdata/pready/pslverr"]
+  reg --> rsp["o_prdata/o_pready/o_pslverr"]
   irq --> o_irq
+```
+
+```architecture-graph
+{
+  "title": "demo_timer · 系统微架构",
+  "summary": "APB3 请求由寄存器模块译码和存储，核心模块执行计数与到时比较，寄存器状态组合生成中断。",
+  "nodes": [
+    {"id": "apb", "name": "APB3 Master", "role": "发起寄存器访问", "group": "系统外部 / i_clk 域", "layer": 0},
+    {"id": "top", "name": "demo_timer", "role": "顶层连接并生成 o_irq", "group": "demo_timer / i_clk 域", "layer": 1},
+    {"id": "reg", "name": "demo_timer_reg", "role": "APB 译码、寄存器与中断状态", "group": "demo_timer / i_clk 域", "layer": 2},
+    {"id": "core", "name": "demo_timer_core", "role": "计数、清零与到时比较", "group": "demo_timer / i_clk 域", "layer": 3},
+    {"id": "intc", "name": "Interrupt Controller", "role": "接收电平中断", "group": "系统外部", "layer": 4}
+  ],
+  "edges": [
+    {"from": "apb", "to": "top", "kind": "data", "label": "i_psel/i_penable/i_pwrite，i_paddr[11:0]，i_pwdata[31:0]"},
+    {"from": "top", "to": "apb", "kind": "data", "label": "o_prdata[31:0]，o_pready，o_pslverr"},
+    {"from": "top", "to": "reg", "kind": "data", "label": "APB3 请求与响应端口"},
+    {"from": "reg", "to": "core", "kind": "control", "label": "w_ctrl_en，w_ctrl_clr，w_cmp_val[31:0]"},
+    {"from": "core", "to": "reg", "kind": "data", "label": "w_count_val[31:0]，w_expire"},
+    {"from": "reg", "to": "top", "kind": "control", "label": "w_intr_state，w_intr_enable"},
+    {"from": "top", "to": "intc", "kind": "control", "label": "o_irq"}
+  ]
+}
 ```
 
 ## 2. 子模块划分 (Sub-modules)
@@ -40,7 +63,7 @@ flowchart LR
 ## 3. 数据通路 (Datapath)
 
 - **计数通路**：`count_r`（32 bit）→ 加 1 → 选择器（保持 / 加 1 / 归零）→ `count_r`。
-- **比较通路**：`count_r` 与 `cmp_val`（32 bit）做无符号 `>=` 比较，与 `en` 相与得到 `expire`（组合信号，单周期脉冲）。
+- **比较通路**：`count_r` 与 `w_cmp_val`（32 bit）做无符号 `>=` 比较，与 `w_ctrl_en` 相与得到 `w_expire`（组合信号，单周期脉冲）。
 - **读通路**：`i_paddr` 译码 → 5 选 1 读数据选择器 → `o_prdata`（组合输出，访问周期有效）。
 - 无流水线、无缓冲。
 
@@ -50,14 +73,14 @@ flowchart LR
 
 | 寄存器 | 默认 | 条件 1 | 条件 2（最高优先级） |
 |---|---|---|---|
-| `count_r` | 保持 | `en` → `count_r + 1` | `expire` 或 `clr` → 0 |
-| `ctrl_en_r` | 保持 | `expire && mode == ONESHOT` → 0 | 软件写 `CTRL` → `pwdata[0]`（DEC-002） |
-| `ctrl_mode_r` | 保持 | — | 软件写 `CTRL` → `pwdata[1]` |
-| `cmp_r` | 保持 | — | 软件写 `CMP` → `pwdata` |
-| `intr_state_r` | 保持 | 软件写 `INTR_STATE` 且 `pwdata[0]` → 0 | `expire` → 1（DEC-003） |
-| `intr_enable_r` | 保持 | — | 软件写 `INTR_ENABLE` → `pwdata[0]` |
+| `count_r` | 保持 | `w_ctrl_en` → `count_r + 1` | `w_expire` 或 `w_ctrl_clr` → 0 |
+| `ctrl_en_r` | 保持 | `w_expire && mode == ONESHOT` → 0 | 软件写 `CTRL` → `i_pwdata[0]`（DEC-002） |
+| `ctrl_mode_r` | 保持 | — | 软件写 `CTRL` → `i_pwdata[1]` |
+| `cmp_r` | 保持 | — | 软件写 `CMP` → `i_pwdata` |
+| `intr_state_r` | 保持 | 软件写 `INTR_STATE` 且 `i_pwdata[0]` → 0 | `w_expire` → 1（DEC-003） |
+| `intr_enable_r` | 保持 | — | 软件写 `INTR_ENABLE` → `i_pwdata[0]` |
 
-其中「软件写 X」= `i_psel & i_penable & i_pwrite & (i_paddr == X 的偏移)`；`clr` = 软件写 `CTRL` 且 `pwdata[2]`，为组合单周期脉冲，不占用触发器（DEC-005）。
+其中「软件写 X」= `i_psel & i_penable & i_pwrite & (i_paddr == X 的偏移)`；`w_ctrl_clr` = 软件写 `CTRL` 且 `i_pwdata[2]`，为组合单周期脉冲，不占用触发器（DEC-005）。
 
 运行状态的转移如下：
 
@@ -74,17 +97,17 @@ stateDiagram-v2
 |---|---|---|---|
 | Stopped | SW 写 `CTRL.EN` = 1 | Running | 下一周期开始计数 |
 | Running | SW 写 `CTRL.EN` = 0 | Stopped | 计数保持 |
-| Running | `expire` 且 `MODE` = ONESHOT 且无同拍 SW 写 | Stopped | 计数归零，置位 `EXPIRED` |
-| Running | `expire` 且 `MODE` = PERIODIC | Running | 计数归零，置位 `EXPIRED` |
+| Running | `w_expire` 且 `MODE` = ONESHOT 且无同拍 SW 写 | Stopped | 计数归零，置位 `EXPIRED` |
+| Running | `w_expire` 且 `MODE` = PERIODIC | Running | 计数归零，置位 `EXPIRED` |
 
 ## 5. 时钟与复位方案 (Clocking & Reset)
 
 | 时钟 | 频率 | 驱动的子模块 |
 |---|---|---|
-| `clk` | 100 MHz | 全部 |
+| `i_clk` | 100 MHz | 全部 |
 
-- 所有触发器使用 ``always @(posedge clk or `RST_EDGE rst)``，复位判断写作 ``if (rst == `RST_ACT)``，非阻塞赋值写作 ``<= #`U_DLY``（rtl-coding-style RTL-41、RTL-42、RTL-50），异步复位到 04_registers 定义的复位值。`rtl/define.v` 中 `RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`，即低有效（ASM-004）。
-- 复位同步器位于 IP 外部，`rst` 释放沿已同步到 `clk`。
+- 所有触发器使用 ``always @(posedge i_clk or `RST_EDGE i_rst)``，复位判断写作 ``if (i_rst == `RST_ACT)``，非阻塞赋值写作 ``<= #`U_DLY``（rtl-coding-style RTL-41、RTL-42、RTL-50），异步复位到 04_registers 定义的复位值。`rtl/define.v` 中 `RST_EDGE` = `negedge`、`RST_ACT` = `1'b0`，即低有效（ASM-004）。
+- 复位同步器位于 IP 外部，`i_rst` 释放沿已同步到 `i_clk`。
 - 全部 68 个触发器均可复位（`CTRL` 2 + `CMP` 32 + `COUNT` 32 + `INTR_STATE` 1 + `INTR_ENABLE` 1）。
 
 ## 6. 跨时钟域 (CDC)
@@ -92,7 +115,7 @@ stateDiagram-v2
 | 源时钟 | 目的时钟 | 信号 | 位宽 | 同步方式 |
 |---|---|---|---|---|
 
-不适用：单时钟域设计，所有输入（APB 信号）均与 `clk` 同步。
+不适用：单时钟域设计，所有输入（APB 信号）均与 `i_clk` 同步。
 
 ## 7. 关键时序 (Key Timing)
 
@@ -100,12 +123,12 @@ APB 写 `CTRL` 启动周期模式，`CMP.VAL` = 1（周期 2 拍），`INTR_ENAB
 
 ```wavedrom
 { "signal": [
-  { "name": "clk",     "wave": "p........" },
+  { "name": "i_clk",   "wave": "p........" },
   { "name": "i_psel",    "wave": "01.0....." },
   { "name": "i_penable", "wave": "0.10....." },
   { "name": "ctrl_en_r", "wave": "0..1....." },
   { "name": "count_r",   "wave": "=...=====", "data": ["0", "1", "0", "1", "0", "1"] },
-  { "name": "expire",    "wave": "0...10101" },
+  { "name": "w_expire",  "wave": "0...10101" },
   { "name": "o_irq",     "wave": "0....1..." }
 ]}
 ```
@@ -116,7 +139,7 @@ APB 写 `CTRL` 启动周期模式，`CMP.VAL` = 1（周期 2 拍），`INTR_ENAB
 |---|---|---|
 | 触发器数量 | 68 | §5 统计；Yosys 综合实测 68（36 个复位为 0、32 个复位为 1） |
 | 组合逻辑 | 494 个二输入通用门 | Yosys 综合实测（`syn/synth.ys`，通用门库，未做工艺映射） |
-| 关键路径 | `count_r` → 32 bit `>=` 比较 → `expire` → 计数次态选择 → `count_r` | Yosys `ltp` 实测最长组合路径 32 级二输入门（初估 < 30 级，见 ITR-004） |
+| 关键路径 | `count_r` → 32 bit `>=` 比较 → `w_expire` → 计数次态选择 → `count_r` | Yosys `ltp` 实测最长组合路径 32 级二输入门（初估 < 30 级，见 ITR-004） |
 | 目标频率 | 100 MHz（10 ns） | REQ-PERF-001；32 级门在常见工艺下约 3~6 ns，预计余量充足，最终以后端 STA 为准 |
 
 ## 9. 可测性与调试 (DFT & Debug)

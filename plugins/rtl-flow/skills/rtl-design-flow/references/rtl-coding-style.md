@@ -44,12 +44,12 @@
 
 ## 2. 命名规则
 
-输入和输出端口必须遵守 `RTL-12`。已符合对应前缀的名称直接沿用。其余已命名对象保留原名，未命名对象按项目已有风格取名。规格记录原名、实际 RTL 名和来源，例如 APB 的 `PADDR` 对应 RTL 端口 `i_PADDR`。SSOT、接口文档、RTL、例化和验证沿用实际端口名。名称冲突或非法标识符先澄清。既有接口的改名按需求变更流程处理，并回归受影响的调用方。
+输入和输出端口必须遵守 `RTL-12`，模块内部非寄存器驱动信号和流水级信号必须遵守 `RTL-23`、`RTL-24`。已符合对应规则的名称直接沿用，其他已命名对象保留原名，未命名对象按项目已有风格取名。规格记录原名、实际 RTL 名和来源，例如 APB 的 `PADDR` 对应 RTL 端口 `i_PADDR`。SSOT、接口文档、RTL、例化和验证沿用实际端口名。名称冲突或非法标识符先澄清。既有接口或内部信号改名按需求变更流程处理，并回归受影响的调用方。
 
 | 编号 | 对象 | 规则 | 示例 |
 |---|---|---|---|
 | RTL-10 | 模块、文件 | **输入命名优先**：已给出的模块名、文件名原样复用，不添加IP前缀、不改大小写、不替换同义词。仅未命名的新模块默认用 `lower_snake_case`，IP前缀可选 | 输入 `spi_intf_adapt` → 保留 `spi_intf_adapt` |
-| RTL-11 | `reg` / `wire` | 内部信号保留原名，声明为端口时遵循 RTL-12 | `DataValid` |
+| RTL-11 | `reg` / `wire` | 不属于 RTL-23、RTL-24 的内部信号保留原名；声明为端口时遵循 RTL-12 | `DataValid` |
 | RTL-12 | 输入 / 输出 / 双向端口 | 输入必须以小写 `i_` 开头，输出必须以小写 `o_` 开头，前缀后须有信号名。时钟、复位和标准接口端口同样按方向命名。双向端口沿用项目接口命名 | `i_PADDR`、`o_PRDATA` |
 | RTL-13 | `parameter` / `localparam` / `` `define `` | 保留原名，不限制大小写或 20 字符长度 | `DataWidth` |
 | RTL-14 | 时钟 / 复位 | 输入端口遵循 RTL-12。极性由 `active` 表达，接口类别由 `std_if` 表达 | `i_PCLK`、`i_PRESETn` |
@@ -59,16 +59,24 @@
 | RTL-18 | 跨时钟域同步后的信号 | 保留原名，同步关系在架构中说明 | `ReqSynced` |
 | RTL-19 | 例化名 | 输入已指定则保留；未指定时用 `U_<子模块名>`（已有IP前缀可省略）；多实例加用途或序号 | `U_spi_intf_adapt`, `U_sync_0` |
 | RTL-20 | generate 块 | 保留原名，不强加前缀 | `Lane` |
-| RTL-21 | FSM | 状态编码用 `localparam`；状态名、状态寄存器和次态信号保留原名 | `Idle` |
+| RTL-21 | FSM | 状态编码用 `localparam`，状态名和状态寄存器保留原名。组合次态信号遵循 RTL-23 | `Idle`、`w_nxt_state` |
 | RTL-22 | 向量 | 降序定义，最低位为 0：`[N-1:0]` | `reg [7:0] data_r;` |
+| RTL-23 | 模块内部非寄存器驱动信号 | 必须以小写 `w_` 开头。以实际驱动方式判断，组合 `always @(*)` 内赋值的 `reg` 同样遵循此规则 | `wire w_ready`、`reg w_nxt_state` |
+| RTL-24 | 模块内部流水级信号 | 表示特定流水级的内部信号必须以 `_<N>stg` 结尾，`N` 从 `1` 开始沿数据流递增。同一级的寄存器、数据线和伴随控制使用相同级号 | `data_1stg`、`valid_2stg`、`w_ready_2stg` |
 
 在 RTL 自检及设计评审中核对 `RTL-12`。`gen_docs.py`、`check_style.py` 和 `run_lint.py` 继续执行原有检查。
+
+### 2.1 模块内部信号
+
+内部信号命名优先执行 RTL-23、RTL-24，保留名称主体和大小写。组合逻辑生成的第 1 级数据可写作 `w_data_1stg`，第 2 级时序寄存器可写作 `data_2stg`。其他时序寄存器遵循 RTL-17。级号使用无前导零的十进制数字，以微架构的流水边界为准。同一级的数据、有效位和随行控制使用相同级号。流水级命名与其他后缀共用时，把 `_<N>stg` 放在末尾。端口名称按接口规范确定。
+
+对既有内部信号做命名迁移时，记录原名和实际名，更新相关设计文档及引用，并对受影响逻辑做回归。RTL 自检和设计评审核对驱动方式、级号、排版和注释。
 
 ## 3. 端口与例化
 
 | 编号 | 规则 | 检查 |
 |---|---|---|
-| RTL-30 | 使用 Verilog-2001 ANSI 端口声明；端口顺序：时钟、复位、其余输入，然后双向，最后输出 | 自动（方向顺序） |
+| RTL-30 | 使用 Verilog-2001 ANSI 端口声明。端口依次为时钟、复位、其余输入、双向端口、输出。每个端口独占一行，方向、类型、位宽和信号名各列纵向对齐，标量的位宽列留空 | 自动（方向顺序）、评审（排版） |
 | RTL-31 | 例化必须按端口名连接 `.port(sig)`，禁止按位置连接，禁止悬空端口；不用的输出写 `.o_xxx()` 并注释原因 | lint |
 | RTL-32 | 每个模块至少一个输入、一个输出，不写空模块 | lint |
 | RTL-33 | 顶层模块的输出应经寄存器输出；协议要求组合输出（如 APB 零等待的 `PRDATA`）时在 05 §6 说明 | 评审 |
@@ -117,6 +125,7 @@ data_capture U_data_capture (
 | RTL-55 | 赋值两侧位宽一致；常量写明位宽（`1'b0`、`8'hFF`、`{DATA_WIDTH{1'b0}}`），禁止魔数 | lint |
 | RTL-56 | 移位量必须是常数；`if` 嵌套不超过 4 层，否则改写为 `case` 或拆分逻辑 | 评审 |
 | RTL-57 | 避免异步反馈环路与组合环 | lint |
+| RTL-58 | 每条赋值语句独占一行。同一代码块、同一缩进层级内，相邻同类赋值的 `=` 或 `<=` 纵向对齐，以便列选编辑 | 评审 |
 
 ## 6. 禁用的语法
 
@@ -131,9 +140,10 @@ data_capture U_data_capture (
 
 ## 7. FSM
 
-- 采用**三段式**：① 时序块更新 `cur_state`；② 组合块根据 `cur_state` 与输入计算 `nxt_state`；③ 时序块产生寄存器输出。
+- 采用**三段式**：① 时序块更新 `cur_state`；② 组合块根据 `cur_state` 与输入计算 `w_nxt_state`；③ 时序块产生寄存器输出。
 - `case` 必须有 `default`，次态回到安全状态（通常为 `ST_IDLE`）。
 - 状态名、转移条件与 `02_architecture.md` 的状态转移表一一对应。
+- 以下片段展示状态转换和寄存器更新。次态信号命名及赋值排版分别遵循 RTL-23、RTL-58，形式见 §8.1。
 
 ```verilog
 localparam ST_IDLE = 2'd0;
@@ -144,16 +154,23 @@ always @(posedge i_clk or `RST_EDGE i_rst) begin
         cur_state <= #`U_DLY ST_IDLE;
     end
     else begin
-        cur_state <= #`U_DLY nxt_state;
+        cur_state <= #`U_DLY w_nxt_state;
     end
 end
 
 always @(*) begin
-    nxt_state = cur_state;
+    w_nxt_state = cur_state;
     case (cur_state)
-        ST_IDLE : if (i_start == 1'b1) nxt_state = ST_BUSY;
-        ST_BUSY : if (i_done == 1'b1)  nxt_state = ST_IDLE;
-        default : nxt_state = ST_IDLE;
+        ST_IDLE :
+            if (i_start == 1'b1) begin
+                w_nxt_state = ST_BUSY;
+            end
+        ST_BUSY :
+            if (i_done == 1'b1) begin
+                w_nxt_state = ST_IDLE;
+            end
+        default :
+            w_nxt_state = ST_IDLE;
     endcase
 end
 
@@ -162,7 +179,7 @@ always @(posedge i_clk or `RST_EDGE i_rst) begin
         o_busy <= #`U_DLY 1'b0;
     end
     else begin
-        o_busy <= #`U_DLY (nxt_state == ST_BUSY);
+        o_busy <= #`U_DLY (w_nxt_state == ST_BUSY);
     end
 end
 ```
@@ -178,17 +195,73 @@ end
 // Version     : 1.0
 // Date        : 2026-10-23
 // Doc         : doc/05_rtl_structure.md
-// History     : 见 CHANGELOG.md 与 doc/08_iteration_log.md
 //==============================================================================
 ```
 
 `define.v` 的文件头见 §1.1。
 
-- 缩进 4 个空格，不用 Tab；每行不超过 100 字符。
-- `begin` 与 `if` / `else` / `always` 同行，`end` 单独一行；`else` 另起一行。
-- `if` / `else` 分支即使只有一条语句也写 `begin ... end`（单行 `case` 项除外）。
-- 每个信号一行声明，行尾注释说明含义；关键逻辑注释引用 REQ / DEC 编号。
-- 模块内顺序：端口 → `localparam` → 内部信号声明 → 组合逻辑 → 时序逻辑 → 子模块例化 → 输出赋值。
+- 使用 4 个空格缩进，禁用 Tab，行宽不超过 100 字符。`begin` 与 `if`、`else`、`always` 同行，`end` 单独一行，`else` 另起一行。
+- 端口按 RTL-30 排列。端口列表中的每个信号保留完整声明，逗号紧随信号名，已有行尾注释纵向对齐。
+- 参数声明列表每个 `parameter` 或 `localparam` 一行，对齐关键字、类型或位宽、参数名和 `=`。无类型或位宽时保留对应空列。按名例化参数时，每项 `.PARAM(VALUE)` 独占一行，在同组对齐参数名的起列与左括号。
+- 赋值按 RTL-58 排列。`if` / `else` 分支使用 `begin ... end`，带赋值的 `case` 分支将赋值语句放在分支标签下一行。长表达式使用统一的续行缩进。
+- 内部信号逐行声明，注释说明信号语义、时序、边界条件或设计原因。关键逻辑引用适用的 REQ / DEC。代码改动时同步更新相关注释，删除过时注释和停用的注释代码。必要的兼容约束保留原因和适用条件，修订记录写入 `CHANGELOG.md` 或 `doc/08_iteration_log.md`。
+- 模块按参数列表、端口列表、`localparam`、内部信号声明、组合逻辑、时序逻辑、例化和输出连接组织。
+
+### 8.1 排版示例
+
+示例中的 `o_raw` 来自第一级寄存器，`o_data` 来自第二级寄存器。`w_masked_1stg` 表示第一流水级输出进入第二级之前的组合数据。
+
+```verilog
+module layout_example #(
+    parameter                  DATA_WIDTH = 8,
+    parameter [DATA_WIDTH-1:0] DATA_MASK  = {DATA_WIDTH{1'b1}}
+) (
+    input  wire                  i_clk,
+    input  wire                  i_rst,
+    input  wire [DATA_WIDTH-1:0] i_data,
+    output wire [DATA_WIDTH-1:0] o_raw,
+    output wire [DATA_WIDTH-1:0] o_data
+);
+
+    reg  [DATA_WIDTH-1:0] data_1stg;     // Raw input captured at stage 1
+    reg  [DATA_WIDTH-1:0] data_2stg;     // Masked data captured at stage 2
+    wire [DATA_WIDTH-1:0] w_masked_1stg; // Masked stage 1 data before capture
+
+    assign w_masked_1stg = data_1stg & DATA_MASK;
+
+    always @(posedge i_clk or `RST_EDGE i_rst) begin
+        if (i_rst == `RST_ACT) begin
+            data_1stg <= #`U_DLY {DATA_WIDTH{1'b0}};
+        end
+        else begin
+            data_1stg <= #`U_DLY i_data;
+        end
+    end
+
+    always @(posedge i_clk or `RST_EDGE i_rst) begin
+        if (i_rst == `RST_ACT) begin
+            data_2stg <= #`U_DLY {DATA_WIDTH{1'b0}};
+        end
+        else begin
+            data_2stg <= #`U_DLY w_masked_1stg;
+        end
+    end
+
+    assign o_raw  = data_1stg;
+    assign o_data = data_2stg;
+endmodule
+```
+
+组合块内也按赋值运算符对齐。下例的两个赋值分别设置同一状态信号的标志位和其余字段。
+
+```verilog
+reg [3:0] w_status;  // Packed active flag and status flags
+
+always @(*) begin
+    w_status[0]   = w_active;
+    w_status[3:1] = w_flags;
+end
+```
 
 ## 9. CDC
 
@@ -224,6 +297,19 @@ end
 - UVM 工程按实际平台使用 cfg / config_db、factory、继承和 callback；原生 Verilog TB 使用等价的模块 / task 分层，不引入不被 runner 支持的 class 语法。
 
 按任务阅读：[BFM 生成](uvm-bfm-generation.md)（接口契约、打包 / 采样）、[平台集成](uvm-platform-generation.md)（连接、参数、依赖）、[用例生成](uvm-testcase-generation.md)（输入、因子到步骤 / 代码）。测试点 / 用例格式与因子表统一见 [测试计划模板](test-plan-template.md)。
+
+### 10.2 UVM 代码风格审查
+
+适用于本次新增或修改的 SystemVerilog/UVM 验证代码。以下清单供 P4 自审和 G3 人工评审使用，不是 `check_style.py` 的自动检查项，不改变既有审批条件。继承工程沿用已确认的命名、排版和公共 API，不要求批量改名或格式化；原生 Verilog TB 继续按 §10 和 §10.1 执行。
+
+| 审查项 | 从代码核对什么 |
+|---|---|
+| 命名、排版与注释 | 新建类、变量、task 名能体现职责；同一文件缩进一致，按声明、配置、行为分组。注释解释约束、协议时序和非显然取舍，不复述语句。既有对象名保留。 |
+| BFM | driver 只驱动契约允许的信号；monitor 从实际握手重组事务，发布后不再修改同一对象。标注 clocking block / skew 的协议依据；检查背压、复位中断和尾拍（如适用）。详见 [BFM 生成](uvm-bfm-generation.md)。 |
+| 环境 | 按 `top/`、`env/`、`tests/` 的职责组织；核对参数化 vif 的类型与配置路径、TLM 两端真实事务类型，以及 interface、package、top 的编译顺序。已有环境可采用确认过的等价结构。详见 [平台集成](uvm-platform-generation.md)。 |
+| 用例 | 用例聚焦场景，公共配置、激励和检查逻辑由基类或公共 sequence 复用；步骤能追溯到 07，寄存器从公开接口访问，objection 和未完成事务有明确收尾。详见 [用例生成](uvm-testcase-generation.md)。 |
+
+交接在现有 summary 中列出本次涉及的检查项与代表性代码路径，说明不适用或尚未验证之处。G3 用这些路径查阅代码；编译或桩自检通过不等于风格与行为已经审查。
 
 ## 11. Lint
 

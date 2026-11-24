@@ -41,7 +41,7 @@
 | `_r` / `_r1`、`_r2` | 时序寄存器 / 打拍 | `cnt_r`, `req_r1` |
 | `_en` / `_we` | 使能 / 写使能 | `cnt_en` |
 | `_sync` | 已同步到本时钟域 | `req_sync` |
-| `cur_state` / `nxt_state` | FSM 当前状态 / 次态 | |
+| `cur_state` / `w_nxt_state` | FSM 当前状态 / 组合次态 | `w_nxt_state` 遵循 RTL-23 |
 | `ST_` | FSM 状态编码（`localparam`） | `ST_IDLE` |
 | `U_` | 例化名 | `U_core`, `U_sync_0` |
 | 全大写 | 部分示例中的参数或宏写法，无大小写和20字符长度要求 | `DATA_WIDTH` |

@@ -51,7 +51,7 @@ stateDiagram-v2
 
 | 时钟 | 频率 | 驱动的子模块 |
 |---|---|---|
-| `clk` | {{x}} MHz | 全部 |
+| `i_clk` | {{x}} MHz | 全部 |
 
 {{复位方案、复位同步器位置、复位后初始值策略。}}
 
@@ -66,7 +66,7 @@ stateDiagram-v2
 
 ```wavedrom
 { "signal": [
-  { "name": "clk", "wave": "p......" },
+  { "name": "i_clk", "wave": "p......" },
   { "name": "start", "wave": "010...." }
 ]}
 ```

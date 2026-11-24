@@ -59,6 +59,10 @@ P4生成测试点、测试用例与testbench激励并完成桩自检后，流程
 
 **生成接口变化**：C头文件中的IP和枚举名称不再自动转为大写，组合宏保留原名大小写（如 `OriginalIP_Control_Enable_VALUE_On`）。已有项目重新生成头文件后，软件调用方需要使用对应原名宏。示例历史日志中的改名记录只描述当时版本，不作为新设计的命名要求。
 
+### RTL 排版与内部信号命名
+
+端口和参数列表每项一行，按字段列对齐。同一代码块内的同类赋值每条一行，赋值运算符纵向对齐，便于列选编辑。模块内部的非寄存器驱动信号以 `w_` 开头，属于特定流水级的信号以 `_<N>stg` 结尾，例如 `w_data_1stg`。代码改动时同步更新相关注释，修订历史集中记录在变更日志中。[RTL 编码规范](plugins/rtl-flow/skills/rtl-design-flow/references/rtl-coding-style.md)
+
 ```
 plugins/rtl-flow/
 ├── agents/                      # 角色 agent（由编排者派发，不单独调用）
