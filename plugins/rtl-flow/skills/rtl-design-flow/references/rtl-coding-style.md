@@ -42,19 +42,19 @@
 
 宏的取值与 `data/<ip>.yaml` 中内部复位（未标 `std_if`，见 RTL-14）的 `active` 一致：`low` 对应 `negedge` / `1'b0`，`high` 对应 `posedge` / `1'b1`。标准接口复位不使用这两个宏。
 
-## 2. 原始命名保留
+## 2. 命名规则
 
-需求、规格、接口表及已有设计中的名称原样贯穿文档、SSOT、RTL、验证和软件接口，包括 IP、模块、文件、端口、时钟、复位、信号、参数、宏、寄存器、字段、枚举、实例、generate 块及状态名。不得为统一风格追加或删除前后缀、转换大小写、缩写、翻译或替换同义词。名称冲突或目标语言无法表达时先向用户澄清，确认后记录原名、实际名与原因，不自动改名。未命名对象按项目已有风格取名。
+输入和输出端口必须遵守 `RTL-12`。已符合对应前缀的名称直接沿用。其余已命名对象保留原名，未命名对象按项目已有风格取名。规格记录原名、实际 RTL 名和来源，例如 APB 的 `PADDR` 对应 RTL 端口 `i_PADDR`。SSOT、接口文档、RTL、例化和验证沿用实际端口名。名称冲突或非法标识符先澄清。既有接口的改名按需求变更流程处理，并回归受影响的调用方。
 
 | 编号 | 对象 | 规则 | 示例 |
 |---|---|---|---|
 | RTL-10 | 模块、文件 | **输入命名优先**：已给出的模块名、文件名原样复用，不添加IP前缀、不改大小写、不替换同义词。仅未命名的新模块默认用 `lower_snake_case`，IP前缀可选 | 输入 `spi_intf_adapt` → 保留 `spi_intf_adapt` |
-| RTL-11 | `reg` / `wire` / 端口 | 保留原名，不限制大小写 | `DataValid` |
-| RTL-12 | 输入 / 输出 / 双向端口 | 保留原名，方向由声明表达，不强加前缀 | `PADDR`, `PRDATA` |
+| RTL-11 | `reg` / `wire` | 内部信号保留原名，声明为端口时遵循 RTL-12 | `DataValid` |
+| RTL-12 | 输入 / 输出 / 双向端口 | 输入必须以小写 `i_` 开头，输出必须以小写 `o_` 开头，前缀后须有信号名。时钟、复位和标准接口端口同样按方向命名。双向端口沿用项目接口命名 | `i_PADDR`、`o_PRDATA` |
 | RTL-13 | `parameter` / `localparam` / `` `define `` | 保留原名，不限制大小写或 20 字符长度 | `DataWidth` |
-| RTL-14 | 时钟 / 复位 | 保留原名；极性由 `active` 表达，接口类别由 `std_if` 表达，不从名字推断 | `PCLK`, `PRESETn` |
-| RTL-15 | 低有效信号 | 保留原名，极性在接口说明中标注 | `CSn` |
-| RTL-16 | 三态输出寄存器 | 保留原名，不强加后缀 | `SdaOut` |
+| RTL-14 | 时钟 / 复位 | 输入端口遵循 RTL-12。极性由 `active` 表达，接口类别由 `std_if` 表达 | `i_PCLK`、`i_PRESETn` |
+| RTL-15 | 低有效信号 | 保留原始信号主体，端口遵循 RTL-12，极性在接口说明中标注 | `i_CSn` |
+| RTL-16 | 三态输出寄存器 | 内部寄存器保留原名，输出端口遵循 RTL-12 | `SdaOut`、`o_SdaOut` |
 | RTL-17 | 时序寄存器 | 保留原名，不强加打拍后缀 | `Count` |
 | RTL-18 | 跨时钟域同步后的信号 | 保留原名，同步关系在架构中说明 | `ReqSynced` |
 | RTL-19 | 例化名 | 输入已指定则保留；未指定时用 `U_<子模块名>`（已有IP前缀可省略）；多实例加用途或序号 | `U_spi_intf_adapt`, `U_sync_0` |
@@ -62,7 +62,7 @@
 | RTL-21 | FSM | 状态编码用 `localparam`；状态名、状态寄存器和次态信号保留原名 | `Idle` |
 | RTL-22 | 向量 | 降序定义，最低位为 0：`[N-1:0]` | `reg [7:0] data_r;` |
 
-`run_lint.py` 与 `gen_docs.py` 不以命名风格拒绝原名。语法、端口一致性、复位极性等功能检查仍执行。下文代码中的 `clk`、`rst` 等只是示例名称，实际使用原名。
+在 RTL 自检及设计评审中核对 `RTL-12`。`gen_docs.py`、`check_style.py` 和 `run_lint.py` 继续执行原有检查。
 
 ## 3. 端口与例化
 
@@ -83,9 +83,9 @@
 
 | 编号 | 规则 | 检查 |
 |---|---|---|
-| RTL-40 | 同步设计；一个时序 `always` 块只有一个时钟、只在一个沿动作，写作 `posedge clk` / `negedge clk` | lint |
-| RTL-41 | 默认复位方案：异步复位、同步释放（复位同步器在 IP 外部或独立模块中）。内部复位的高低有效由 `define.v` 统一决定，所有内部复位极性相同，时序块固定写作 `` always @(posedge clk or `RST_EDGE rst) ``，不直接写 `posedge rst` / `negedge rst`。标准接口复位（RTL-14）极性固定，直接写 `always @(posedge clk or negedge rst_n)`（低有效）或 `always @(posedge clk or posedge rst)`（高有效），沿与 yaml 中的 `active` 一致。大位宽数据只做打拍时可以不复位，写作 `always @(posedge clk)`（见 RTL-45） | 自动（内部复位必须写 `` `RST_EDGE ``；标准接口复位的沿与 `active` 一致） |
-| RTL-42 | 复位判断必须写成比较形式：内部复位固定为 `` if (rst == `RST_ACT) ``；标准接口复位与常量比较，`if (rst_n == 1'b0)`（低有效）或 `if (rst == 1'b1)`（高有效），常量与 `active` 一致。不写 `if (!rst_n)`、`if (rst)` | 自动 |
+| RTL-40 | 同步设计。一个时序 `always` 块只有一个时钟、只在一个沿动作，写作 `posedge i_clk` / `negedge i_clk` | lint |
+| RTL-41 | 默认异步复位、同步释放，复位同步器放在 IP 外部或独立模块。内部复位统一由 `define.v` 定义极性，使用 `` always @(posedge i_clk or `RST_EDGE i_rst) ``。标准接口按 YAML `active` 写复位沿，低有效用 `negedge i_rst_n`，高有效用 `posedge i_rst`。纯数据打拍可用 `always @(posedge i_clk)`（RTL-45） | 自动（复位沿及极性） |
+| RTL-42 | 复位判断使用相等比较。内部复位写 `` if (i_rst == `RST_ACT) ``。标准接口按 `active` 写 `if (i_rst_n == 1'b0)` 或 `if (i_rst == 1'b1)` | 自动 |
 | RTL-43 | 时钟、复位路径上不加门控、不加 buffer；不在模块内生成时钟（分频用使能代替）；时钟不作为数据使用。**时序 `always` 敏感列表中 `posedge` / `negedge` / `` `RST_EDGE `` 后面的信号必须直接是本模块的 `input` 端口**：内部 `assign` / 取反 / 门控 / 分频 / 寄存器或例化输出、`output` 端口、表达式（如 `posedge (a & b)`）均不允许。例如 `assign cs_clock = !cs_n;` 后写 `always @(posedge cs_clock)` 即违规，应改为用系统时钟同步 `cs_n` 并做边沿检测产生使能。确属独立的时钟 / 复位产生模块（`rtl-implementation-guide.md` DG-13）按模块豁免：`data/style_waivers.txt` 写一行 `RTL-43 <模块名> <原因>`，并在 05 §6 与 09 DEC 说明；不支持整项目豁免 | 自动（时钟 / 复位来源）；评审（时钟作数据） |
 | RTL-44 | 不用向量定义一组时钟；顶层时钟必须是独立端口 | 自动（敏感列表中的位选时钟 / 复位，如 `posedge clks[0]`）；评审（顶层端口形式） |
 | RTL-45 | 控制通路寄存器必须复位；纯数据通路寄存器（如大位宽数据打拍）可不复位，但须在 05 中说明；有复位与无复位的寄存器分别写在不同 `always` 块中 | 评审 |
@@ -95,7 +95,7 @@
 
 | 编号 | 规则 | 检查 |
 |---|---|---|
-| RTL-50 | 时序逻辑写在 `` always @(posedge clk or `RST_EDGE rst) ``（带复位）或 `always @(posedge clk)`（无复位）中，只用非阻塞赋值，固定写作 `` <= #`U_DLY ``，延时只用 `U_DLY` 宏 | 自动（非阻塞赋值缺少 `` #`U_DLY ``） |
+| RTL-50 | 时序逻辑写在 `` always @(posedge i_clk or `RST_EDGE i_rst) ``（带复位）或 `always @(posedge i_clk)`（无复位）中，只用非阻塞赋值，固定写作 `` <= #`U_DLY ``，延时只用 `U_DLY` 宏 | 自动（非阻塞赋值缺少 `` #`U_DLY ``） |
 | RTL-51 | 组合逻辑：`always @(*)` 或 `assign`，只用阻塞赋值 `=`；`always @(*)` 自动保证敏感列表完整 | 自动（`always @(` 电平列表） |
 | RTL-52 | 组合 `always` 块首先给所有输出赋默认值，或在 `if` / `case` 所有分支中赋值，**禁止产生锁存器** | 综合检查 |
 | RTL-53 | 一个 `reg` 只能在一个 `always` 块中赋值；同一 `always` 块不混合时序与组合 | lint |
@@ -125,8 +125,8 @@
 localparam ST_IDLE = 2'd0;
 localparam ST_BUSY = 2'd1;
 
-always @(posedge clk or `RST_EDGE rst) begin
-    if (rst == `RST_ACT) begin
+always @(posedge i_clk or `RST_EDGE i_rst) begin
+    if (i_rst == `RST_ACT) begin
         cur_state <= #`U_DLY ST_IDLE;
     end
     else begin
@@ -138,13 +138,13 @@ always @(*) begin
     nxt_state = cur_state;
     case (cur_state)
         ST_IDLE : if (i_start == 1'b1) nxt_state = ST_BUSY;
-        ST_BUSY : if (done == 1'b1)    nxt_state = ST_IDLE;
+        ST_BUSY : if (i_done == 1'b1)  nxt_state = ST_IDLE;
         default : nxt_state = ST_IDLE;
     endcase
 end
 
-always @(posedge clk or `RST_EDGE rst) begin
-    if (rst == `RST_ACT) begin
+always @(posedge i_clk or `RST_EDGE i_rst) begin
+    if (i_rst == `RST_ACT) begin
         o_busy <= #`U_DLY 1'b0;
     end
     else begin

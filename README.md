@@ -51,11 +51,11 @@ P4生成测试点、测试用例与testbench激励并完成桩自检后，流程
 
 生成规则见 [平台参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-platform-generation.md)、[BFM参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-bfm-generation.md)、[用例参考](plugins/rtl-flow/skills/rtl-design-flow/references/uvm-testcase-generation.md)。本地 Python 测试可用 `python -m unittest discover -s plugins/rtl-flow/skills/rtl-design-flow/scripts/tests`；这些测试不替代已配置 VCS 环境上的编译 / 仿真。
 
-### 原始名称保留
+### RTL 命名规则
 
-需求、规格、接口表及已有设计中的名称原样贯穿文档、SSOT、RTL、验证与软件接口；不为统一风格增删前后缀、改变大小写、缩写或替换同义名。IP名、模块与文件名、端口、时钟复位、参数、寄存器及字段等均适用。未命名对象按项目已有风格命名；冲突或非法标识符先向用户澄清并记录确认后的映射。
+输入端口必须以 `i_` 开头，输出端口必须以 `o_` 开头，例如 `i_data` 和 `o_valid`。时钟、复位和标准接口端口同样按方向命名。
 
-命名风格不再作为 `flow.py init`、`gen_docs.py` 或 `check_style.py` 的拒绝条件。`source_naming` 是可选来源记录，不是保留原名的前置条件。语法、模块数量、接口一致性、复位极性等检查继续执行。
+实际 RTL 端口名贯穿 SSOT、接口文档和验证，原始信号名在来源记录中追溯。其他对象保留原名，未命名对象按项目风格命名。既有接口的改名按需求变更流程记录映射并回归。命名规则在 RTL 自检和评审时核对，`check_style.py` 继续检查语法和结构等规则。详见 [RTL 编码规范 §2](plugins/rtl-flow/skills/rtl-design-flow/references/rtl-coding-style.md#2-命名规则)。
 
 **生成接口变化**：C头文件中的IP和枚举名称不再自动转为大写，组合宏保留原名大小写（如 `OriginalIP_Control_Enable_VALUE_On`）。已有项目重新生成头文件后，软件调用方需要使用对应原名宏。示例历史日志中的改名记录只描述当时版本，不作为新设计的命名要求。
 
