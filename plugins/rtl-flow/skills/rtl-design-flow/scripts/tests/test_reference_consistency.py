@@ -38,6 +38,29 @@ class ReferenceConsistencyTests(unittest.TestCase):
         self.assertIn("w_nxt_state", style)
         self.assertIsNone(re.search(r"(?<!w_)\bnxt_state\b", style))
 
+    def test_demo_timer_instance_bindings_are_column_aligned(self):
+        source = (self.example / "rtl" / "demo_timer.v").read_text(encoding="utf-8")
+        groups = []
+        current = []
+        for line in source.splitlines():
+            if re.match(r"^\s+\.\w+\s+\(", line):
+                current.append(line)
+            elif current:
+                groups.append(current)
+                current = []
+        if current:
+            groups.append(current)
+
+        self.assertGreaterEqual(len(groups), 2)
+        for group in groups:
+            self.assertTrue(all(len(re.findall(r"\.\w+\s*\(", line)) == 1 for line in group))
+            columns = []
+            for line in group:
+                left = line.index("(")
+                signal = next(i for i in range(left + 1, len(line)) if not line[i].isspace())
+                columns.append((line.index("."), left, signal, line.rfind(")")))
+            self.assertEqual(1, len(set(columns)))
+
 
 if __name__ == "__main__":
     unittest.main()

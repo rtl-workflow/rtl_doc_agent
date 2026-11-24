@@ -87,6 +87,20 @@
 | RTL-38 | 包封模块应只做例化与连接，不写 `always` 和含逻辑运算的 `assign`；数据连线（位选、拼接、改名）可以用不含逻辑运算的 `assign` | 评审 |
 | RTL-39 | 包封模块的有效代码行数不受 RTL-08 / RTL-09 限制 | 评审 |
 
+### 3.1 模块例化端口绑定
+
+RTL-31 的端口绑定必须每个端口独占一行。使用命名连接 `.port(signal)`，在同一例化中对齐点号、左括号和右括号，连接信号从同一列开始，逗号紧随右括号。未使用的输出也独占一行，括号内留空并注明原因。端口排版由 RTL 自检和设计评审核对。
+
+```verilog
+data_capture U_data_capture (
+    .i_clk   (i_clk ),
+    .i_rst   (i_rst ),
+    .i_data  (i_data),
+    .o_data  (o_data),
+    .o_debug (      )  // Debug output is unused in this instance.
+);
+```
+
 ## 4. 时钟与复位
 
 | 编号 | 规则 | 检查 |
