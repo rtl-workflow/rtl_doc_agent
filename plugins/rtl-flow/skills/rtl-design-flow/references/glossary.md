@@ -26,17 +26,17 @@
 
 ## 2. 信号命名前缀 / 后缀示例
 
-下表仅解释既有示例中的写法，不是强制命名规则。用户材料已有名称一律原样保留，不据此增删前后缀或修改大小写；极性、方向及同步关系以规格和SSOT为准（详见 rtl-coding-style §2）。
+`i_` 和 `o_` 按编码规范 §2 执行。其余表项用于解释常用命名，极性、方向和同步关系以规格和 SSOT 为准。
 
 | 前缀 / 后缀 | 含义 | 示例 |
 |---|---|---|
 | `i_` | 模块输入 | `i_data` |
 | `o_` | 模块输出 | `o_irq` |
 | `io_` | 双向 | `io_sda` |
-| `clk` / `clk_<domain>` | 时钟（端口不加 `i_`） | `clk`, `clk_apb` |
-| `rst` / `rst_<domain>` | 内部复位（端口不加 `i_`；名字不表示极性，极性由 `define.v` 的 `RST_EDGE` / `RST_ACT` 决定） | `rst`, `rst_apb` |
-| `rst_n` / `rst_<domain>_n` | 低有效的标准接口复位（yaml 中 `std_if: true`，如 APB `PRESETn`） | `rst_apb_n` |
-| `_n` | 低有效（内部复位除外） | `o_cs_n`, `rst_apb_n` |
+| `i_clk` / `i_clk_<domain>` | 时钟输入 | `i_clk`、`i_clk_apb` |
+| `i_rst` / `i_rst_<domain>` | 内部复位输入，极性由 `define.v` 的 `RST_EDGE` / `RST_ACT` 决定 | `i_rst`、`i_rst_sys` |
+| `i_rst_n` / `i_rst_<domain>_n` | 低有效标准接口复位输入，YAML 中 `std_if: true` | `i_PRESETn` |
+| `_n` | 常用于表达低有效，极性以规格和 SSOT 为准 | `o_cs_n`、`i_rst_apb_n` |
 | `_z` | 三态输出寄存器 | `sda_out_z` |
 | `_r` / `_r1`、`_r2` | 时序寄存器 / 打拍 | `cnt_r`, `req_r1` |
 | `_en` / `_we` | 使能 / 写使能 | `cnt_en` |
