@@ -1,6 +1,6 @@
 {
   "name": "rtl-flow",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "RTL 设计与文档工作流：共享 skill、Python 状态机和五个角色定义；Codex 接入不含强制角色权限隔离。",
   "author": {
     "name": "rtl-workflow"
