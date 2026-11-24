@@ -1,12 +1,12 @@
 ---
 doc: 01_spec
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 reviewer: 示例用户
-approved: 1.2@2026-10-24
+approved: 1.4@2026-11-24
 ---
 
 # demo_timer 功能规格
@@ -19,7 +19,7 @@ approved: 1.2@2026-10-24
 flowchart LR
   cpu[CPU / APB Master] -- APB3 --> timer[demo_timer]
   timer -- o_irq --> intc[中断控制器]
-  clk[clk / rst] --> timer
+  clock[i_clk / i_rst] --> timer
 ```
 
 ## 2. 特性列表 (Features)
@@ -40,7 +40,7 @@ flowchart LR
 
 > 覆盖需求: REQ-FUNC-001
 
-计数器 `COUNT.VAL` 为 32 bit。`CTRL.EN` = 1 时每个 `clk` 周期加 1；`CTRL.EN` = 0 时保持当前值（暂停）。清零 `CTRL.EN` 不会使计数值归零，再次使能时从当前值继续计数。软件写 `COUNT` 无效；如需清零计数值，使用 `CTRL.CLR`（§3.6）。
+计数器 `COUNT.VAL` 为 32 bit。`CTRL.EN` = 1 时每个 `i_clk` 周期加 1；`CTRL.EN` = 0 时保持当前值（暂停）。清零 `CTRL.EN` 不会使计数值归零，再次使能时从当前值继续计数。软件写 `COUNT` 无效；如需清零计数值，使用 `CTRL.CLR`（§3.6）。
 
 ### 3.2 到时事件
 
@@ -57,7 +57,7 @@ flowchart LR
 
 ```wavedrom
 { "signal": [
-  { "name": "clk",              "wave": "p......." },
+  { "name": "i_clk",            "wave": "p......." },
   { "name": "CTRL.EN",            "wave": "01...0.." },
   { "name": "COUNT.VAL",          "wave": "=.====..", "data": ["0", "1", "2", "3", "0"] },
   { "name": "到时事件 (内部)",     "wave": "0...10.." },
@@ -114,8 +114,8 @@ flowchart LR
 
 > 覆盖需求: REQ-REG-001
 
-- 单时钟域，所有逻辑工作在 `clk` 上升沿。
-- `rst` 为低（复位有效）时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
+- 单时钟域，所有逻辑工作在 `i_clk` 上升沿。
+- `i_rst` 为低（复位有效）时所有寄存器异步复位为 04_registers 中的复位值：`CTRL.EN` = 0，`COUNT.VAL` = 0，`CMP.VAL` = `0xFFFFFFFF`，中断状态和使能均为 0。
 - 复位期间及复位释放后，在软件使能前计数器不会计数，`o_irq` 保持为低。
 
 ## 6. 中断与错误处理 (Interrupts & Errors)
@@ -144,6 +144,6 @@ flowchart LR
 
 ## 9. 限制与已知问题 (Limitations)
 
-- 无预分频器，定时分辨率固定为 1 个 `clk` 周期。
+- 无预分频器，定时分辨率固定为 1 个 `i_clk` 周期。
 - 写 `CTRL.CLR` 会同时写入 `CTRL.EN` 与 `CTRL.MODE`，软件需读-改-写（DEC-005）。
 - `CMP.VAL` = 0 且周期模式时，`INTR_STATE.EXPIRED` 每周期被置位，软件清除无效（置位优先），属预期行为。

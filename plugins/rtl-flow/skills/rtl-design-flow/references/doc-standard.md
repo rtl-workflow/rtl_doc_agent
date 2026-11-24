@@ -72,12 +72,12 @@ approved: 0.2@2026-10-22  # 审核通过时的 version@日期；自动模式写 
 - **有来源**：`raw/<file> §<章节>`、`用户口头 YYYY-MM-DD` 或 `派生自 REQ-xxx`。
 
 ❌ `模块要支持高速传输并且低功耗。`
-✅ `REQ-PERF-001 | 在 clk=200 MHz 下，持续吞吐率必须 ≥ 1 个 32 bit 数据/周期。| raw/spec_v0.docx §3.2 | P0`
+✅ `REQ-PERF-001 | 在 i_clk=200 MHz 下，持续吞吐率必须 ≥ 1 个 32 bit 数据/周期。| raw/spec_v0.docx §3.2 | P0`
 
 ## 5. 写作规范
 
 - 语言：正文中文；信号名、寄存器名、参数名、协议名保留英文原样。
-- 代码元素用反引号：`clk`、`CTRL.EN`、`DATA_WIDTH`。寄存器字段统一写作 `REG.FIELD`。
+- 代码元素用反引号：`i_clk`、`CTRL.EN`、`DATA_WIDTH`。寄存器字段统一写作 `REG.FIELD`。
 - 数值：十六进制 `0x1F` 或 Verilog 形式 `8'h1F`，二进制 `4'b1010`；位范围 `[7:0]`，高位在前。
 - 单位：数字与单位之间空格，`100 MHz`、`32 bit`、`4 KiB`、`10 ns`、`2 cycles`。
 - 时钟周期统一称「周期 (cycle)」，并注明所属时钟域。

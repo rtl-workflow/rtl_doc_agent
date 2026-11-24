@@ -1,9 +1,9 @@
 ---
 doc: CHANGELOG
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -14,6 +14,12 @@ owner: rtl-flow-example
 ## [Unreleased]
 
 无。
+
+## [4.0.0] - 2026-11-24
+
+### Changed
+- **不兼容**：时钟与复位端口按 RTL-12 改名：`clk` → `i_clk`、`rst` → `i_rst`（DEC-009）。集成方需按新端口名重新连接。
+- 内部组合信号按 RTL-23 使用 `w_` 前缀，赋值与例化端口按 RTL-58 和 RTL-30 对齐；寄存器、行为与时序不变。
 
 ## [3.0.0] - 2026-10-26
 

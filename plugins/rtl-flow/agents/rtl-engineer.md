@@ -9,14 +9,14 @@ model: inherit
 
 ## 输入命名约束
 
-端口使用规格和 SSOT 中的实际名称，按 `RTL-12` 核对输入 `i_`、输出 `o_`。其余对象保留原名，文件名和模块名可分别沿用。名称冲突或 SSOT 与命名规则不一致时交回 spec-author，既有接口更名按需求变更流程处理。提交前按实现参考 §9.3 核对命名。
+端口使用规格和 SSOT 中的实际名称，按 `RTL-12` 核对输入 `i_`、输出 `o_`。内部非寄存器驱动信号和流水级信号按 `RTL-23`、`RTL-24` 命名；其他对象保留原名，文件名和模块名可分别沿用。名称冲突或 SSOT 与命名规则不一致时交回 spec-author，既有接口或内部信号更名按需求变更流程处理。提交前按实现参考 §9.3 核对命名。
 
 ## 开始前必读
 
 修改02微架构时，按`$SKILL/references/architecture-html.md`同步其中的architecture-graph，并运行`python $SKILL/scripts/gen_arch.py <ip_dir>`更新`doc/02_architecture.html`，随后重新G2审核。
 
-- `$SKILL/references/rtl-coding-style.md`：编码规范（项目 Verilog 规范，Verilog-2001），**必须严格遵守**，`RTL-xx` 由脚本自动检查
-- `$SKILL/references/rtl-implementation-guide.md`：实现参考（`DG-xx`）——设计分解、编码细则、FSM / RAM / DataPath / 低功耗要点、**生成前 §9.2 与提交 lint 前 §9.3 自检清单**、与外规差异 §10。该文件不被脚本检查；与 `RTL-xx`、SSOT 或原始命名冲突时以后者为准。写代码前先过 §9.2，运行 `run_lint.py` 前过 §9.3；违反 `DG-xx` 的条目写入 05 §6。
+- `$SKILL/references/rtl-coding-style.md` 是必须遵守的 Verilog-2001 编码规范。自动项由脚本检查，内部信号命名、排版与注释在自检和评审中核对。
+- `$SKILL/references/rtl-implementation-guide.md`：实现参考（`DG-xx`）——设计分解、编码细则、FSM / RAM / DataPath / 低功耗要点、**生成前 §9.2 与提交 lint 前 §9.3 自检清单**、与外规差异 §10。该文件不被脚本检查；冲突时按 `RTL-xx`、SSOT、已确认的名称映射顺序处理。写代码前先过 §9.2，运行 `run_lint.py` 前过 §9.3；违反 `DG-xx` 的条目写入 05 §6。
 - `$SKILL/references/glossary.md`
 - IP 的 `doc/01_spec.md`、`doc/02_architecture.md`、`doc/03_interfaces.md`、`doc/04_registers.md`、`data/<ip>.yaml`
 - 标杆示例：`$SKILL/examples/demo_timer/rtl/*.v`、`doc/05_rtl_structure.md`
@@ -33,7 +33,7 @@ model: inherit
 
 1. 顶层端口（名称、方向、位宽、顺序）与 `data/<ip>.yaml` 完全一致；文件列表与 yaml 的 `rtl_files` 一致。`rtl_files` 由你维护：按 02 子模块划分增删文件时直接修改它（`rtl/define.v` 第一、顶层所在文件第二），这是你在 yaml 中唯一可以改的字段，hook 会检查。端口、参数等其他字段不对时说明规格需要修改：`status` 写 `blocked`，不要改。
 2. 02 §2 子模块表中的每个模块都要实现，RTL 中的每个模块都要在 05 中描述。
-3. 每次写完 `.v` 文件，hook 会自动做编码规范检查并把问题反馈给你，看到后立即修复。
+3. 每次写完 `.v` 文件，按编码规范 §2、§8 和实现参考 §9.3 复核。端口、参数、赋值每项一行并对齐列，内部非寄存器驱动信号和流水级信号优先遵循 `RTL-23`、`RTL-24`。代码与相关注释同步更新。处理 hook 返回的自动检查问题。
 4. `run_lint.py` 必须零 error。warning 要么修复，要么在 05 §7 写明豁免原因；规范偏离写在 05 §6，并在 09 中记 DEC。
 5. 修复时只改报告指出的问题。如果修复影响微架构，同步修改 02 / 05，02 有实质变化时提升 `version`（编排者会据此重开 G2 审核）。
 6. 不能读取或修改 `dv/`（测试平台），不能修改需求和规格文档。

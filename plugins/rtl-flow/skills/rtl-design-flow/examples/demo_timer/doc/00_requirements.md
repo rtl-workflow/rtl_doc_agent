@@ -1,12 +1,12 @@
 ---
 doc: 00_requirements
 ip: demo_timer
-version: 1.3
+version: 1.4
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 reviewer: 示例用户
-approved: 1.2@2026-10-24
+approved: 1.4@2026-11-24
 ---
 
 # demo_timer 需求规范
@@ -39,11 +39,11 @@ approved: 1.2@2026-10-24
 |---|---|---|---|---|
 | REQ-IF-001 | 必须提供 APB3 从接口：地址 12 bit、数据 32 bit，`o_pready` 恒为高（零等待）。 | SRC-1「挂APB」、SRC-2 Q-003 | P0 | 仿真 |
 | REQ-IF-002 | 访问未映射或非 4 字节对齐的地址时，访问阶段必须拉高 `o_pslverr`；读返回 0，写不改变任何寄存器。 | SRC-2 Q-003 | P0 | 仿真 |
-| REQ-PERF-001 | 设计必须为单时钟域同步设计，在 `clk` = 100 MHz 下满足时序。 | SRC-1「100M」 | P0 | 后端 STA |
-| REQ-FUNC-001 | 计数器位宽必须为 32 bit；`CTRL.EN` = 1 时每个 `clk` 周期加 1，`CTRL.EN` = 0 时保持不变。 | SRC-1「计数器32位」、ASM-001 | P0 | 仿真 |
+| REQ-PERF-001 | 设计必须为单时钟域同步设计，在 `i_clk` = 100 MHz 下满足时序。 | SRC-1「100M」 | P0 | 后端 STA |
+| REQ-FUNC-001 | 计数器位宽必须为 32 bit；`CTRL.EN` = 1 时每个 `i_clk` 周期加 1，`CTRL.EN` = 0 时保持不变。 | SRC-1「计数器32位」、ASM-001 | P0 | 仿真 |
 | REQ-FUNC-002 | `CTRL.EN` = 1 且计数值 ≥ `CMP.VAL` 时，必须产生一次到时事件：置位 `INTR_STATE.EXPIRED`，计数值在下一周期归零。 | SRC-1「计数到了给个中断」、ASM-002 | P0 | 仿真 |
 | REQ-FUNC-003 | 单次模式（`CTRL.MODE` = 0）下，到时事件发生时硬件必须清零 `CTRL.EN`，计数停止。 | SRC-1「单次」、SRC-2 Q-002 | P0 | 仿真 |
-| REQ-FUNC-004 | 周期模式（`CTRL.MODE` = 1）下，到时后必须自动继续计数，到时周期为 `CMP.VAL` + 1 个 `clk` 周期。 | SRC-1「周期」、ASM-002 | P0 | 仿真 |
+| REQ-FUNC-004 | 周期模式（`CTRL.MODE` = 1）下，到时后必须自动继续计数，到时周期为 `CMP.VAL` + 1 个 `i_clk` 周期。 | SRC-1「周期」、ASM-002 | P0 | 仿真 |
 | REQ-FUNC-005 | `o_irq` 必须为电平型中断，`o_irq` = `INTR_STATE.EXPIRED` & `INTR_ENABLE.EXPIRED`；软件对 `INTR_STATE.EXPIRED` 写 1 清除。 | SRC-2 Q-001、ASM-003 | P0 | 仿真 |
 | REQ-FUNC-006 | 软件对 `CTRL.CLR` 写 1 时，计数值必须在下一周期归零；该操作不改变 `INTR_STATE`，`CTRL.CLR` 读为 0。 | SRC-3 | P1 | 仿真 |
 | REQ-REG-001 | 复位后所有寄存器必须为复位值，`CTRL.EN` = 0，计数器停止在 0，`o_irq` 为低。 | SRC-1「复位后不要乱跑」 | P0 | 仿真 |
@@ -58,7 +58,7 @@ approved: 1.2@2026-10-24
 | ASM-001 | 计数器从 0 开始递增计数（而不是从比较值递减）。 | 原文「计数到了」暗示向上计数 | 已确认 |
 | ASM-002 | 计数值达到比较值的当拍产生事件，下一拍归零，因此一个周期为 `CMP.VAL` + 1 拍。 | 常见定时器语义，且 `CMP.VAL` = 0 时仍有确定行为 | 已确认 |
 | ASM-003 | 在原文三类寄存器之外增加 `INTR_ENABLE`（中断屏蔽）和 `COUNT`（计数值只读，便于调试）。 | 中断需可屏蔽；软件需要能读当前计数 | 已确认 |
-| ASM-004 | 复位为异步复位、同步释放、低有效 (`rst`，极性由 `rtl/define.v` 的 `RST_EDGE` / `RST_ACT` 配置)，复位同步器位于 IP 外部。 | 团队默认复位方案（rtl-coding-style RTL-41） | 已确认 |
+| ASM-004 | 复位为异步复位、同步释放、低有效 (`i_rst`，极性由 `rtl/define.v` 的 `RST_EDGE` / `RST_ACT` 配置)，复位同步器位于 IP 外部。 | 团队默认复位方案（rtl-coding-style RTL-41） | 已确认 |
 
 ## 5. 待确认问题 (Open Questions)
 

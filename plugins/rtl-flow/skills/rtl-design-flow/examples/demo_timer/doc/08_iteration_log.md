@@ -1,9 +1,9 @@
 ---
 doc: 08_iteration_log
 ip: demo_timer
-version: 1.5
+version: 1.6
 status: Released
-updated: 2026-10-26
+updated: 2026-11-24
 owner: rtl-flow-example
 ---
 
@@ -25,6 +25,7 @@ owner: rtl-flow-example
 | ITR-008 | 2026-10-23 | 用户反馈 | — | 编码规范改为项目 Verilog 规范：RTL / testbench 改写为 Verilog-2001，端口改名，IP 版本 1.1.0 → 2.0.0 | 59/59 通过；覆盖点 13/13；变异 7/7 检出 |
 | ITR-009 | 2026-10-25 | 用户反馈 | — | testbench 改为黑盒：删除 21 处 `U_dut.xxx` 层次引用，`run_regress.py --stub` 可通过 | 59/59 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
 | ITR-010 | 2026-10-26 | 用户反馈 | — | 编码规范更新：新增 `rtl/define.v`，复位端口 `rst_n` → `rst`，复位写法改用宏，非阻塞赋值带 ``#`U_DLY``，IP 版本 2.0.0 → 3.0.0 | 11/11 通过；覆盖点 13/13；变异 7/7 检出；桩检查 PASS |
+| ITR-011 | 2026-11-24 | 用户反馈 | — | 以 RTL-12/23/24/30/58 为准统一端口、内部信号、赋值和例化布局，IP 版本 3.0.0 → 4.0.0 | 14/14 通过；覆盖点 13/13；变异 7/7 检出；风格与 Verilator lint 0 违规 |
 
 > 触发：仿真失败 / Lint / 需求变更 / 评审意见 / 用户反馈。
 > 根因类别：Spec 错误 / 需求变化 / RTL bug / TB bug / 工具问题。
@@ -215,6 +216,23 @@ owner: rtl-flow-example
 - **关联**：DEC-008
 - **调试记录**：首次回归 4 个用例失败（`test_irq`、`test_periodic`、`test_cmp_boundary`、`test_priority`）：testbench 在时钟沿后 1 ns 采样，与 ``#`U_DLY`` 的 1 ns 更新同时发生，读到旧值。驱动与采样点改为沿后 2 ns 后全部通过。（类别：TB bug，由规范变更引入）
 - **回归结果**：`run_regress.py`：11/11 通过，13/13 覆盖点命中；`run_regress.py --stub`：PASS；`python dv/run_sim.py`：14/14 通过；`python dv/run_mutation.py`：7/7 检出；`run_lint.py`：PASS，0 error / 0 warning。Yosys 未重新运行（本机未安装 yowasp-yosys）。
+
+### ITR-011 以当前命名与布局规则统一标杆示例
+
+- **日期**：2026-11-24
+- **触发**：用户确认 PR #8、#9 的规则为准，要求修正所有冲突。
+- **现象**：标杆示例仍使用裸 `clk` / `rst` 端口和无 `w_` 前缀的内部组合信号，部分赋值与例化端口布局也未体现当前规则。
+- **根因**：示例停留在较早版本的编码规范，后续规范演进未同步。（类别：不适用）
+- **修改**：
+  | 文件 | 修改摘要 |
+  |---|---|
+  | `data/demo_timer.yaml`、`doc/03_interfaces.md` | IP 版本 4.0.0；端口 `clk` → `i_clk`、`rst` → `i_rst` |
+  | `rtl/*.v` | 内部组合信号使用 `w_` 前缀；端口、赋值与例化连接按 RTL-12、RTL-23、RTL-30、RTL-58 布局 |
+  | `dv/tb/demo_timer_tb.v`、`dv/run_mutation.py` | 同步 DUT 端口与变异注入匹配文本 |
+  | `doc/00`、`01`、`02`、`05`、`07`、`09`、`README.md`、`CHANGELOG.md` | 更新当前信号名并记录 4.0.0 迁移；历史条目保持原样 |
+- **影响文档**：00、01、02、03、05、07、09、10、README、CHANGELOG
+- **关联**：DEC-009
+- **回归结果**：`python dv/run_sim.py`：14/14 通过，13/13 覆盖点命中；`python dv/run_mutation.py`：7/7 检出；`check_style.py` 与 Verilator lint：0 违规；文档签核检查 0 error（代码覆盖率缺失为既有 warning）；排除 4 个已知 Windows/Bash watcher 环境用例后，Python 测试 113/113 通过。
 
 ## 3. 缺陷列表 (Bugs)
 
