@@ -18,7 +18,7 @@ python <skill>/scripts/rtlflow.py connect
 python <skill>/scripts/rtlflow.py connect --host <内部服务器> --user <Linux账号> --port 21
 ```
 
-主机名不带 URL 协议或 `:端口`；FTP 端口单独指定。FTP 根目录必须对应该账号家目录。
+主机名不带 URL 协议或 `:端口`；FTP 端口默认使用 21，不询问用户。FTP 根目录必须对应该账号家目录。
 
 ## 2. 密码只在本机输入
 
@@ -49,7 +49,7 @@ bash ~/setup_watcher.sh --if-stopped
 | action | agent 应做什么 |
 |---|---|
 | `ready` | 报告 watcher、签名任务与工具检查通过。后续正常运行 RTL 流程。 |
-| `input_required` | 合并询问缺失的地址、账号、端口等非敏感信息。 |
+| `input_required` | 合并询问缺失的地址、账号；FTP 端口默认使用 21，不询问用户。 |
 | `credentials_required` | 复用安全凭据或在 Windows 本机使用 `--credential-dialog`，不在聊天中索取密码。 |
 | `credential_store_required` / `credential_dialog_unavailable` | 说明缺失的本机能力，不静默保存明文；必要时回退到用户自己的终端。 |
 | `dependency_required` | 在当前 Python 环境安装返回的依赖，然后重试。 |

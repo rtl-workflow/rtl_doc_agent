@@ -250,7 +250,7 @@ def setup_action():
     if deferred() or os.environ.get("RTLFLOW_EXEC") or remote_exec.configured() or shutil.which("vcs"):
         return None
     return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" connect',
-            "instructions": "运行 command，按返回 JSON 的 action 完成连接；只询问缺失的服务器地址、账号和端口，"
+            "instructions": "运行 command，按返回 JSON 的 action 完成连接；只询问缺失的服务器地址和账号，FTP 端口默认使用 21，不询问用户，"
                             "不要在对话中索要密码。凭据缺失时可在 Windows 本机使用 --credential-dialog；"
                             "首次启动请在远端 EDA 终端执行：bash ~/setup_watcher.sh --if-stopped。"
                             "只有返回 ready 才继续 flow.py next。仅 FTP/VNC 或本机没有凭据弹窗时，提供最少的手动步骤。"}
