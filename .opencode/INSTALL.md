@@ -157,7 +157,11 @@ python "<安装目录>/plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.p
 
 本指南参考 [superpowers 的 OpenCode 安装入口](https://github.com/obra/superpowers#opencode) 的组织方式；具体命令以本仓库的 `rtlflow.py` 安装脚本和 OpenCode 适配器为准。
 
-## 安装完成后的 EDA 启动提示
+## 安装完成后的 EDA 配置提示
+
+安装完成后的最终回复必须主动提示用户进行下一步 EDA 连接配置，不要只报告插件安装成功。按实际安装状态说明重启或重载要求，然后给出以下引导：
+
+> 下一步请配置 EDA 连接。连接 VPN（如需要）后，可以直接对 agent 说：“帮我配置 EDA 连接，FTP 服务器是……，账号是……。”FTP 端口默认使用 21，无需提供。密码请在本机凭据窗口或自己的终端输入，不要发到聊天中。agent 会通过 FTP 上传启动文件，再提示你到远端 EDA 终端手动启动 watcher。
 
 安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
 

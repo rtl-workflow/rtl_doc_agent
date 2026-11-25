@@ -101,7 +101,7 @@ plugins/rtl-flow/
 
 Claude Code、OpenCode、Codex 和 DSH 工作区接入共用同一份配置。可以直接告诉 agent：「帮我连接远程 EDA，服务器是……，账号是……」，**不要在聊天中发送密码**。
 
-1. 先连接 VPN（如果需要）。agent 用 `rtlflow.py connect` 自动检查已有配置；地址、账号、端口有缺失时合并为一次提问。VPN 公网入口与内部 EDA 服务器地址应区分。
+1. 先连接 VPN（如果需要）。agent 用 `rtlflow.py connect` 自动检查已有配置；地址、账号有缺失时合并为一次提问；FTP 端口默认使用 21，不询问用户。VPN 公网入口与内部 EDA 服务器地址应区分。
 2. 已有凭据自动复用。Windows 首次配置时，agent 可用 `--credential-dialog` 打开本机系统凭据窗口，你在弹窗输入密码即可，无需自行打开 PowerShell；密码保存到系统凭据库，不返回给模型。
 watcher 已在线则验证并复用；首次连接由 `rtlflow.py connect` 通过 FTP 上传文件，然后请用户在远端 EDA 环境的终端执行 `bash ~/setup_watcher.sh --if-stopped`，完成后重试 connect。密码只在本机凭据窗口或用户终端输入。
 4. agent 只有收到 `ready` 才报告完成；连接、签名任务和工具检查必须通过。实际 license 和完整编译/仿真仍由后续 EDA 任务验证。
@@ -291,7 +291,11 @@ codex plugin list --marketplace rtl-flow --json
 
 使用 `/rtl-flow:ip-wave <ip_dir>`，或 `python <skill>/scripts/open_verdi.py <ip_dir> --test <tc_name> --seed 1 --display :1.0`，直接打开已有波形，不重复仿真。启动记录写入 `reports/verdi.json`；真实窗口确认成功才标记 `opened`。远端需 VCS、Verdi/FSDB dumper 和可访问的 VNC/X DISPLAY。
 
-## 安装完成后的 EDA 启动提示
+## 安装完成后的 EDA 配置提示
+
+安装完成后的最终回复必须主动提示用户进行下一步 EDA 连接配置，不要只报告插件安装成功。按实际安装状态说明重启或重载要求，然后给出以下引导：
+
+> 下一步请配置 EDA 连接。连接 VPN（如需要）后，可以直接对 agent 说：“帮我配置 EDA 连接，FTP 服务器是……，账号是……。”FTP 端口默认使用 21，无需提供。密码请在本机凭据窗口或自己的终端输入，不要发到聊天中。agent 会通过 FTP 上传启动文件，再提示你到远端 EDA 终端手动启动 watcher。
 
 安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
 
