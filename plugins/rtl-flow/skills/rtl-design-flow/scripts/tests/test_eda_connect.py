@@ -3,8 +3,6 @@ import argparse
 import contextlib
 import io
 import json
-import base64
-import hashlib
 import sys
 import tempfile
 import time
@@ -42,7 +40,7 @@ class ConnectTests(unittest.TestCase):
         self.r.get.return_value = None
         self.rx.heartbeat.return_value = None
         self.args = SimpleNamespace(host=None, user=None, port=None, credential_dialog=False,
-                                    start_watcher="manual", ssh_port="22", ssh_fingerprint=None, wait_seconds=1)
+                                    wait_seconds=1)
         self.creds = patch.object(ec, "password_for", return_value="secret")
         self.password = self.creds.start()
         self.addCleanup(self.creds.stop)
@@ -110,13 +108,19 @@ class ConnectTests(unittest.TestCase):
 
     def test_hostile_metadata(self):
         for field, value in [("host", "eda\nkey=x"), ("host", "host:22"), ("host", "$(id)"),
-                             ("user", "x\rport=1"), ("user", "a;b"), ("port", "65536"), ("ssh_port", "0")]:
+                             ("user", "x\rport=1"), ("user", "a;b"), ("port", "65536")]:
             with self.subTest(field=field, value=value):
                 old = getattr(self.args, field)
                 setattr(self.args, field, value)
                 self.assertEqual(self.run_connect()[0]["action"], "invalid_input")
                 setattr(self.args, field, old)
         self.password.assert_not_called()
+
+    def test_signed_rejection_no_takeover(self):
+        self.live()
+        self.rx.fetch.return_value.status = "rejected"
+        self.assertEqual(self.run_connect()[0]["action"], "signing_key_mismatch")
+        self.r.put.assert_not_called()
 
     def test_manual_bootstrap_no_unbounded_wait(self):
         result, code = self.run_connect()
@@ -131,27 +135,11 @@ class ConnectTests(unittest.TestCase):
         self.r.put.assert_not_called()
         self.assertFalse(self.rx.key_file.return_value.exists())
 
-    def test_signed_rejection_no_takeover(self):
-        self.live()
-        self.rx.fetch.return_value.status = "rejected"
-        self.args.start_watcher = "ssh"
-        with patch.object(ec, "ssh_preflight") as ssh:
-            self.assertEqual(self.run_connect()[0]["action"], "signing_key_mismatch")
-            ssh.assert_not_called()
-        self.r.put.assert_not_called()
-
     def test_offline_mismatched_server_key_not_overwritten(self):
         self.r.get.return_value = b"server-key"
         self.assertEqual(self.run_connect()[0]["action"], "signing_key_mismatch")
         self.r.put.assert_not_called()
         self.assertFalse(self.rx.key_file.return_value.exists())
-
-    def test_auth_failure_prevents_deployment(self):
-        self.args.start_watcher = "ssh"
-        with patch.object(ec, "ssh_preflight", side_effect=ec.Stop("ssh_auth_failed", 3)):
-            self.assertEqual(self.run_connect()[0]["action"], "ssh_auth_failed")
-        self.r.put.assert_not_called()
-        self.api.write_ini.assert_not_called()
 
     def test_active_jobs_prevent_deployment(self):
         self.rx.heartbeat.return_value = dict(time=0, running=["job"])
@@ -230,32 +218,6 @@ class ConnectTests(unittest.TestCase):
             self.assertEqual(ec.password_for(self.rx, cfg, True, False), "existing-secret")
             native.assert_not_called()
 
-    def test_ssh_bootstrap_failed_without_reading_output(self):
-        self.args.start_watcher = "ssh"
-        ssh = MagicMock()
-        channel = ssh.open_session.return_value
-        channel.exit_status_ready.return_value = True
-        channel.recv_exit_status.return_value = 1
-        with patch.object(ec, "ssh_preflight", return_value=ssh):
-            self.assertEqual(self.run_connect()[0]["action"], "bootstrap_failed")
-        channel.exec_command.assert_called_once_with(ec.BOOTSTRAP)
-        channel.recv.assert_not_called()
-        channel.close.assert_called_once()
-
-    def test_ssh_success_requires_heartbeat_and_signed_probe(self):
-        self.args.start_watcher = "ssh"
-        hb = dict(time=time.time(), running=[], queued=[])
-        self.rx.heartbeat.side_effect = [None, None, None, hb, hb]
-        self.r.get.side_effect = [None, None, b"{}"]
-        self.rx.fetch.return_value.status = "ok"
-        self.rx.fetch.return_value.output.return_value = "PROBE_DONE"
-        ssh = MagicMock()
-        with patch.object(ec, "ssh_preflight", return_value=ssh):
-            result, code = self.run_connect()
-        self.assertEqual((result["action"], code), ("ready", 0))
-        ssh.open_session.return_value.exec_command.assert_called_once_with(ec.BOOTSTRAP)
-        self.rx.submit.assert_called_once()
-
     def test_malformed_heartbeat_fails_closed(self):
         self.rx.heartbeat.return_value = {"running": []}
         self.assertEqual(self.run_connect()[0]["action"], "connection_failed")
@@ -269,64 +231,6 @@ class ConnectTests(unittest.TestCase):
             self.assertEqual(ec.password_for(self.rx, cfg, True, False), "legacy-secret")
             with self.assertRaises(ec.Stop):
                 ec.password_for(self.rx, cfg, False, False)
-
-
-class SSHTests(unittest.TestCase):
-    def setUp(self):
-        self.pm = MagicMock()
-        self.pm.AuthenticationException = type("AuthenticationException", (Exception,), {})
-        self.transport = self.pm.Transport.return_value
-        self.transport.get_remote_server_key.return_value.asbytes.return_value = b"test-host-key"
-        self.pin = "SHA256:" + base64.b64encode(hashlib.sha256(b"test-host-key").digest()).decode().rstrip("=")
-        self.pm.HostKeys.return_value.lookup.return_value = None
-        self.cfg = dict(host="eda.example", user="alice")
-
-    def preflight(self, pin=None):
-        with patch.dict(sys.modules, paramiko=self.pm), patch.object(ec.socket, "create_connection"), \
-             patch.object(Path, "is_file", return_value=False):
-            return ec.ssh_preflight(self.cfg, 22, pin, "secret")
-
-    def test_missing_paramiko_returns_install_action(self):
-        with patch.dict(sys.modules, paramiko=None), self.assertRaises(ec.Stop) as raised:
-            ec.ssh_preflight(self.cfg, 22, None, "secret")
-        self.assertEqual(raised.exception.result["action"], "dependency_required")
-        self.assertEqual(raised.exception.result["command"], "python -m pip install paramiko")
-
-    def test_unknown_key_returned_before_any_auth(self):
-        with self.assertRaises(ec.Stop) as raised:
-            self.preflight()
-        self.assertEqual(raised.exception.result["action"], "ssh_host_key_required")
-        self.assertEqual(raised.exception.result["fingerprint"], self.pin)
-        self.transport.auth_password.assert_not_called()
-        self.transport.auth_publickey.assert_not_called()
-        self.pm.Agent.assert_not_called()
-
-    def test_wrong_pin_rejected_before_auth(self):
-        with self.assertRaises(ec.Stop) as raised:
-            self.preflight("SHA256:" + "A" * 43)
-        self.assertEqual(raised.exception.result["action"], "ssh_host_key_mismatch")
-        self.pm.Agent.assert_not_called()
-
-    def test_explicit_pin_allows_auth_without_modifying_trust(self):
-        self.transport.is_authenticated.return_value = True
-        self.assertIs(self.preflight(self.pin), self.transport)
-        self.pm.HostKeys.return_value.save.assert_not_called()
-
-    def test_changed_known_key_refused(self):
-        self.pm.HostKeys.return_value.lookup.return_value = {"ssh-ed25519": "old"}
-        self.pm.HostKeys.return_value.check.return_value = False
-        with self.assertRaises(ec.Stop) as raised:
-            self.preflight()
-        self.assertEqual(raised.exception.result["action"], "ssh_host_key_mismatch")
-        self.pm.Agent.assert_not_called()
-
-    def test_auth_failure_redacts_details(self):
-        self.transport.is_authenticated.return_value = False
-        self.transport.auth_password.side_effect = self.pm.AuthenticationException("secret")
-        with self.assertRaises(ec.Stop) as raised:
-            self.preflight(self.pin)
-        self.assertEqual(raised.exception.result["action"], "ssh_auth_failed")
-        self.assertNotIn("secret", str(raised.exception.result))
 
 
 if __name__ == "__main__":

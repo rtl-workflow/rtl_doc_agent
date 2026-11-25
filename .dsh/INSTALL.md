@@ -177,3 +177,13 @@ Windows PowerShell 在可执行文件路径前加 `&`，并按第 3 节设置 PA
 | 第一条命令成功，后续提示找不到 Python / yaml | shell 环境可能不持久；每次重设虚拟环境 Python、PATH 和脚本路径。 |
 | 新会话未读取规则 | 确认会话实际工作区、AGENTS.md 位置和引用路径；不要用应用安装路径代替工作区。 |
 | 验证 agent 可以读取 RTL | 本接入没有强制隔离；不要报告隔离成功。需要强制隔离时使用已适配的 Claude Code / OpenCode。 |
+
+## 安装完成后的 EDA 启动提示
+
+安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
+
+```sh
+bash ~/setup_watcher.sh --if-stopped
+```
+
+然后由 agent 再次执行 `rtlflow.py connect` 验证，返回 `ready` 才表示 EDA 连接就绪。仅安装插件并不会上传服务器文件，不应让用户在上传前执行命令。watcher 已在线时直接复用，无需再次启动。

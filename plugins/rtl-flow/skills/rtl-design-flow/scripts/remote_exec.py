@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run commands on the remote EDA server (no SSH there) through FTP and the server-side watcher.
+"""Run commands on the remote EDA server through FTP and the server-side watcher.
 
 The local side packs files, uploads a signed job to ~/jobs/inbox, waits for ~/jobs/outbox/<id>.done and
 downloads the log and the collected files; remote_server/watcher.py runs the job with `bash -lc` (the

@@ -252,7 +252,7 @@ def setup_action():
     return {"action": "setup_required", "command": f'python "{SCRIPTS / "rtlflow.py"}" connect',
             "instructions": "运行 command，按返回 JSON 的 action 完成连接；只询问缺失的服务器地址、账号和端口，"
                             "不要在对话中索要密码。凭据缺失时可在 Windows 本机使用 --credential-dialog；"
-                            "首次启动 watcher 且有 SSH 时，按连接指南使用 --start-watcher ssh，主机指纹必须经用户确认。"
+                            "首次启动请在远端 EDA 终端执行：bash ~/setup_watcher.sh --if-stopped。"
                             "只有返回 ready 才继续 flow.py next。仅 FTP/VNC 或本机没有凭据弹窗时，提供最少的手动步骤。"}
 
 
