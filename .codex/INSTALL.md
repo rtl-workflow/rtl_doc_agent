@@ -164,3 +164,13 @@ codex plugin list --marketplace rtl-flow --json
 | Codex 尝试调用 Claude 命名角色或 hook | 检查已加载新版 skill 及 `references/codex.md`，核对 Codex 清单显式指向空的 `codex/hooks.json`。 |
 
 插件清单、市场路径和 hook 显式覆盖方式参考 [OpenAI 插件打包文档](https://developers.openai.com/plugins/build/plugins)；CLI 参数以当前 `codex plugin ... --help` 为准。
+
+## 安装完成后的 EDA 启动提示
+
+安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
+
+```sh
+bash ~/setup_watcher.sh --if-stopped
+```
+
+然后由 agent 再次执行 `rtlflow.py connect` 验证，返回 `ready` 才表示 EDA 连接就绪。仅安装插件并不会上传服务器文件，不应让用户在上传前执行命令。watcher 已在线时直接复用，无需再次启动。

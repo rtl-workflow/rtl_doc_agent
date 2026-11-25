@@ -127,7 +127,7 @@ G3    人工审核07测试点/用例及dv/激励、参考模型、自检查 ─�
 | `escalate` | 向用户简要说明 `reason` / `detail`，请用户决定。继续当前步骤：把用户的说明写入 `.flow/inputs/` 下的文件，运行 `flow.py resume <ip_dir> --note <文件>`；按需求变更处理：`flow.py iter <ip_dir> --kind change --file <文件>`。 |
 | `finish` | 汇报回归结果、各审核点状态、遗留 WARN；提醒签核（P6）需用户确认。 |
 | `wait` | 远程任务仍在运行：立即再次运行 `flow.py next`，不需要 sleep，也不要自己运行回归。关闭会话后再运行 `next` 会接回同一任务。 |
-| `setup_required` | 读取 `references/eda-connect.md`，运行 `command` 的非交互 `connect` 入口，按 JSON action 合并提问、复用凭据或打开本机凭据窗口，并在可信 SSH 可用时自动启动 watcher。只有 `ready` 后才继续；不在聊天中索要密码，不自动接受未知 SSH 指纹。 |
+| `setup_required` | 读取 `references/eda-connect.md`，执行非交互 `connect`，按返回动作配置 FTP 并上传 watcher。提示用户在远端 EDA 终端执行 `bash ~/setup_watcher.sh --if-stopped`，再运行 connect；只有 ready 后才继续。 |
 
 **工具名对照**：本规范中的“Agent 工具”“AskUserQuestion”是 Claude Code 的名称，在 OpenCode 中分别对应 `task` 和 `question`；其余规则完全相同。当前环境没有提问工具时，直接在对话中提问并等待用户答复，审核点同样不得跳过。
 
@@ -186,7 +186,7 @@ python $SKILL/scripts/check_docs.py   <ip_dir> --stage req|spec|arch|rtl|dv|sign
 check_docs 的阶段是累积的：当前阶段及以下的检查失败为 ERROR，以上的仅为 WARN。
 依赖：Python 3.8+、PyYAML；lint 使用 SpyGlass，回归使用 VCS，都在远程 EDA 服务器上运行。
 
-**首次配置（每台机器一次）**：优先由 agent 执行 `python $SKILL/scripts/rtlflow.py connect`，按 [连接协议](references/eda-connect.md) 处理返回动作。已有凭据和在线 watcher 可以直接复用；Windows 凭据弹窗使密码只在本机输入，可信 SSH 可自动启动 watcher。只提供 FTP/VNC 的服务器仍需用户执行一次启动命令；没有本机凭据窗口时保留用户终端中的 `setup` 作为回退。`rtlflow.py doctor` 用于检查环境是否正常。
+watcher 已在线则验证并复用；首次连接由 `rtlflow.py connect` 通过 FTP 上传文件，然后请用户在远端 EDA 环境的终端执行 `bash ~/setup_watcher.sh --if-stopped`，完成后重试 connect。密码只在本机凭据窗口或用户终端输入。
 
 配置完成后（`~/.rtl-flow/`，也可用 `REXEC_CONFIG` 指定；`RTLFLOW_EXEC=local|remote` 可强制覆盖），`run_lint.py` / `run_regress.py` 的命令和输出不变，IP 被复制到 EDA 服务器运行，`reports/` 与 `dv/build/<mode>/logs/` 写回本地。远程不可用、license 失败时脚本以 `ERROR:` 结束且不写报告，属于环境问题，不要为此修改设计。临时命令可用 `python $SKILL/scripts/remote_exec.py run ...`。
 

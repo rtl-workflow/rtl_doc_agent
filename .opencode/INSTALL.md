@@ -156,3 +156,13 @@ python "<安装目录>/plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.p
 | OpenCode 2.x 无法加载 | 当前适配器尚未适配 2.x；报告版本和错误，不套用其他插件的 2.x 配置来掩盖接口不兼容。 |
 
 本指南参考 [superpowers 的 OpenCode 安装入口](https://github.com/obra/superpowers#opencode) 的组织方式；具体命令以本仓库的 `rtlflow.py` 安装脚本和 OpenCode 适配器为准。
+
+## 安装完成后的 EDA 启动提示
+
+安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
+
+```sh
+bash ~/setup_watcher.sh --if-stopped
+```
+
+然后由 agent 再次执行 `rtlflow.py connect` 验证，返回 `ready` 才表示 EDA 连接就绪。仅安装插件并不会上传服务器文件，不应让用户在上传前执行命令。watcher 已在线时直接复用，无需再次启动。

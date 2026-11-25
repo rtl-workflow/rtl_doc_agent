@@ -95,7 +95,7 @@ plugins/rtl-flow/
 
 依赖：Python 3.8+，且 `python` 命令可用（hook 和流程命令依赖它）；PyYAML 由配置向导自动安装。lint（SpyGlass）和回归（VCS）在远程 EDA 服务器上运行，本机不需要安装 EDA 工具。
 
-服务器需要满足：可以用 FTP 登录（账号的 FTP 根目录为家目录）；已安装 `python3.11` 和 `tmux`；账号登录后的默认环境能直接使用 `vcs`、`urg` 和 `sg_shell`，并持有相应的 license。有同一主机/账号的 SSH 时可以自动启动 watcher；否则需通过 VNC 或其他终端启动一次。
+服务器需要满足：可以用 FTP 登录（账号的 FTP 根目录为家目录）；已安装 `python3.11` 和 `tmux`；账号登录后的默认环境能直接使用 `vcs`、`urg` 和 `sg_shell`，并持有相应的 license。通过 VNC 或其他服务器终端手动启动 watcher。
 
 ## 首次配置（每台机器一次）
 
@@ -103,7 +103,7 @@ Claude Code、OpenCode、Codex 和 DSH 工作区接入共用同一份配置。�
 
 1. 先连接 VPN（如果需要）。agent 用 `rtlflow.py connect` 自动检查已有配置；地址、账号、端口有缺失时合并为一次提问。VPN 公网入口与内部 EDA 服务器地址应区分。
 2. 已有凭据自动复用。Windows 首次配置时，agent 可用 `--credential-dialog` 打开本机系统凭据窗口，你在弹窗输入密码即可，无需自行打开 PowerShell；密码保存到系统凭据库，不返回给模型。
-3. watcher 已在线就直接验证，不重启。服务器提供同一账号的 SSH 时，可通过 `--start-watcher ssh` 自动上传并启动；首次连接需核对 SSH 主机指纹。仅提供 FTP/VNC 的环境仍需在服务器终端执行一次返回的启动命令，因为 FTP 本身不能执行 shell 命令。
+watcher 已在线则验证并复用；首次连接由 `rtlflow.py connect` 通过 FTP 上传文件，然后请用户在远端 EDA 环境的终端执行 `bash ~/setup_watcher.sh --if-stopped`，完成后重试 connect。密码只在本机凭据窗口或用户终端输入。
 4. agent 只有收到 `ready` 才报告完成；连接、签名任务和工具检查必须通过。实际 license 和完整编译/仿真仍由后续 EDA 任务验证。
 
 协议、返回动作和选项见 [EDA 自动连接指南](plugins/rtl-flow/skills/rtl-design-flow/references/eda-connect.md)。没有本机凭据弹窗能力时，兼容入口 `python plugins/rtl-flow/skills/rtl-design-flow/scripts/rtlflow.py setup` 仍可由用户在自己的终端运行。
@@ -290,3 +290,13 @@ codex plugin list --marketplace rtl-flow --json
 正式 RTL 回归现在默认在同一次 VCS 仿真中生成每用例/种子的 FSDB 和 KDB，保留远端工作目录。`--no-fsdb` 可关闭，桩检查默认关闭。回归报告记录波形绝对路径和大小；大文件保留远端，按需下载。
 
 使用 `/rtl-flow:ip-wave <ip_dir>`，或 `python <skill>/scripts/open_verdi.py <ip_dir> --test <tc_name> --seed 1 --display :1.0`，直接打开已有波形，不重复仿真。启动记录写入 `reports/verdi.json`；真实窗口确认成功才标记 `opened`。远端需 VCS、Verdi/FSDB dumper 和可访问的 VNC/X DISPLAY。
+
+## 安装完成后的 EDA 启动提示
+
+安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
+
+```sh
+bash ~/setup_watcher.sh --if-stopped
+```
+
+然后由 agent 再次执行 `rtlflow.py connect` 验证，返回 `ready` 才表示 EDA 连接就绪。仅安装插件并不会上传服务器文件，不应让用户在上传前执行命令。watcher 已在线时直接复用，无需再次启动。

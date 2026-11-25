@@ -27,11 +27,11 @@ claude plugin marketplace list --json
 claude plugin list --json
 ```
 
-Windows 原生、WSL、SSH 远程环境可能使用不同配置。若当前会话设置了 `CLAUDE_CONFIG_DIR`，命令应继承该配置，不要切换目录或用户来规避错误。
+Windows 原生、WSL、远程环境可能使用不同配置。若当前会话设置了 `CLAUDE_CONFIG_DIR`，命令应继承该配置，不要切换目录或用户来规避错误。
 
 - 没有 `claude` 命令或缺少插件子命令：报告实际情况，按第 4 节让用户在当前客户端手动安装，或先修复 CLI。不要退回到仅克隆源码并报告安装完成。
 - 未配置 `rtl-flow` 市场：继续第 2 节添加。
-- 已配置 `rtl-flow`：核对来源是否为 `rtl-workflow/rtl_doc_agent`（HTTPS / SSH 等等价地址均可）。来源正确则复用；如指向其他仓库或旧的本地克隆，说明冲突，让用户决定如何迁移，不自动删除市场或覆盖配置。
+- 已配置 `rtl-flow`：核对来源是否为 `rtl-workflow/rtl_doc_agent`（同一仓库的等价地址均可）。来源正确则复用；如指向其他仓库或旧的本地克隆，说明冲突，让用户决定如何迁移，不自动删除市场或覆盖配置。
 - 已安装 `rtl-flow@rtl-flow`：保留其现有 scope，并按第 5 节更新；不要再创建另一个 scope 的重复安装。多个 scope 同时存在时先说明实际状态。
 
 这些都是插件管理命令，不需要启动第二个对话模型。不要使用 `claude -p` 让另一个会话代装，也不要把 `/plugin ...` 斜杠命令当作 shell 命令执行。
@@ -124,3 +124,13 @@ claude plugin list --json
 | 远程 INSTALL.md 尚不存在 | 使用当前本地文档；需将文档推送到仓库对应分支后，远程安装提示词才可读取。 |
 
 命令形式与验收方式参照 [Claude Code 官方插件安装文档](https://code.claude.com/docs/en/discover-plugins)，插件和市场名称以本仓库的清单为准。
+
+## 安装完成后的 EDA 启动提示
+
+安装完成后必须明确告诉用户：远端连接采用 FTP + 手动启动 watcher。先由 agent 执行 `rtlflow.py connect` 配置 FTP 并上传启动文件；返回 `bootstrap_required` 后，请在远端 EDA 环境（VNC 桌面）的终端执行以下具体命令：
+
+```sh
+bash ~/setup_watcher.sh --if-stopped
+```
+
+然后由 agent 再次执行 `rtlflow.py connect` 验证，返回 `ready` 才表示 EDA 连接就绪。仅安装插件并不会上传服务器文件，不应让用户在上传前执行命令。watcher 已在线时直接复用，无需再次启动。

@@ -1,18 +1,13 @@
 """Noninteractive, fail-closed EDA connection orchestration (no secret output)."""
 import argparse
-import base64
-import hashlib
-import hmac
 import ipaddress
 import json
 import os
 import re
 import secrets
-import socket
 import time
 from pathlib import Path
 
-BOOTSTRAP = "bash -lc 'bash ~/setup_watcher.sh --if-stopped'"
 PROBE = ("for t in vcs urg sg_shell; do command -v $t >/dev/null || echo MISSING:$t; done; "
          "python3.11 -c 'import yaml' 2>/dev/null || echo MISSING:PyYAML; echo PROBE_DONE")
 
@@ -43,7 +38,7 @@ def metadata(host, user):
         ipaddress.ip_address(host)
     except ValueError:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*", host):
-            raise Stop("invalid_input", 3, field="host", hint="Supply host only; use --port and --ssh-port separately.") from None
+            raise Stop("invalid_input", 3, field="host", hint="Supply host only; use --port separately.") from None
 
 
 def secure_store():
@@ -129,62 +124,6 @@ def password_for(rx, cfg, existing, dialog):
     raise Stop("credentials_required", hint="Rerun with --credential-dialog to enter the password locally.")
 
 
-def ssh_preflight(cfg, ssh_port, pin, password):
-    try:
-        import paramiko
-    except ImportError:
-        raise Stop("dependency_required", package="paramiko", command="python -m pip install paramiko") from None
-    transport = None
-    try:
-        sock = socket.create_connection((cfg["host"], ssh_port), timeout=10)
-        transport = paramiko.Transport(sock)
-        transport.start_client(timeout=10)
-        key = transport.get_remote_server_key()
-        fingerprint = "SHA256:" + base64.b64encode(hashlib.sha256(key.asbytes()).digest()).decode().rstrip("=")
-        if pin:
-            if not hmac.compare_digest(pin, fingerprint):
-                raise Stop("ssh_host_key_mismatch", 3, fingerprint=fingerprint)
-        else:
-            known = paramiko.HostKeys()
-            for filename in (Path.home() / ".ssh" / "known_hosts", Path("/etc/ssh/ssh_known_hosts")):
-                if filename.is_file():
-                    known.load(str(filename))
-            name = cfg["host"] if ssh_port == 22 else f"[{cfg['host']}]:{ssh_port}"
-            found = known.lookup(name)
-            if not found:
-                raise Stop("ssh_host_key_required", fingerprint=fingerprint,
-                           hint="Verify this fingerprint independently, then supply --ssh-fingerprint.")
-            if not known.check(name, key):
-                raise Stop("ssh_host_key_mismatch", 3, fingerprint=fingerprint)
-        # Authentication begins only after trust verification, on this same transport.
-        transport.auth_timeout = 10
-        agent = paramiko.Agent()
-        try:
-            for key in agent.get_keys():
-                try:
-                    transport.auth_publickey(cfg["user"], key)
-                except paramiko.AuthenticationException:
-                    continue
-                if transport.is_authenticated():
-                    break
-        finally:
-            agent.close()
-        if not transport.is_authenticated():
-            transport.auth_password(cfg["user"], password)
-        if not transport.is_authenticated():
-            raise Stop("ssh_auth_failed", 3)
-        return transport
-    except Stop:
-        if transport:
-            transport.close()
-        raise
-    except Exception as exc:
-        if transport:
-            transport.close()
-        action = "ssh_auth_failed" if isinstance(exc, paramiko.AuthenticationException) else "ssh_connection_failed"
-        raise Stop(action, 3) from None
-
-
 def fresh(rx, hb):
     return hb and 0 <= time.time() - hb["time"] <= rx.HEARTBEAT_MAX_AGE
 
@@ -230,7 +169,7 @@ def deploy(rx, r, cfg):
 
 
 def run(args, api, rx):
-    r = ssh = None
+    r = None
     try:
         directory = rx.config_dir()
         ini = directory / "rexec.ini"
@@ -241,11 +180,8 @@ def run(args, api, rx):
             raise Stop("input_required", fields=missing)
         metadata(host, user)
         ftp_port = port(args.port if args.port is not None else old.get("port", 21))
-        ssh_port = port(args.ssh_port)
         if not 1 <= args.wait_seconds <= 900:
             raise Stop("invalid_input", 3, field="wait_seconds")
-        if args.ssh_fingerprint and not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", args.ssh_fingerprint):
-            raise Stop("invalid_input", 3, field="ssh_fingerprint")
         existing = bool(old)
         if existing and (host, user, ftp_port) != (old.get("host"), old.get("user"), port(old.get("port", 21))):
             raise Stop("endpoint_change_required", 3,
@@ -264,9 +200,7 @@ def run(args, api, rx):
         else:
             if hb and (hb.get("running") or hb.get("queued")):
                 raise Stop("active_jobs", 3)
-            if args.start_watcher == "ssh":
-                ssh = ssh_preflight(cfg, ssh_port, args.ssh_fingerprint, password)
-            # Recheck after preflight: never take over a watcher that came online meanwhile.
+            # Recheck: never take over a watcher that came online meanwhile.
             hb = rx.heartbeat(r)
             if fresh(rx, hb):
                 if not rx.key_file(cfg).exists():
@@ -278,30 +212,8 @@ def run(args, api, rx):
                 deploy(rx, r, cfg)
                 if not existing:
                     api.write_ini(ini, host, ftp_port, user)
-                if args.start_watcher == "manual":
-                    raise Stop("bootstrap_required", command="bash ~/setup_watcher.sh --if-stopped",
-                               hint="Run this in the server account terminal, then rerun connect.")
-                hb = rx.heartbeat(r)
-                if fresh(rx, hb):
-                    signed_probe(rx, r, deadline)
-                    return dict(status="ok", action="ready"), 0
-                if hb and (hb.get("running") or hb.get("queued")):
-                    raise Stop("active_jobs", 3)
-                if time.monotonic() >= deadline:
-                    raise Stop("timeout", 124)
-                channel = ssh.open_session(timeout=10)
-                try:
-                    channel.settimeout(10)
-                    channel.exec_command(BOOTSTRAP)
-                    while not fresh(rx, rx.heartbeat(r)):
-                        if channel.exit_status_ready() and channel.recv_exit_status() != 0:
-                            raise Stop("bootstrap_failed", 3)
-                        if time.monotonic() >= deadline:
-                            raise Stop("timeout", 124)
-                        time.sleep(min(1, max(0, deadline - time.monotonic())))
-                    signed_probe(rx, r, deadline)
-                finally:
-                    channel.close()
+                raise Stop("bootstrap_required", command="bash ~/setup_watcher.sh --if-stopped",
+                           hint="Run this in the remote EDA account terminal (VNC), then rerun connect.")
         if not existing and not ini.exists():
             api.write_ini(ini, host, ftp_port, user)
         return dict(status="ok", action="ready"), 0
@@ -313,7 +225,7 @@ def run(args, api, rx):
         # Library exceptions may embed credentials: never serialize them.
         return dict(status="error", action="connection_failed"), 3
     finally:
-        for connection in (ssh, r):
+        for connection in (r,):
             if connection:
                 try:
                     connection.close()
@@ -348,7 +260,4 @@ def add_parser(sub):
     parser.add_argument("--user")
     parser.add_argument("--port", help="FTP port (default 21 or configured port)")
     parser.add_argument("--credential-dialog", action="store_true")
-    parser.add_argument("--start-watcher", choices=("ssh", "manual"), default="manual")
-    parser.add_argument("--ssh-port", default="22")
-    parser.add_argument("--ssh-fingerprint")
     parser.add_argument("--wait-seconds", type=int, default=60)
